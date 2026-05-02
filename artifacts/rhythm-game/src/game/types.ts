@@ -30,7 +30,7 @@ export interface ScoreEntry {
   timestamp: number;
 }
 
-export type JudgmentType = 'PERFECT' | 'GOOD' | 'MISS';
+export type JudgmentType = 'PERFECT+' | 'PERFECT' | 'GOOD' | 'MISS';
 
 export interface JudgmentDisplay {
   type: JudgmentType;
@@ -43,6 +43,7 @@ export interface GameState {
   score: number;
   combo: number;
   maxCombo: number;
+  perfectPlus: number;
   perfects: number;
   goods: number;
   misses: number;
