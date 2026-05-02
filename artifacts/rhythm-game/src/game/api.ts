@@ -92,7 +92,7 @@ function calcDifficulty(bpm: number, valence: number, noteCount: number): number
   return Math.round((bpmScore + densityScore) / 2);
 }
 
-const LANE_SEQUENCE = [0, 2, 1, 3, 2, 0, 3, 1, 1, 3, 0, 2, 3, 2, 1, 0, 0, 1, 3, 2];
+const LANE_SEQUENCE = [0, 2, 1, 0, 2, 1, 2, 0, 1, 2, 0, 2, 1, 0, 1, 2, 0, 1, 0, 2];
 
 export function generateNotesFromLyrics(words: LyricsWord[]): Note[] {
   const notes: Note[] = [];
@@ -130,18 +130,18 @@ export function generateNotesFromBPM(bpm: number, duration: number): Note[] {
   let measureStart = 2.5;
   const patterns = [
     [
-      { beat: 0, lane: 1 }, { beat: 1, lane: 3 },
-      { beat: 2, lane: 0 }, { beat: 3, lane: 2 },
+      { beat: 0, lane: 1 }, { beat: 1, lane: 2 },
+      { beat: 2, lane: 0 }, { beat: 3, lane: 1 },
     ],
     [
       { beat: 0, lane: 0 }, { beat: 0.5, lane: 2 },
-      { beat: 1.5, lane: 1 }, { beat: 2, lane: 3 },
-      { beat: 3, lane: 0 }, { beat: 3.5, lane: 2 },
+      { beat: 1.5, lane: 1 }, { beat: 2, lane: 0 },
+      { beat: 3, lane: 2 }, { beat: 3.5, lane: 1 },
     ],
     [
       { beat: 0, lane: 2 }, { beat: 1, lane: 0 },
-      { beat: 2, lane: 3 }, { beat: 2.5, lane: 1 },
-      { beat: 3, lane: 2 },
+      { beat: 2, lane: 1 }, { beat: 2.5, lane: 2 },
+      { beat: 3, lane: 0 },
     ],
   ];
   let pi = 0;
