@@ -11,7 +11,7 @@ const LANE_KEYS   = ['a', 's', 'd'];
 const LANE_COLORS = ['#E53A00', '#A855F7', '#48E5C2'];
 
 const APPROACH_TIME       = 2.0;
-const HIT_RATIO           = 0.66;
+const HIT_RATIO           = 0.70;
 const PERFECT_PLUS_WINDOW = 0.030;
 const PERFECT_WINDOW      = 0.065;
 const GOOD_WINDOW         = 0.130;
