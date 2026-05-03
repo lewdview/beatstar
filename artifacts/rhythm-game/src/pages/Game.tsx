@@ -162,6 +162,41 @@ interface HitEffect {
 }
 
 // ── component ────────────────────────────────────────────────────
+// ── animated score counter ────────────────────────────────────────
+function useAnimatedCount(target: number) {
+  const [val, setVal] = useState(0);
+  const frameRef = useRef(0);
+  const baseRef  = useRef({ from: 0, to: 0, t0: 0 });
+  useEffect(() => {
+    cancelAnimationFrame(frameRef.current);
+    const from = baseRef.current.to ?? val;
+    baseRef.current = { from, to: target, t0: performance.now() };
+    const dur = Math.min(250, Math.max(60, Math.abs(target - from) * 0.08));
+    const tick = () => {
+      const { from, to, t0 } = baseRef.current;
+      const pct = Math.min(1, (performance.now() - t0) / dur);
+      const ease = 1 - (1 - pct) ** 3;
+      setVal(Math.round(from + (to - from) * ease));
+      if (pct < 1) frameRef.current = requestAnimationFrame(tick);
+    };
+    frameRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frameRef.current);
+  }, [target]);
+  return val;
+}
+
+// ── game options ──────────────────────────────────────────────────
+type GameOpts = { missSystem: boolean; hudMisses: boolean; comboDisplay: boolean; judgmentText: boolean };
+function loadOpts(): GameOpts {
+  const g = (k: string, def: boolean) => localStorage.getItem(k) !== (def ? 'false' : 'true') ? def : !def;
+  return {
+    missSystem:    g('opt_missSystem', true),
+    hudMisses:     g('opt_hudMisses', true),
+    comboDisplay:  g('opt_comboDisplay', true),
+    judgmentText:  g('opt_judgmentText', true),
+  };
+}
+
 export default function Game() {
   const { songId } = useParams<{ songId: string }>();
   const [, setLocation] = useLocation();
@@ -236,6 +271,10 @@ export default function Game() {
   } | null>(null);
   const [missCount, setMissCount] = useState(0);
   const [continueCountdown, setContinueCountdown] = useState(10);
+  const [opts, setOpts] = useState<GameOpts>(loadOpts);
+  const optsRef = useRef(opts);
+  useEffect(() => { optsRef.current = opts; }, [opts]);
+  const [showOptions, setShowOptions] = useState(false);
 
   const syncDisplay = useCallback(() => {
     setDisplayGs({ ...gsRef.current });
@@ -892,7 +931,7 @@ export default function Game() {
             missCountRef.current++;
             setMissCount(missCountRef.current);
             syncDisplay();
-            if (missCountRef.current >= 3) {
+            if (missCountRef.current >= 3 && optsRef.current.missSystem) {
               const audio = audioRef.current;
               if (audio) {
                 rewindToRef.current = Math.max(0, audio.currentTime - 2.5);
@@ -920,7 +959,7 @@ export default function Game() {
             missCountRef.current++;
             setMissCount(missCountRef.current);
             syncDisplay();
-            if (missCountRef.current >= 3) {
+            if (missCountRef.current >= 3 && optsRef.current.missSystem) {
               const audio = audioRef.current;
               if (audio) {
                 rewindToRef.current = Math.max(0, audio.currentTime - 2.5);
@@ -1632,6 +1671,7 @@ export default function Game() {
           : gs.combo < 60
             ? "#E53A00"
             : "#48E5C2";
+  const animatedScore = useAnimatedCount(gs.score);
 
   return (
     <div
@@ -1640,85 +1680,131 @@ export default function Game() {
     >
       {/* HUD */}
       <div
-        className="flex items-center justify-between px-4 py-2 flex-shrink-0"
+        className="flex items-center justify-between px-3 py-2 flex-shrink-0"
         style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
       >
-        <button
-          data-testid="button-quit"
-          onClick={() => {
-            audioRef.current?.pause();
-            const origin = sessionStorage.getItem(`game_origin_${songId}`) ?? '';
-            setLocation(origin === 'songs' ? '/songs' : origin ? `/${origin}` : '/campaign');
-          }}
-          className="font-mono text-xs tracking-widest transition-colors"
-          style={{ color: "hsl(30 15% 30%)" }}
-          onMouseEnter={(e) =>
-            ((e.currentTarget as HTMLElement).style.color = "#E53A00")
-          }
-          onMouseLeave={(e) =>
-            ((e.currentTarget as HTMLElement).style.color = "hsl(30 15% 30%)")
-          }
-        >
-          ✕ QUIT
-        </button>
-        <div className="flex items-center gap-8">
+        {/* Left: QUIT + OPTIONS */}
+        <div className="flex items-center gap-3">
+          <button
+            data-testid="button-quit"
+            onClick={() => {
+              audioRef.current?.pause();
+              const origin = sessionStorage.getItem(`game_origin_${songId}`) ?? '';
+              setLocation(origin === 'songs' ? '/songs' : origin ? `/${origin}` : '/campaign');
+            }}
+            className="font-mono text-xs tracking-widest transition-colors"
+            style={{ color: "hsl(30 15% 30%)" }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#E53A00")}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "hsl(30 15% 30%)")}
+          >
+            ✕ QUIT
+          </button>
+          <button
+            onClick={() => setShowOptions(o => !o)}
+            className="font-mono text-xs tracking-widest transition-colors"
+            style={{ color: showOptions ? "#E5B800" : "hsl(30 15% 28%)", letterSpacing: '0.1em' }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#E5B800")}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = showOptions ? "#E5B800" : "hsl(30 15% 28%)")}
+          >
+            ⚙
+          </button>
+        </div>
+
+        {/* Center: COMBO */}
+        {opts.comboDisplay ? (
           <div className="text-center">
+            <div className="font-mono" style={{ fontSize: 8, color: "hsl(30 15% 32%)", letterSpacing: "0.3em" }}>COMBO</div>
             <div
-              className="font-mono text-xs"
-              style={{ color: "hsl(30 15% 38%)" }}
-            >
-              SCORE
-            </div>
-            <div
-              className="font-mono font-bold text-xl leading-none"
-              data-testid="text-score"
-              style={{ color: "#F2EDE5", letterSpacing: "0.05em" }}
-            >
-              {gs.score.toLocaleString()}
-            </div>
-          </div>
-          <div className="text-center">
-            <div
-              className="font-mono text-xs"
-              style={{ color: "hsl(30 15% 38%)" }}
-            >
-              COMBO
-            </div>
-            <div
-              className="font-mono font-bold text-xl leading-none"
+              className="font-mono font-bold leading-none"
               data-testid="text-combo"
-              style={{
-                color: comboColor,
-                textShadow: gs.combo >= 20 ? `0 0 12px ${comboColor}` : "none",
-              }}
+              style={{ fontSize: 22, color: comboColor, textShadow: gs.combo >= 20 ? `0 0 12px ${comboColor}` : "none" }}
             >
               {gs.combo > 0 ? gs.combo : "—"}
             </div>
           </div>
-        </div>
-        <div className="text-right">
+        ) : <div />}
+
+        {/* Right: animated SCORE + miss pips */}
+        <div className="flex flex-col items-end gap-1">
+          <div className="font-mono" style={{ fontSize: 8, color: "hsl(30 15% 32%)", letterSpacing: "0.3em" }}>SCORE</div>
           <div
-            className="font-mono text-xs truncate max-w-28"
-            style={{ color: "hsl(30 15% 38%)" }}
+            className="font-mono font-bold leading-none"
+            data-testid="text-score"
+            style={{ fontSize: 26, color: "#F2EDE5", letterSpacing: "0.03em" }}
           >
-            {song?.title ?? ""}
+            {animatedScore.toLocaleString()}
           </div>
-          <div className="flex gap-2 justify-end mt-0.5">
-            <span className="font-mono text-xs" style={{ color: "#E5B800" }}>
-              ✦{gs.perfectPlus}
-            </span>
-            <span className="font-mono text-xs" style={{ color: "#48E5C2" }}>
-              ✓{gs.perfects}
-            </span>
-            <span className="font-mono text-xs" style={{ color: "#A855F7" }}>
-              ~{gs.goods}
-            </span>
-            <span className="font-mono text-xs" style={{ color: "#444" }}>
-              ✗{gs.misses}
-            </span>
-          </div>
+          {opts.hudMisses && (
+            <div className="flex gap-1.5">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  style={{
+                    width: 7, height: 7,
+                    background: i < missCount ? "#E53A00" : "rgba(255,255,255,0.1)",
+                    boxShadow: i < missCount ? "0 0 6px rgba(229,58,0,0.9)" : "none",
+                    transition: "background 0.15s, box-shadow 0.15s",
+                  }}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Options panel */}
+      {showOptions && (
+        <div
+          className="absolute top-0 left-0 right-0 bottom-0 z-40"
+          style={{ background: "rgba(0,0,0,0.55)" }}
+          onClick={() => setShowOptions(false)}
+        >
+          <div
+            className="absolute top-12 right-0 w-64"
+            style={{ background: "#0c0c14", borderLeft: "2px solid rgba(255,255,255,0.08)", borderBottom: "2px solid rgba(255,255,255,0.08)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+              <div className="font-mono text-xs tracking-[0.35em]" style={{ color: "rgba(255,255,255,0.3)" }}>OPTIONS</div>
+            </div>
+            {([
+              { key: "missSystem",   label: "MISS SYSTEM",    sub: "3 strikes trigger SIGNAL LOST" },
+              { key: "hudMisses",    label: "HUD MISSES",     sub: "Show miss pips in HUD" },
+              { key: "comboDisplay", label: "COMBO DISPLAY",  sub: "Show combo counter" },
+              { key: "judgmentText", label: "JUDGMENT TEXT",  sub: "Show PERFECT / GOOD popups" },
+            ] as const).map(({ key, label, sub }) => {
+              const on = opts[key];
+              return (
+                <div key={key} className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                  <div>
+                    <div className="font-mono text-xs" style={{ color: on ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.3)", letterSpacing: "0.15em" }}>{label}</div>
+                    <div className="font-mono mt-0.5" style={{ fontSize: 9, color: "rgba(255,255,255,0.2)", letterSpacing: "0.1em" }}>{sub}</div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const nv = !on;
+                      localStorage.setItem(`opt_${key}`, String(nv));
+                      setOpts(o => ({ ...o, [key]: nv }));
+                    }}
+                    style={{
+                      width: 38, height: 20, position: "relative", flexShrink: 0,
+                      background: on ? "#E53A00" : "rgba(255,255,255,0.1)",
+                      border: on ? "1px solid #E53A00" : "1px solid rgba(255,255,255,0.15)",
+                      transition: "background 0.15s",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <div style={{
+                      width: 13, height: 13, background: "#fff", position: "absolute",
+                      top: 2.5, left: on ? 21 : 3, transition: "left 0.15s",
+                    }} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Progress bar */}
       <div
@@ -1778,7 +1864,7 @@ export default function Game() {
         )}
 
         {/* Judgment text */}
-        {displayJudge.map((j) => {
+        {opts.judgmentText && displayJudge.map((j) => {
           if (Date.now() - j.ts > 600) return null;
           const pct = (j.lane / LANE_COUNT + 1 / (LANE_COUNT * 2)) * 100;
           const color =

@@ -265,7 +265,7 @@ export default function SongSelect() {
                     key={song.id}
                     song={song}
                     selected={selected?.id === song.id}
-                    onClick={() => setSelected(song)}
+                    onClick={() => setLocation(`/song/${song.id}?from=songs`)}
                   />
                 ))}
                 {showCount < filtered.length && (
