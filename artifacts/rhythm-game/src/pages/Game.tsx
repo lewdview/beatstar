@@ -78,8 +78,11 @@ export default function Game() {
   const songRef   = useRef<GameSong | null>(null);
   const phaseRef  = useRef<'loading'|'buffering'|'countdown'|'playing'|'finished'>('loading');
   const puRef     = useRef<PUState>({ active: null, endTime: 0, startTime: 0, multiplier: 1, color: '#fff', label: '', duration: 0, triggered: new Set() });
-  const hitFxRef  = useRef<HitEffect[]>([]);
-  const audioCtxRef       = useRef<AudioContext | null>(null);
+  const hitFxRef       = useRef<HitEffect[]>([]);
+  const coverImgRef    = useRef<HTMLImageElement | null>(null);
+  const coverBlurRef   = useRef<HTMLCanvasElement | null>(null);
+  const scanPatternRef = useRef<CanvasPattern | null>(null);
+  const audioCtxRef    = useRef<AudioContext | null>(null);
   const laneGainsRef      = useRef<GainNode[]>([]);
   const laneSilenced      = useRef<boolean[]>([false, false, false]);
   const laneRestoreTimers = useRef<ReturnType<typeof setTimeout>[]>([] as ReturnType<typeof setTimeout>[]);
@@ -256,11 +259,54 @@ export default function Game() {
     ctx.fillStyle = '#0c0c14';
     ctx.fillRect(0, 0, W, H);
 
-    // Subtle warm center vignette (the track)
-    const bgVig = ctx.createRadialGradient(W / 2, hitY, 0, W / 2, hitY, W * 0.8);
-    bgVig.addColorStop(0, 'rgba(255,248,235,0.03)');
-    bgVig.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = bgVig; ctx.fillRect(0, 0, W, H);
+    const coverBlur = coverBlurRef.current;
+    if (coverBlur) {
+      // Ken-burns: very slow zoom + drift across the image
+      const kp    = (t % 34) / 34;
+      const zoom  = 1.04 + 0.07 * Math.sin(kp * Math.PI * 2);
+      const panX  = Math.sin(kp * Math.PI * 2 * 0.6) * W * 0.025;
+      const panY  = Math.cos(kp * Math.PI * 2 * 0.4) * H * 0.018;
+      const scale = Math.max(W, H) / 512 * zoom;
+      const cw = 512 * scale; const ch = 512 * scale;
+      const ox = (W - cw) / 2 + panX; const oy = (H - ch) / 2 + panY;
+
+      // Chromatic aberration fringe (RGB offset layers)
+      const aberr = 4 + Math.sin(t * 0.28) * 1.8;
+      ctx.globalCompositeOperation = 'screen';
+      ctx.globalAlpha = 0.11;
+      ctx.drawImage(coverBlur, ox - aberr, oy, cw, ch);          // R shift left
+      ctx.drawImage(coverBlur, ox + aberr, oy, cw, ch);          // B shift right
+      ctx.globalAlpha = 0.14;
+      ctx.drawImage(coverBlur, ox, oy + aberr * 0.5, cw, ch);   // G shift down
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 0.75;
+      ctx.drawImage(coverBlur, ox, oy, cw, ch);                  // main layer
+      ctx.globalAlpha = 1;
+    }
+
+    // Heavy vignette — keeps everything readable over the photo
+    const vig = ctx.createRadialGradient(W / 2, H * 0.42, H * 0.08, W / 2, H * 0.42, H * 0.9);
+    vig.addColorStop(0,   'rgba(0,0,0,0.30)');
+    vig.addColorStop(0.5, 'rgba(0,0,0,0.58)');
+    vig.addColorStop(1,   'rgba(0,0,0,0.93)');
+    ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+
+    // Mood color pulse (dark = orange-red, light = teal)
+    const moodPulse = 0.5 + 0.5 * Math.sin(t * 0.75);
+    ctx.fillStyle = song.mood === 'dark'
+      ? `rgba(229,58,0,${0.06 + moodPulse * 0.035})`
+      : `rgba(72,229,194,${0.05 + moodPulse * 0.028})`;
+    ctx.fillRect(0, 0, W, H);
+
+    // Scanlines (lazy-cached repeating pattern)
+    if (!scanPatternRef.current) {
+      const sc = document.createElement('canvas'); sc.width = 2; sc.height = 4;
+      const sc2 = sc.getContext('2d')!;
+      sc2.fillStyle = 'rgba(0,0,0,0.075)'; sc2.fillRect(0, 0, 2, 2);
+      const pat = ctx.createPattern(sc, 'repeat');
+      if (pat) scanPatternRef.current = pat;
+    }
+    if (scanPatternRef.current) { ctx.fillStyle = scanPatternRef.current; ctx.fillRect(0, 0, W, H); }
 
     const hwTop = hwAtProgress(0, W);
     const hwBot = hwAtProgress(1, W);
@@ -654,6 +700,23 @@ export default function Game() {
       if (cancelled || !song) { setLocation('/songs'); return; }
       if (isSongTimeLocked(song)) { setLocation('/campaign'); return; }
       songRef.current = song;
+      // Pre-load + pre-blur cover art for background effect
+      coverImgRef.current = null; coverBlurRef.current = null; scanPatternRef.current = null;
+      if (song.coverArt) {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          coverImgRef.current = img;
+          const off = document.createElement('canvas');
+          off.width = 512; off.height = 512;
+          const offCtx = off.getContext('2d')!;
+          offCtx.filter = 'blur(28px) brightness(0.30) saturate(2.2)';
+          offCtx.drawImage(img, -24, -24, 560, 560);
+          offCtx.filter = 'none';
+          coverBlurRef.current = off;
+        };
+        img.src = song.coverArt;
+      }
       notesRef.current = song.notes.map(n => ({ note: { ...n, lane: Math.min(n.lane, LANE_COUNT - 1) }, hit: false, missed: false, holdActive: false, holdProgress: 0 }));
       gsRef.current = { score: 0, combo: 0, maxCombo: 0, perfectPlus: 0, perfects: 0, goods: 0, misses: 0, progress: 0 };
       puRef.current  = { active: null, endTime: 0, startTime: 0, multiplier: 1, color: '#fff', label: '', duration: 0, triggered: new Set() };
