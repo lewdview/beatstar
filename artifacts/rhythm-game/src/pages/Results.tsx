@@ -60,42 +60,43 @@ export default function Results() {
     const prev = getHighScore(songId);
     if (data.score >= prev) setIsNew(true);
 
-    Promise.all([getSongById(songId), loadCatalog()]).then(([s, catalog]) => {
-      setSong(s);
+    Promise.all([getSongById(songId), loadCatalog()])
+      .then(([s, catalog]) => {
+        setSong(s);
 
-      if (s) {
-        const month = new Date(s.date).getMonth() + 1;
-        setChapterMonth(month);
+        if (s) {
+          const month = new Date(s.date).getMonth() + 1;
+          setChapterMonth(month);
 
-        // Sort all songs by day to find next
-        const sorted = [...catalog].sort((a, b) => a.day - b.day);
-        const idx = sorted.findIndex(c => c.id === s.id);
+          // Sort all songs by day to find next
+          const sorted = [...catalog].sort((a, b) => a.day - b.day);
+          const idx = sorted.findIndex(c => c.id === s.id);
 
-        // Find next song that is also already released (not time-locked)
-        const nextReleased = sorted.slice(idx + 1).find(c => !isSongTimeLocked(c));
-        if (nextReleased !== undefined) {
-          const candidate = nextReleased;
-          const cMonth = new Date(candidate.date).getMonth() + 1;
-          const monthSongs = sorted.filter(c => new Date(c.date).getMonth() + 1 === cMonth);
-          // Last 5 of the month are bonus
-          const bonusStart = monthSongs.length - 5;
-          const candidateIdxInMonth = monthSongs.findIndex(c => c.id === candidate.id);
-          const isBonus = candidateIdxInMonth >= bonusStart;
+          // Find next song that is also already released (not time-locked)
+          const nextReleased = sorted.slice(idx + 1).find(c => !isSongTimeLocked(c));
+          if (nextReleased !== undefined) {
+            const candidate = nextReleased;
+            const cMonth = new Date(candidate.date).getMonth() + 1;
+            const monthSongs = sorted.filter(c => new Date(c.date).getMonth() + 1 === cMonth);
+            // Last 5 of the month are bonus
+            const bonusStart = monthSongs.length - 5;
+            const candidateIdxInMonth = monthSongs.findIndex(c => c.id === candidate.id);
+            const isBonus = candidateIdxInMonth >= bonusStart;
 
-          if (isBonus) {
-            const regularIds = monthSongs.slice(0, bonusStart).map(c => c.id);
-            const platinums = getChapterPlatinums(regularIds);
-            const needed = CHAPTER_PLAT_NEEDED[cMonth] ?? 5;
-            if (platinums >= needed) setNextSong(candidate);
-            // else bonus locked — no next stage button
-          } else {
-            setNextSong(candidate);
+            if (isBonus) {
+              const regularIds = monthSongs.slice(0, bonusStart).map(c => c.id);
+              const platinums = getChapterPlatinums(regularIds);
+              const needed = CHAPTER_PLAT_NEEDED[cMonth] ?? 5;
+              if (platinums >= needed) setNextSong(candidate);
+              // else bonus locked — no next stage button
+            } else {
+              setNextSong(candidate);
+            }
           }
         }
-      }
-
-      setReady(true);
-    });
+      })
+      .catch(() => { /* catalog fetch failed — show results with what we have */ })
+      .finally(() => { setReady(true); });
   }, [songId, setLocation]);
 
   if (!ready || !result) {
@@ -112,12 +113,12 @@ export default function Results() {
   const accuracy = Math.round(((result.perfectPlus * 1.0 + result.perfects * 0.9 + result.goods * 0.5) / total) * 100);
 
   return (
-    <div className="w-full flex flex-col items-center px-4 py-8 overflow-y-auto"
+    <div className="relative w-full flex flex-col items-center px-4 py-8"
       style={{ background: '#080808', minHeight: '100dvh' }}>
 
       {/* Structural grid */}
-      <div className="absolute inset-0 pointer-events-none"
-        style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.015) 1px,transparent 1px)', backgroundSize: '80px 80px' }} />
+      <div className="fixed inset-0 pointer-events-none"
+        style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.015) 1px,transparent 1px)', backgroundSize: '80px 80px', zIndex: 0 }} />
 
       <div className="relative z-10 w-full max-w-md">
 
