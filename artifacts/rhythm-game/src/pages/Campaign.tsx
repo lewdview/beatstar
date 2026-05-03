@@ -7,7 +7,6 @@ import {
   getChapterPlatinums, getChapterCleared, getMedalForSong,
 } from "@/game/progress";
 
-// ── chapter metadata ─────────────────────────────────────────────
 const CHAPTERS = [
   { month: 1,  name: 'JANUARY',   sub: 'GATEWAY SIGNAL',   diff: 'EASY',   dc: '#48E5C2', platNeeded: 5  },
   { month: 2,  name: 'FEBRUARY',  sub: 'EMERGENCE',         diff: 'EASY',   dc: '#48E5C2', platNeeded: 5  },
@@ -23,12 +22,8 @@ const CHAPTERS = [
   { month: 12, name: 'DECEMBER',  sub: 'TRANSMISSION END',  diff: 'BRUTAL', dc: '#E53A00', platNeeded: 15 },
 ];
 
-const DIFF_COLOR: Record<string, string> = {
-  EASY: '#48E5C2', MEDIUM: '#A855F7', HARD: '#E5B800', BRUTAL: '#E53A00',
-};
-
 // ── animated score counter ───────────────────────────────────────
-function useCountUp(target: number, duration = 2400, delay = 300) {
+function useCountUp(target: number, duration = 2200, delay = 400) {
   const [value, setValue] = useState(0);
   const [done, setDone]   = useState(false);
   useEffect(() => {
@@ -49,61 +44,38 @@ function useCountUp(target: number, duration = 2400, delay = 300) {
   return { value, done };
 }
 
-// Renders each digit with a rolling-in CSS animation
-function AnimatedDigit({ char, idx, done }: { char: string; idx: number; done: boolean }) {
-  const isComma = char === ',';
-  return (
-    <span
-      className={isComma ? '' : 'inline-block overflow-hidden'}
-      style={{
-        color: isComma ? 'rgba(242,237,229,0.3)' : '#F2EDE5',
-        animation: done && !isComma ? `digitLand 0.4s ${idx * 0.04}s cubic-bezier(0.34,1.56,0.64,1) both` : 'none',
-        fontSize: isComma ? '0.7em' : '1em',
-        lineHeight: 1,
-      }}
-    >
-      {char}
-    </span>
-  );
-}
-
 function ScoreDisplay({ total }: { total: number }) {
   const { value, done } = useCountUp(total);
-  const scanRef = useRef<HTMLDivElement>(null);
-
   const str = value.toLocaleString();
 
   return (
-    <div className="relative select-none">
+    <div className="relative">
       {/* Scan line while counting */}
-      {!done && (
-        <div ref={scanRef} className="absolute inset-0 pointer-events-none overflow-hidden" style={{ borderRadius: 4 }}>
-          <div className="score-scanline" />
-        </div>
-      )}
+      {!done && <div className="score-scanline" style={{ position: 'absolute', left: 0, right: 0 }} />}
 
-      {/* The number */}
-      <div className="font-mono font-bold flex items-end justify-center gap-px tabular-nums"
+      <div className="font-mono font-bold tabular-nums text-center"
         style={{
-          fontSize: 'clamp(36px, 7vw, 64px)',
-          letterSpacing: '0.04em',
-          textShadow: done ? '0 0 30px rgba(242,237,229,0.25)' : 'none',
-          transition: 'text-shadow 0.8s ease',
+          fontSize: 'clamp(44px, 8vw, 72px)',
+          letterSpacing: '0.03em',
+          color: '#F2F0E8',
+          transition: done ? 'color 0.3s' : 'none',
         }}>
         {str.split('').map((ch, i) => (
-          <AnimatedDigit key={`${i}-${ch}`} char={ch} idx={i} done={done} />
+          <span key={i} className="inline-block"
+            style={{
+              color: ch === ',' ? 'rgba(255,255,255,0.2)' : '#F2F0E8',
+              animation: done && ch !== ',' ? `digitLand 0.35s ${i * 0.035}s cubic-bezier(0.34,1.56,0.64,1) both` : 'none',
+            }}>
+            {ch}
+          </span>
         ))}
       </div>
-
-      {/* Completion flash */}
-      {done && total > 0 && (
-        <div className="absolute inset-0 pointer-events-none score-flash" style={{ borderRadius: 8 }} />
-      )}
+      {done && total > 0 && <div className="absolute inset-0 score-flash pointer-events-none" />}
     </div>
   );
 }
 
-// ── chapter card ─────────────────────────────────────────────────
+// ── chapter card (brutalist) ─────────────────────────────────────
 interface ChapterData {
   meta: typeof CHAPTERS[number];
   songs: GameSong[];
@@ -116,99 +88,93 @@ interface ChapterData {
 
 function ChapterCard({ data, onClick }: { data: ChapterData; onClick: () => void }) {
   const { meta, regularIds, bonusCount, platinums, cleared, bonusUnlocked } = data;
-  const total      = regularIds.length;
-  const pct        = total > 0 ? (cleared / total) * 100 : 0;
-  const platPct    = total > 0 ? Math.min(100, (platinums / meta.platNeeded) * 100) : 0;
-  const bonusReady = platPct >= 100;
-
-  // Last song played in this chapter (for cover art)
-  const lastPlayed = data.songs
-    .filter(s => getMedalForSong(s.id))
-    .sort((a, b) => b.day - a.day)[0];
+  const total    = regularIds.length;
+  const pct      = total > 0 ? (cleared / total) * 100 : 0;
+  const platPct  = Math.min(100, total > 0 ? (platinums / meta.platNeeded) * 100 : 0);
 
   return (
-    <button
-      onClick={onClick}
-      className="w-full text-left border transition-all duration-200 overflow-hidden group"
+    <button onClick={onClick} className="brutal-chapter-card w-full text-left transition-all duration-75"
       style={{
-        borderColor: cleared > 0 ? `${meta.dc}35` : 'rgba(255,255,255,0.05)',
-        background: cleared > 0 ? `${meta.dc}05` : 'rgba(255,255,255,0.015)',
-        borderRadius: 8,
+        background: '#0e0e0e',
+        border: `2px solid rgba(255,255,255,0.1)`,
+        boxShadow: `4px 4px 0 rgba(255,255,255,0.05)`,
+        display: 'block',
       }}
-      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = `${meta.dc}60`; (e.currentTarget as HTMLElement).style.background = `${meta.dc}0c`; }}
-      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = cleared > 0 ? `${meta.dc}35` : 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLElement).style.background = cleared > 0 ? `${meta.dc}05` : 'rgba(255,255,255,0.015)'; }}
+      onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = meta.dc; el.style.boxShadow = `4px 4px 0 ${meta.dc}`; el.style.transform = 'translate(-1px,-1px)'; }}
+      onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = 'rgba(255,255,255,0.1)'; el.style.boxShadow = '4px 4px 0 rgba(255,255,255,0.05)'; el.style.transform = ''; }}
     >
-      <div className="flex gap-0">
-        {/* Color accent bar */}
-        <div className="w-1 flex-shrink-0" style={{ background: cleared > 0 ? `linear-gradient(180deg, ${meta.dc}, ${meta.dc}40)` : 'rgba(255,255,255,0.05)' }} />
+      <div className="flex">
+        {/* Thick left accent bar */}
+        <div style={{ width: 5, flexShrink: 0, background: cleared > 0 ? meta.dc : 'rgba(255,255,255,0.08)' }} />
 
-        {/* Cover art thumbnail */}
-        {lastPlayed?.coverArt && (
-          <div className="w-14 h-full flex-shrink-0 overflow-hidden">
-            <img src={lastPlayed.coverArt} alt="" className="w-full h-full object-cover opacity-40 group-hover:opacity-60 transition-opacity" />
-          </div>
-        )}
-
-        <div className="flex-1 p-3">
-          <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="flex-1 p-4">
+          {/* Top row */}
+          <div className="flex items-start justify-between gap-3 mb-3">
             <div>
-              <div className="flex items-center gap-2 mb-0.5">
-                <span className="font-mono text-xs" style={{ color: `${meta.dc}90`, letterSpacing: '0.2em', fontSize: 10 }}>
+              {/* Chapter ID + difficulty */}
+              <div className="flex items-center gap-2 mb-1">
+                <span className="font-mono font-bold text-xs" style={{ color: 'rgba(255,255,255,0.3)', letterSpacing: '0.3em' }}>
                   CH {String(meta.month).padStart(2, '0')}
                 </span>
-                <span className="font-mono px-1.5 py-px" style={{ fontSize: 8, color: meta.dc, border: `1px solid ${meta.dc}40`, background: `${meta.dc}10` }}>
+                <span className="font-mono font-bold px-2 py-px text-xs"
+                  style={{ color: '#080808', background: meta.dc, letterSpacing: '0.15em' }}>
                   {meta.diff}
                 </span>
               </div>
-              <div className="font-mono font-bold" style={{ color: '#F2EDE5', fontSize: 15 }}>{meta.name}</div>
-              <div className="font-mono text-xs" style={{ color: 'hsl(30 15% 42%)', fontSize: 10 }}>{meta.sub}</div>
+              <div className="font-mono font-bold text-xl" style={{ color: '#F2F0E8', letterSpacing: '0.02em' }}>
+                {meta.name}
+              </div>
+              <div className="font-mono text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.3)', letterSpacing: '0.25em' }}>
+                {meta.sub}
+              </div>
             </div>
 
-            <div className="text-right flex-shrink-0">
-              <div className="font-mono font-bold text-lg" style={{ color: cleared > 0 ? meta.dc : 'hsl(30 15% 28%)' }}>
-                {cleared}<span className="text-xs font-normal" style={{ color: 'hsl(30 15% 35%)' }}>/{total}</span>
+            {/* Score column */}
+            <div className="text-right flex-shrink-0"
+              style={{ borderLeft: '2px solid rgba(255,255,255,0.07)', paddingLeft: 12 }}>
+              <div className="font-mono font-bold text-2xl" style={{ color: cleared > 0 ? meta.dc : 'rgba(255,255,255,0.15)', lineHeight: 1 }}>
+                {cleared}
               </div>
-              <div className="font-mono text-xs" style={{ color: 'hsl(30 15% 38%)', fontSize: 9 }}>
-                ✦ {platinums} PT
-              </div>
+              <div className="font-mono text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>/{total}</div>
+              <div className="font-mono font-bold text-sm mt-1" style={{ color: '#E5B800' }}>✦{platinums}</div>
             </div>
           </div>
 
           {/* Progress bars */}
-          <div className="space-y-1">
-            {/* Cleared */}
+          <div className="space-y-2">
+            {/* Cleared bar */}
             <div className="flex items-center gap-2">
-              <div className="flex-1 h-1.5 overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 2 }}>
-                <div className="h-full transition-all duration-1000"
-                  style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${meta.dc}70, ${meta.dc})`, borderRadius: 2 }} />
+              <div className="font-mono" style={{ fontSize: 8, color: 'rgba(255,255,255,0.25)', width: 40, letterSpacing: '0.2em' }}>CLEAR</div>
+              <div className="flex-1 h-2" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ height: '100%', width: `${pct}%`, background: meta.dc, transition: 'width 1s ease' }} />
               </div>
-              <span className="font-mono flex-shrink-0" style={{ fontSize: 8, color: 'hsl(30 15% 38%)', width: 28, textAlign: 'right' }}>
-                {Math.round(pct)}%
-              </span>
+              <div className="font-mono" style={{ fontSize: 8, color: meta.dc, width: 28, textAlign: 'right' }}>{Math.round(pct)}%</div>
             </div>
 
-            {/* Platinum unlock */}
+            {/* Platinum bar */}
             <div className="flex items-center gap-2">
-              <div className="flex-1 h-1" style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 2 }}>
-                <div className="h-full transition-all duration-1000"
-                  style={{ width: `${platPct}%`, background: bonusReady ? '#E5B800' : `#E5B80050`, borderRadius: 2 }} />
+              <div className="font-mono" style={{ fontSize: 8, color: 'rgba(255,255,255,0.25)', width: 40, letterSpacing: '0.2em' }}>BONUS</div>
+              <div className="flex-1 h-2" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ height: '100%', width: `${platPct}%`, background: bonusUnlocked ? '#E5B800' : 'rgba(229,184,0,0.45)', transition: 'width 1s ease' }} />
               </div>
-              <span className="font-mono flex-shrink-0 flex items-center gap-1" style={{ fontSize: 8, color: bonusReady ? '#E5B800' : 'hsl(30 15% 35%)', width: 28, textAlign: 'right' }}>
+              <div className="font-mono" style={{ fontSize: 8, color: bonusUnlocked ? '#E5B800' : 'rgba(255,255,255,0.2)', width: 28, textAlign: 'right' }}>
                 {bonusUnlocked ? '★' : `${platinums}/${meta.platNeeded}`}
-              </span>
+              </div>
             </div>
           </div>
 
-          {/* Bonus stages indicator */}
+          {/* Bonus stamp */}
           {bonusCount > 0 && (
-            <div className="mt-2">
-              <span className="font-mono px-1.5 py-px" style={{
-                fontSize: 8,
-                color: bonusUnlocked ? '#E5B800' : '#2a2a2a',
-                border: `1px solid ${bonusUnlocked ? '#E5B80050' : '#1a1a1a'}`,
-                background: bonusUnlocked ? '#E5B80010' : 'rgba(255,255,255,0.015)',
-              }}>
-                {bonusUnlocked ? `★ ${bonusCount} BONUS STAGES UNLOCKED` : `🔒 ${bonusCount} BONUS STAGES LOCKED`}
+            <div className="mt-2 inline-block">
+              <span className="font-mono font-bold px-2 py-0.5"
+                style={{
+                  fontSize: 8,
+                  color: bonusUnlocked ? '#080808' : 'rgba(255,255,255,0.2)',
+                  background: bonusUnlocked ? '#E5B800' : 'transparent',
+                  border: `1px solid ${bonusUnlocked ? '#E5B800' : 'rgba(255,255,255,0.1)'}`,
+                  letterSpacing: '0.3em',
+                }}>
+                {bonusUnlocked ? `★ ${bonusCount} BONUS UNLOCKED` : `🔒 ${bonusCount} BONUS LOCKED`}
               </span>
             </div>
           )}
@@ -218,7 +184,7 @@ function ChapterCard({ data, onClick }: { data: ChapterData; onClick: () => void
   );
 }
 
-// ── main campaign page ───────────────────────────────────────────
+// ── main ─────────────────────────────────────────────────────────
 export default function Campaign() {
   const [, setLocation] = useLocation();
   const [chapters, setChapters] = useState<ChapterData[]>([]);
@@ -226,11 +192,7 @@ export default function Campaign() {
   const [loading, setLoading]   = useState(true);
 
   useEffect(() => {
-    const score     = getTotalScore();
-    const platinums = getTotalPlatinums();
-    const cleared   = getTotalCleared();
-    setTotals({ score, platinums, cleared });
-
+    setTotals({ score: getTotalScore(), platinums: getTotalPlatinums(), cleared: getTotalCleared() });
     loadCatalog().then(catalog => {
       const data = CHAPTERS.map(meta => {
         const songs      = catalog.filter(s => new Date(s.date).getMonth() + 1 === meta.month).sort((a, b) => a.day - b.day);
@@ -245,108 +207,101 @@ export default function Campaign() {
     });
   }, []);
 
-  const totalChapters  = CHAPTERS.length;
   const startedChapters = chapters.filter(c => c.cleared > 0).length;
 
   return (
-    <div className="min-h-screen w-full relative overflow-x-hidden"
-      style={{ background: 'radial-gradient(ellipse at 50% 0%, hsl(270 40% 5%) 0%, hsl(15 30% 3%) 60%)' }}>
-      {/* Grid bg */}
-      <div className="fixed inset-0 pointer-events-none opacity-30"
-        style={{ backgroundImage: 'linear-gradient(rgba(168,85,247,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(168,85,247,0.04) 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
-
-      {/* Top bar */}
-      <div className="sticky top-0 z-20 px-4 py-3 flex items-center justify-between"
-        style={{ background: 'rgba(5,3,13,0.94)', borderBottom: '1px solid rgba(255,255,255,0.05)', backdropFilter: 'blur(12px)' }}>
+    <div className="min-h-screen w-full" style={{ background: '#080808' }}>
+      {/* Top nav */}
+      <div className="sticky top-0 z-20 flex items-center justify-between px-5 py-3"
+        style={{ background: '#080808', borderBottom: '2px solid rgba(255,255,255,0.08)' }}>
         <button onClick={() => setLocation('/')}
-          className="font-mono text-xs tracking-widest transition-colors"
-          style={{ color: 'hsl(30 15% 32%)' }}
-          onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#48E5C2')}
-          onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = 'hsl(30 15% 32%)')}>
+          className="font-mono text-xs tracking-widest transition-all"
+          style={{ color: 'rgba(255,255,255,0.35)', border: '1px solid rgba(255,255,255,0.1)', padding: '4px 10px', boxShadow: '2px 2px 0 rgba(255,255,255,0.06)' }}
+          onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = '#F2F0E8'; el.style.borderColor = '#F2F0E8'; el.style.boxShadow = '2px 2px 0 #F2F0E8'; }}
+          onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.color = 'rgba(255,255,255,0.35)'; el.style.borderColor = 'rgba(255,255,255,0.1)'; el.style.boxShadow = '2px 2px 0 rgba(255,255,255,0.06)'; }}>
           ← HOME
         </button>
-        <div className="font-mono text-xs tracking-[0.5em]" style={{ color: 'hsl(30 15% 38%)' }}>365 TRANSMISSIONS</div>
+        <div className="font-mono font-bold text-xs tracking-[0.6em]" style={{ color: 'rgba(255,255,255,0.25)' }}>
+          CAMPAIGN
+        </div>
         <button onClick={() => setLocation('/songs')}
-          className="font-mono text-xs tracking-widest transition-colors"
-          style={{ color: 'hsl(30 15% 32%)' }}
-          onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#E53A00')}
-          onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = 'hsl(30 15% 32%)')}>
+          className="font-mono text-xs tracking-widest transition-all"
+          style={{ color: 'rgba(255,255,255,0.35)', border: '1px solid rgba(255,255,255,0.1)', padding: '4px 10px', boxShadow: '2px 2px 0 rgba(255,255,255,0.06)' }}
+          onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = '#48E5C2'; el.style.borderColor = '#48E5C2'; el.style.boxShadow = '2px 2px 0 #48E5C2'; }}
+          onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.color = 'rgba(255,255,255,0.35)'; el.style.borderColor = 'rgba(255,255,255,0.1)'; el.style.boxShadow = '2px 2px 0 rgba(255,255,255,0.06)'; }}>
           FREE PLAY →
         </button>
       </div>
 
-      <div className="relative z-10 max-w-2xl mx-auto px-4 py-8">
-        {/* ── Score display ── */}
-        <div className="text-center mb-8">
-          <div className="font-mono text-xs tracking-[0.5em] mb-3" style={{ color: 'hsl(30 15% 38%)' }}>
-            ◈ TOTAL TRANSMISSION SCORE ◈
+      <div className="max-w-2xl mx-auto px-4 py-6">
+        {/* ── Score panel ── */}
+        <div className="mb-6" style={{ border: '2px solid rgba(255,255,255,0.12)', boxShadow: '6px 6px 0 rgba(255,255,255,0.04)' }}>
+          {/* Panel header */}
+          <div className="px-5 py-2 flex items-center justify-between"
+            style={{ borderBottom: '2px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)' }}>
+            <div className="font-mono font-bold text-xs tracking-[0.4em]" style={{ color: 'rgba(255,255,255,0.3)' }}>
+              TOTAL TRANSMISSION SCORE
+            </div>
+            <div className="font-mono text-xs" style={{ color: 'rgba(255,255,255,0.15)' }}>
+              {totals.score > 0 ? '●' : '○'} LIVE
+            </div>
           </div>
 
-          {/* Main animated score */}
-          <div className="relative inline-block mb-1">
+          {/* Score number */}
+          <div className="px-5 py-5">
             <ScoreDisplay total={totals.score} />
           </div>
 
-          {/* Decorative bracket lines */}
-          <div className="flex items-center justify-center gap-4 mb-4">
-            <div className="h-px w-16" style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.15))' }} />
-            <div className="font-mono text-xs" style={{ color: 'rgba(255,255,255,0.1)', letterSpacing: '0.5em' }}>══</div>
-            <div className="h-px w-16" style={{ background: 'linear-gradient(90deg, rgba(255,255,255,0.15), transparent)' }} />
-          </div>
-
           {/* Stats row */}
-          <div className="flex items-center justify-center gap-6 flex-wrap">
+          <div className="grid grid-cols-3" style={{ borderTop: '2px solid rgba(255,255,255,0.08)' }}>
             {[
-              { label: 'PLATINUM', value: totals.platinums, color: '#48E5C2' },
-              { label: 'CLEARED',  value: totals.cleared,   color: '#A855F7' },
-              { label: 'CHAPTERS', value: `${startedChapters}/${totalChapters}`, color: '#E53A00' },
-            ].map(s => (
-              <div key={s.label} className="text-center">
+              { label: 'PLATINUM',  value: totals.platinums,                     color: '#48E5C2' },
+              { label: 'CLEARED',   value: totals.cleared,                        color: '#A855F7' },
+              { label: 'CHAPTERS',  value: `${startedChapters}/${CHAPTERS.length}`, color: '#E53A00' },
+            ].map((s, i) => (
+              <div key={s.label} className="py-3 px-4"
+                style={{ borderRight: i < 2 ? '2px solid rgba(255,255,255,0.08)' : 'none' }}>
                 <div className="font-mono font-bold text-xl" style={{ color: s.color }}>{s.value}</div>
-                <div className="font-mono text-xs" style={{ color: 'hsl(30 15% 38%)', fontSize: 9 }}>{s.label}</div>
+                <div className="font-mono" style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.3em' }}>{s.label}</div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Divider */}
-        <div className="flex items-center gap-4 mb-6">
-          <div className="h-px flex-1" style={{ background: 'linear-gradient(90deg, rgba(168,85,247,0.4), transparent)' }} />
-          <span className="font-mono text-xs tracking-widest" style={{ color: 'hsl(30 15% 35%)' }}>CAMPAIGN</span>
-          <div className="h-px flex-1" style={{ background: 'linear-gradient(90deg, transparent, rgba(229,58,0,0.3))' }} />
+        {/* ── Chapter list label ── */}
+        <div className="flex items-center gap-0 mb-3">
+          <div className="font-mono font-bold text-xs tracking-[0.5em] px-3 py-1.5"
+            style={{ color: '#080808', background: '#F2F0E8', display: 'inline-block' }}>
+            12 CHAPTERS
+          </div>
+          <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.1)' }} />
         </div>
 
-        {/* ── Chapter grid ── */}
+        {/* ── Chapter cards ── */}
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <div className="flex gap-1.5">
-              {['#E53A00','#A855F7','#48E5C2'].map((c, i) => (
-                <div key={i} className="w-2 h-2 rounded-full animate-pulse" style={{ background: c, animationDelay: `${i * 0.15}s` }} />
-              ))}
+            <div className="font-mono text-xs tracking-widest animate-pulse" style={{ color: 'rgba(255,255,255,0.3)' }}>
+              LOADING...
             </div>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             {chapters.map((data, i) => (
-              <div key={data.meta.month}
-                className="chapter-card-in"
-                style={{ animationDelay: `${i * 0.05}s` }}>
-                <ChapterCard
-                  data={data}
-                  onClick={() => setLocation(`/chapter/${data.meta.month}`)}
-                />
+              <div key={data.meta.month} className="chapter-card-in" style={{ animationDelay: `${i * 0.04}s` }}>
+                <ChapterCard data={data} onClick={() => setLocation(`/chapter/${data.meta.month}`)} />
               </div>
             ))}
           </div>
         )}
 
-        {/* ── Difficulty legend ── */}
-        <div className="mt-8 pt-5 flex items-center justify-center gap-6"
-          style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-          {Object.entries(DIFF_COLOR).map(([diff, color]) => (
-            <div key={diff} className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full" style={{ background: color }} />
-              <span className="font-mono text-xs" style={{ color: 'hsl(30 15% 38%)', fontSize: 9 }}>{diff}</span>
+        {/* Legend */}
+        <div className="mt-6 flex gap-0 overflow-hidden"
+          style={{ border: '2px solid rgba(255,255,255,0.06)' }}>
+          {[['EASY','#48E5C2'],['MEDIUM','#A855F7'],['HARD','#E5B800'],['BRUTAL','#E53A00']].map(([diff, color], i) => (
+            <div key={diff} className="flex-1 text-center py-2"
+              style={{ borderRight: i < 3 ? '2px solid rgba(255,255,255,0.06)' : 'none' }}>
+              <div style={{ width: 8, height: 8, background: color as string, margin: '0 auto 4px' }} />
+              <div className="font-mono" style={{ fontSize: 8, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.2em' }}>{diff}</div>
             </div>
           ))}
         </div>

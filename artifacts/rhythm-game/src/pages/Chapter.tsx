@@ -22,133 +22,93 @@ const CHAPTERS = [
 const MEDAL_COLOR: Record<string, string> = {
   PLATINUM: '#48E5C2', GOLD: '#E5B800', SILVER: '#A0AABB', BRONZE: '#C97A3A', NONE: '#333', '': '#1a1a1a',
 };
-const MEDAL_STARS: Record<string, number> = {
-  PLATINUM: 5, GOLD: 4, SILVER: 3, BRONZE: 2, NONE: 1, '': 0,
+const MEDAL_ABBR: Record<string, string> = {
+  PLATINUM: 'PT', GOLD: 'GO', SILVER: 'SI', BRONZE: 'BR', NONE: '—', '': '?',
 };
 
-function StarRow({ medal, size = 10 }: { medal: string; size?: number }) {
-  const stars = MEDAL_STARS[medal] ?? 0;
-  const color = MEDAL_COLOR[medal] ?? '#222';
-  return (
-    <div className="flex gap-0.5">
-      {[1,2,3,4,5].map(i => (
-        <svg key={i} width={size} height={size} viewBox="0 0 24 24"
-          fill={i <= stars ? color : 'none'} stroke={i <= stars ? color : '#2a2a2a'} strokeWidth={1.5}>
-          <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" />
-        </svg>
-      ))}
-    </div>
-  );
-}
-
-// ── Stage node (compact card in the trail) ───────────────────────
-interface StageNodeProps {
-  song: GameSong;
-  stageNum: number;
-  isBonus: boolean;
-  locked: boolean;
-  dc: string;
-  isLast: boolean;
-}
-
-function StageNode({ song, stageNum, isBonus, locked, dc, isLast }: StageNodeProps) {
+// ── Stage row ────────────────────────────────────────────────────
+function StageRow({ song, stageNum, isBonus, locked, dc }: {
+  song: GameSong; stageNum: number; isBonus: boolean; locked: boolean; dc: string;
+}) {
   const [, setLocation] = useLocation();
-  const medal = getMedalForSong(song.id);
-  const score = getHighScore(song.id);
-  const mc    = MEDAL_COLOR[medal] ?? '#1a1a1a';
+  const medal   = getMedalForSong(song.id);
+  const score   = getHighScore(song.id);
   const cleared = !!medal && medal !== '';
+  const mc      = MEDAL_COLOR[medal] ?? '#1a1a1a';
 
   return (
-    <div className="relative flex items-stretch gap-3">
-      {/* Timeline spine */}
-      <div className="flex flex-col items-center flex-shrink-0" style={{ width: 36 }}>
-        {/* Node circle */}
-        <div className="relative z-10 flex items-center justify-center rounded-full flex-shrink-0"
-          style={{
-            width: 36, height: 36,
-            background: locked ? '#0e0e18' : cleared ? `${mc}22` : `${dc}15`,
-            border: `2px solid ${locked ? '#1e1e2a' : cleared ? mc : `${dc}60`}`,
-            boxShadow: cleared && medal === 'PLATINUM' ? `0 0 12px ${mc}60` : 'none',
-          }}>
-          {locked
-            ? <span style={{ fontSize: 14, color: '#2a2a3a' }}>🔒</span>
-            : cleared
-              ? <div className="w-2.5 h-2.5 rounded-full" style={{ background: mc, boxShadow: `0 0 6px ${mc}` }} />
-              : <span className="font-mono text-xs font-bold" style={{ color: `${dc}80`, fontSize: 10 }}>{stageNum}</span>
-          }
-        </div>
-        {/* Connecting line */}
-        {!isLast && (
-          <div className="flex-1 w-px mt-1" style={{ background: cleared ? `${mc}30` : 'rgba(255,255,255,0.05)', minHeight: 16 }} />
-        )}
+    <div className="flex items-stretch"
+      style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', opacity: locked ? 0.4 : 1 }}>
+
+      {/* Number block */}
+      <div className="flex-shrink-0 flex items-center justify-center font-mono font-bold text-sm"
+        style={{
+          width: 44, flexShrink: 0,
+          background: cleared ? `${mc}18` : 'rgba(255,255,255,0.02)',
+          borderRight: `2px solid ${cleared ? mc : 'rgba(255,255,255,0.07)'}`,
+          color: cleared ? mc : 'rgba(255,255,255,0.2)',
+        }}>
+        {String(stageNum).padStart(2, '0')}
       </div>
 
-      {/* Song card */}
-      <div className="flex-1 mb-2">
-        <button
-          onClick={locked ? undefined : () => setLocation(`/play/${song.id}`)}
-          disabled={locked}
-          className="w-full text-left transition-all duration-200 border p-3"
-          style={{
-            borderColor: locked ? 'rgba(255,255,255,0.04)' : cleared ? `${mc}35` : `${dc}25`,
-            background: locked ? 'rgba(255,255,255,0.015)' : cleared ? `${mc}06` : `${dc}04`,
-            opacity: locked ? 0.5 : 1,
-            cursor: locked ? 'not-allowed' : 'pointer',
-            borderRadius: 6,
-          }}
-          onMouseEnter={e => { if (!locked) (e.currentTarget as HTMLElement).style.borderColor = locked ? '' : `${cleared ? mc : dc}70`; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = locked ? 'rgba(255,255,255,0.04)' : cleared ? `${mc}35` : `${dc}25`; }}
-        >
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 mb-0.5">
-                {isBonus && (
-                  <span className="font-mono px-1 py-px" style={{ fontSize: 8, color: '#E5B800', border: '1px solid #E5B80050', background: '#E5B80010' }}>
-                    ★ BONUS
-                  </span>
-                )}
-                <span className="font-mono text-xs truncate font-bold" style={{ color: locked ? '#333' : cleared ? '#F2EDE5' : `${dc}CC` }}>
-                  {song.title}
+      {/* Content */}
+      <button
+        onClick={locked ? undefined : () => setLocation(`/play/${song.id}`)}
+        disabled={locked}
+        className="flex-1 text-left px-4 py-3 transition-all duration-75"
+        style={{ cursor: locked ? 'not-allowed' : 'pointer', background: 'transparent' }}
+        onMouseEnter={e => { if (!locked) (e.currentTarget as HTMLElement).style.background = `${dc}08`; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-0.5">
+              {isBonus && (
+                <span className="font-mono font-bold px-1.5 py-px"
+                  style={{ fontSize: 7, color: '#080808', background: '#E5B800', letterSpacing: '0.2em', flexShrink: 0 }}>
+                  ★BONUS
                 </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="font-mono text-xs" style={{ color: 'hsl(30 15% 35%)', fontSize: 10 }}>
-                  DAY {song.day}
-                </span>
-                <span className="font-mono text-xs" style={{ color: 'hsl(30 15% 35%)', fontSize: 10 }}>
-                  {song.bpm} BPM
-                </span>
-                <span className="font-mono text-xs" style={{ color: 'hsl(30 15% 35%)', fontSize: 10 }}>
-                  {song.notes.length} NOTES
-                </span>
-              </div>
+              )}
+              <span className="font-mono font-bold truncate" style={{ fontSize: 13, color: locked ? 'rgba(255,255,255,0.2)' : cleared ? '#F2F0E8' : 'rgba(255,255,255,0.6)' }}>
+                {song.title}
+              </span>
             </div>
-
-            <div className="flex-shrink-0 text-right">
-              {cleared ? (
-                <>
-                  <StarRow medal={medal} size={9} />
-                  {score > 0 && (
-                    <div className="font-mono text-xs mt-0.5" style={{ color: 'hsl(30 15% 40%)', fontSize: 9 }}>
-                      {score.toLocaleString()}
-                    </div>
-                  )}
-                </>
-              ) : !locked ? (
-                <div className="font-mono text-xs px-2 py-1 transition-colors"
-                  style={{ color: dc, border: `1px solid ${dc}40`, background: `${dc}10`, fontSize: 9 }}>
-                  PLAY ▶
-                </div>
-              ) : null}
+            <div className="flex items-center gap-3">
+              <span className="font-mono" style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.15em' }}>DAY {song.day}</span>
+              <span className="font-mono" style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.15em' }}>{song.bpm}BPM</span>
+              <span className="font-mono" style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.15em' }}>{song.notes.length}N</span>
             </div>
           </div>
-        </button>
-      </div>
+
+          <div className="flex-shrink-0 text-right">
+            {locked ? (
+              <span style={{ fontSize: 16, opacity: 0.4 }}>🔒</span>
+            ) : cleared ? (
+              <div>
+                <div className="font-mono font-bold px-2 py-0.5 inline-block"
+                  style={{ fontSize: 10, color: '#080808', background: mc, letterSpacing: '0.2em' }}>
+                  {MEDAL_ABBR[medal]}
+                </div>
+                {score > 0 && (
+                  <div className="font-mono text-right mt-0.5" style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)' }}>
+                    {score.toLocaleString()}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="font-mono font-bold px-3 py-1.5 transition-all"
+                style={{ fontSize: 9, color: dc, border: `1px solid ${dc}`, boxShadow: `2px 2px 0 ${dc}`, letterSpacing: '0.2em' }}>
+                PLAY ▶
+              </div>
+            )}
+          </div>
+        </div>
+      </button>
     </div>
   );
 }
 
-// ── main component ───────────────────────────────────────────────
+// ── main ─────────────────────────────────────────────────────────
 export default function Chapter() {
   const { month } = useParams<{ month: string }>();
   const [, setLocation] = useLocation();
@@ -157,169 +117,135 @@ export default function Chapter() {
 
   const monthNum = parseInt(month ?? '1', 10);
   const meta     = CHAPTERS.find(c => c.month === monthNum) ?? CHAPTERS[0];
+  const prev     = CHAPTERS.find(c => c.month === monthNum - 1);
+  const next     = CHAPTERS.find(c => c.month === monthNum + 1);
 
   useEffect(() => {
     loadCatalog().then(catalog => {
-      const ms = catalog
-        .filter(s => new Date(s.date).getMonth() + 1 === monthNum)
-        .sort((a, b) => a.day - b.day);
-      setSongs(ms);
+      setSongs(catalog.filter(s => new Date(s.date).getMonth() + 1 === monthNum).sort((a, b) => a.day - b.day));
       setLoading(false);
     });
   }, [monthNum]);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#05030d' }}>
-        <div className="flex gap-1.5">
-          {['#E53A00','#A855F7','#48E5C2'].map((c, i) => (
-            <div key={i} className="w-2 h-2 rounded-full animate-pulse" style={{ background: c, animationDelay: `${i * 0.15}s` }} />
-          ))}
-        </div>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#080808' }}>
+        <div className="font-mono text-xs tracking-widest animate-pulse" style={{ color: 'rgba(255,255,255,0.3)' }}>LOADING...</div>
       </div>
     );
   }
 
   const regularSongs  = songs.slice(0, -5);
   const bonusSongs    = songs.slice(-5);
-  const regularIds    = regularSongs.map(s => s.id);
-  const platinums     = getChapterPlatinums(regularIds);
+  const platinums     = getChapterPlatinums(regularSongs.map(s => s.id));
   const bonusUnlocked = platinums >= meta.platNeeded;
 
-  const prev = CHAPTERS.find(c => c.month === monthNum - 1);
-  const next = CHAPTERS.find(c => c.month === monthNum + 1);
-
   return (
-    <div className="min-h-screen w-full relative overflow-x-hidden"
-      style={{ background: `radial-gradient(ellipse at 50% 0%, ${meta.dc}08 0%, hsl(15 30% 3%) 60%)` }}>
-      {/* Subtle grid */}
-      <div className="fixed inset-0 pointer-events-none"
-        style={{ backgroundImage: `linear-gradient(${meta.dc}15 1px, transparent 1px), linear-gradient(90deg, ${meta.dc}08 1px, transparent 1px)`, backgroundSize: '60px 60px', opacity: 0.4 }} />
-
-      {/* Header */}
-      <div className="sticky top-0 z-20 px-4 py-3 flex items-center justify-between"
-        style={{ background: 'rgba(5,3,13,0.92)', borderBottom: `1px solid ${meta.dc}20`, backdropFilter: 'blur(12px)' }}>
+    <div className="min-h-screen w-full" style={{ background: '#080808' }}>
+      {/* Top nav */}
+      <div className="sticky top-0 z-20 flex items-center justify-between px-5 py-3"
+        style={{ background: '#080808', borderBottom: '2px solid rgba(255,255,255,0.08)' }}>
         <button onClick={() => setLocation('/campaign')}
-          className="font-mono text-xs tracking-widest transition-colors"
-          style={{ color: 'hsl(30 15% 35%)' }}
-          onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = meta.dc)}
-          onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = 'hsl(30 15% 35%)')}>
+          className="font-mono text-xs tracking-widest transition-all"
+          style={{ color: 'rgba(255,255,255,0.35)', border: '1px solid rgba(255,255,255,0.1)', padding: '4px 10px', boxShadow: '2px 2px 0 rgba(255,255,255,0.06)' }}
+          onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = meta.dc; el.style.borderColor = meta.dc; el.style.boxShadow = `2px 2px 0 ${meta.dc}`; }}
+          onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.color = 'rgba(255,255,255,0.35)'; el.style.borderColor = 'rgba(255,255,255,0.1)'; el.style.boxShadow = '2px 2px 0 rgba(255,255,255,0.06)'; }}>
           ← CAMPAIGN
         </button>
-        <div className="font-mono text-xs tracking-[0.4em]" style={{ color: meta.dc }}>
+        <div className="font-mono font-bold text-xs tracking-[0.6em]" style={{ color: 'rgba(255,255,255,0.25)' }}>
           CH {String(meta.month).padStart(2, '0')}
         </div>
-        <div className="flex gap-3">
-          {prev && (
-            <button onClick={() => setLocation(`/chapter/${prev.month}`)}
-              className="font-mono text-xs transition-colors" style={{ color: 'hsl(30 15% 30%)' }}
-              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = meta.dc)}
-              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = 'hsl(30 15% 30%)')}>‹</button>
-          )}
-          {next && (
-            <button onClick={() => setLocation(`/chapter/${next.month}`)}
-              className="font-mono text-xs transition-colors" style={{ color: 'hsl(30 15% 30%)' }}
-              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = meta.dc)}
-              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = 'hsl(30 15% 30%)')}>›</button>
-          )}
+        <div className="flex gap-2">
+          {prev && <button onClick={() => setLocation(`/chapter/${prev.month}`)} className="font-mono text-xs px-3 py-1" style={{ color: 'rgba(255,255,255,0.25)', border: '1px solid rgba(255,255,255,0.08)' }} onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = meta.dc)} onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.25)')}>‹</button>}
+          {next && <button onClick={() => setLocation(`/chapter/${next.month}`)} className="font-mono text-xs px-3 py-1" style={{ color: 'rgba(255,255,255,0.25)', border: '1px solid rgba(255,255,255,0.08)' }} onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = meta.dc)} onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.25)')}>›</button>}
         </div>
       </div>
 
-      <div className="relative z-10 max-w-xl mx-auto px-4 py-6">
-        {/* ── Chapter header ── */}
-        <div className="mb-6">
+      <div className="max-w-xl mx-auto px-4 py-6">
+        {/* Chapter header */}
+        <div className="mb-4">
+          {/* Title block */}
           <div className="flex items-baseline gap-3 mb-1">
-            <h1 className="font-mono font-bold text-3xl" style={{ color: '#F2EDE5' }}>{meta.name}</h1>
-            <span className="font-mono text-xs px-2 py-0.5"
-              style={{ color: meta.dc, border: `1px solid ${meta.dc}40`, background: `${meta.dc}10` }}>
+            <h1 className="font-mono font-bold" style={{ fontSize: 'clamp(28px, 6vw, 40px)', color: '#F2F0E8', letterSpacing: '-0.01em' }}>
+              {meta.name}
+            </h1>
+            <span className="font-mono font-bold px-2 py-0.5 text-xs"
+              style={{ color: '#080808', background: meta.dc, letterSpacing: '0.2em', flexShrink: 0 }}>
               {meta.diff}
             </span>
           </div>
-          <div className="font-mono text-sm" style={{ color: 'hsl(30 15% 45%)' }}>{meta.sub}</div>
+          <div className="font-mono text-xs" style={{ color: 'rgba(255,255,255,0.3)', letterSpacing: '0.3em' }}>
+            {meta.sub}
+          </div>
 
-          {/* Progress */}
-          <div className="mt-3 flex items-center gap-4">
-            <div className="flex-1 h-1" style={{ background: 'rgba(255,255,255,0.06)' }}>
-              <div className="h-full transition-all duration-700"
-                style={{ width: `${regularIds.length > 0 ? (getChapterPlatinums(regularIds.slice(0, regularIds.length)) / regularIds.length) * 100 : 0}%`, background: `linear-gradient(90deg, ${meta.dc}70, ${meta.dc})` }} />
+          {/* Platinum progress */}
+          <div className="flex items-center gap-3 mt-3">
+            <div className="flex-1 h-2" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ height: '100%', width: `${Math.min(100, (platinums / meta.platNeeded) * 100)}%`, background: bonusUnlocked ? '#E5B800' : 'rgba(229,184,0,0.5)', transition: 'width 0.8s ease' }} />
             </div>
-            <div className="font-mono text-xs flex-shrink-0" style={{ color: 'hsl(30 15% 45%)' }}>
-              ✦ {platinums} / {meta.platNeeded} PT for BONUS
+            <div className="font-mono text-xs flex-shrink-0" style={{ color: bonusUnlocked ? '#E5B800' : 'rgba(255,255,255,0.3)', letterSpacing: '0.2em' }}>
+              ✦ {platinums}/{meta.platNeeded} PT FOR BONUS
             </div>
           </div>
         </div>
 
-        {/* Divider */}
-        <div className="flex items-center gap-3 mb-4">
-          <div className="h-px flex-1" style={{ background: `linear-gradient(90deg, ${meta.dc}40, transparent)` }} />
-          <span className="font-mono text-xs" style={{ color: 'hsl(30 15% 38%)' }}>REGULAR STAGES</span>
-          <div className="h-px flex-1" style={{ background: `linear-gradient(90deg, transparent, ${meta.dc}20)` }} />
-        </div>
+        {/* Stage table */}
+        <div style={{ border: '2px solid rgba(255,255,255,0.1)', boxShadow: '4px 4px 0 rgba(255,255,255,0.04)' }}>
+          {/* Header */}
+          <div className="flex items-center px-4 py-2"
+            style={{ borderBottom: '2px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)' }}>
+            <div className="font-mono font-bold px-2 py-0.5 mr-3"
+              style={{ fontSize: 9, color: '#080808', background: meta.dc, letterSpacing: '0.3em' }}>
+              REGULAR STAGES
+            </div>
+            <div className="font-mono text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>
+              {regularSongs.length} TRACKS
+            </div>
+          </div>
 
-        {/* ── Regular stages ── */}
-        <div>
           {regularSongs.map((song, i) => (
-            <StageNode
-              key={song.id}
-              song={song}
-              stageNum={i + 1}
-              isBonus={false}
-              locked={false}
-              dc={meta.dc}
-              isLast={i === regularSongs.length - 1 && bonusSongs.length === 0}
-            />
+            <StageRow key={song.id} song={song} stageNum={i + 1} isBonus={false} locked={false} dc={meta.dc} />
           ))}
+
+          {/* Bonus section */}
+          {bonusSongs.length > 0 && (
+            <>
+              <div className="flex items-center px-4 py-2"
+                style={{ borderTop: '2px solid rgba(255,255,255,0.08)', background: bonusUnlocked ? 'rgba(229,184,0,0.08)' : 'rgba(255,255,255,0.02)' }}>
+                <div className="font-mono font-bold px-2 py-0.5 mr-3"
+                  style={{ fontSize: 9, color: '#080808', background: bonusUnlocked ? '#E5B800' : 'rgba(255,255,255,0.15)', letterSpacing: '0.3em' }}>
+                  {bonusUnlocked ? '★ BONUS STAGES' : '🔒 BONUS LOCKED'}
+                </div>
+                {!bonusUnlocked && (
+                  <div className="font-mono text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>
+                    {meta.platNeeded - platinums} MORE PLATINUM TO UNLOCK
+                  </div>
+                )}
+              </div>
+              {bonusSongs.map((song, i) => (
+                <StageRow key={song.id} song={song} stageNum={regularSongs.length + i + 1} isBonus locked={!bonusUnlocked} dc="#E5B800" />
+              ))}
+            </>
+          )}
         </div>
 
-        {/* ── Bonus stages ── */}
-        {bonusSongs.length > 0 && (
-          <>
-            <div className="flex items-center gap-3 my-4">
-              <div className="h-px flex-1" style={{ background: `linear-gradient(90deg, ${bonusUnlocked ? '#E5B800' : '#333'}50, transparent)` }} />
-              <div className="font-mono text-xs px-3 py-1 flex items-center gap-2"
-                style={{
-                  color: bonusUnlocked ? '#E5B800' : '#444',
-                  border: `1px solid ${bonusUnlocked ? '#E5B80050' : '#2a2a2a'}`,
-                  background: bonusUnlocked ? '#E5B80010' : 'transparent',
-                }}>
-                {bonusUnlocked ? '★ BONUS STAGES' : `🔒 BONUS — ${meta.platNeeded} PLATINUM TO UNLOCK`}
-              </div>
-              <div className="h-px flex-1" style={{ background: `linear-gradient(90deg, transparent, ${bonusUnlocked ? '#E5B800' : '#333'}30)` }} />
-            </div>
-
-            <div>
-              {bonusSongs.map((song, i) => (
-                <StageNode
-                  key={song.id}
-                  song={song}
-                  stageNum={regularSongs.length + i + 1}
-                  isBonus={true}
-                  locked={!bonusUnlocked}
-                  dc="#E5B800"
-                  isLast={i === bonusSongs.length - 1}
-                />
-              ))}
-            </div>
-          </>
-        )}
-
-        {/* Chapter nav */}
-        <div className="flex gap-3 mt-8">
+        {/* Chapter navigation */}
+        <div className="flex gap-2 mt-4">
           {prev && (
             <button onClick={() => setLocation(`/chapter/${prev.month}`)}
-              className="flex-1 py-3 font-mono text-xs tracking-widest border transition-all"
-              style={{ borderColor: 'rgba(255,255,255,0.08)', color: 'hsl(30 15% 45%)', background: 'rgba(255,255,255,0.02)' }}
-              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.borderColor = meta.dc + '50')}
-              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)')}>
+              className="flex-1 py-3 font-mono text-xs tracking-widest transition-all duration-75"
+              style={{ border: '2px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.35)', background: 'transparent', boxShadow: '3px 3px 0 rgba(255,255,255,0.04)' }}
+              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = meta.dc; el.style.borderColor = meta.dc; el.style.boxShadow = `3px 3px 0 ${meta.dc}`; }}
+              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.color = 'rgba(255,255,255,0.35)'; el.style.borderColor = 'rgba(255,255,255,0.1)'; el.style.boxShadow = '3px 3px 0 rgba(255,255,255,0.04)'; }}>
               ← {prev.name}
             </button>
           )}
           {next && (
             <button onClick={() => setLocation(`/chapter/${next.month}`)}
-              className="flex-1 py-3 font-mono text-xs tracking-widest border transition-all"
-              style={{ borderColor: 'rgba(255,255,255,0.08)', color: 'hsl(30 15% 45%)', background: 'rgba(255,255,255,0.02)' }}
-              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.borderColor = meta.dc + '50')}
-              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)')}>
+              className="flex-1 py-3 font-mono text-xs tracking-widest transition-all duration-75"
+              style={{ border: '2px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.35)', background: 'transparent', boxShadow: '3px 3px 0 rgba(255,255,255,0.04)' }}
+              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = meta.dc; el.style.borderColor = meta.dc; el.style.boxShadow = `3px 3px 0 ${meta.dc}`; }}
+              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.color = 'rgba(255,255,255,0.35)'; el.style.borderColor = 'rgba(255,255,255,0.1)'; el.style.boxShadow = '3px 3px 0 rgba(255,255,255,0.04)'; }}>
               {next.name} →
             </button>
           )}
