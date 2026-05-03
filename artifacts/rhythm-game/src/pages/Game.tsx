@@ -1688,9 +1688,25 @@ export default function Game() {
       className="fixed inset-0 flex justify-center overflow-hidden"
       style={{ background: "#0c0c14" }}
     >
+      {/* Blurred cover art — fills the side strips outside the capped track column */}
+      {song?.coverArt && (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <img
+            src={song.coverArt}
+            alt=""
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              filter: "blur(32px) brightness(0.18) saturate(1.8)",
+              transform: "scale(1.08)",
+            }}
+          />
+        </div>
+      )}
       <div
         className="relative flex flex-col overflow-hidden w-full"
-        style={{ maxWidth: 500 }}
+        style={{ maxWidth: 500, background: "#0c0c14" }}
       >
       {/* HUD */}
       <div
