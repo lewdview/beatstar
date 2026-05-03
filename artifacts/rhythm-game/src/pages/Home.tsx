@@ -97,6 +97,15 @@ export default function Home() {
             onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.color = 'rgba(255,255,255,0.4)'; el.style.borderColor = 'rgba(255,255,255,0.15)'; el.style.boxShadow = '4px 4px 0 rgba(255,255,255,0.06)'; }}>
             ◈ FREE PLAY — ALL 365 SONGS
           </button>
+
+          <button
+            onClick={() => setLocation('/tutorial')}
+            className="w-full py-2 font-mono text-xs tracking-[0.35em] transition-all duration-100"
+            style={{ border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.25)', background: 'transparent' }}
+            onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = 'rgba(255,255,255,0.55)'; el.style.borderColor = 'rgba(255,255,255,0.2)'; }}
+            onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.color = 'rgba(255,255,255,0.25)'; el.style.borderColor = 'rgba(255,255,255,0.08)'; }}>
+            ? HOW TO PLAY
+          </button>
         </div>
 
         {/* Blink prompt */}
