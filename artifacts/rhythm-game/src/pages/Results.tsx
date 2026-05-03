@@ -112,8 +112,8 @@ export default function Results() {
   const accuracy = Math.round(((result.perfectPlus * 1.0 + result.perfects * 0.9 + result.goods * 0.5) / total) * 100);
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center px-4 py-8"
-      style={{ background: '#080808' }}>
+    <div className="w-full flex flex-col items-center px-4 py-8 overflow-y-auto"
+      style={{ background: '#080808', minHeight: '100dvh' }}>
 
       {/* Structural grid */}
       <div className="absolute inset-0 pointer-events-none"
