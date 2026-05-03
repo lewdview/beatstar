@@ -266,29 +266,54 @@ export default function Game() {
     const hwBot = hwAtProgress(1, W);
 
     // ── 2. LANE TRACK SURFACE ───────────────────────────────────
-    // Clip to highway shape
+    // Hill crest: the top edge of the highway arcs upward (above screen) like cresting a hill.
+    const hillCx = W / 2;
+    const hillCy = -hitY * 0.09; // control point above the viewport
+    const hillBow = W * 0.032;   // how far rails bow outward at the shoulder
+    const bowY    = hitY * 0.28; // where the shoulder bow peaks
+
     ctx.save();
     ctx.beginPath();
-    ctx.moveTo(hwTop.left, 0); ctx.lineTo(hwTop.right, 0);
+    // Top edge as upward arc (hill crest silhouette)
+    ctx.moveTo(hwTop.left, 0);
+    ctx.quadraticCurveTo(hillCx, hillCy, hwTop.right, 0);
     ctx.lineTo(hwBot.right, hitY); ctx.lineTo(hwBot.left, hitY);
     ctx.closePath(); ctx.clip();
 
     // Track surface: very dark, slightly warm
     ctx.fillStyle = '#10101a'; ctx.fillRect(0, 0, W, hitY);
 
-    // Subtle perspective horizontal lines (like a road disappearing)
+    // Scrolling road dashes — drive-forward feel (dashes travel from vanishing point toward player)
+    const dashCycle = hitY * 0.13;
+    const scrollOff = (t * 0.60 * hitY) % dashCycle;
+    const dashLen   = dashCycle * 0.42;
+    for (let row = -1; row < 10; row++) {
+      const dy1 = scrollOff + row * dashCycle;
+      const dy2 = dy1 + dashLen;
+      if (dy2 < 0 || dy1 > hitY) continue;
+      const p1 = Math.max(0, Math.min(1, dy1 / hitY));
+      const p2 = Math.max(0, Math.min(1, dy2 / hitY));
+      const { left: l1, right: r1 } = hwAtProgress(p1, W);
+      const { left: l2, right: r2 } = hwAtProgress(p2, W);
+      ctx.fillStyle = `rgba(255,248,235,${0.018 + p1 * 0.032})`;
+      ctx.beginPath();
+      ctx.moveTo(l1, dy1); ctx.lineTo(r1, dy1);
+      ctx.lineTo(r2, dy2); ctx.lineTo(l2, dy2);
+      ctx.closePath(); ctx.fill();
+    }
+
+    // Subtle perspective horizontal lines
     for (let row = 0; row <= 14; row++) {
       const ry = (row / 14) * hitY; const rp = ry / hitY;
       const { left, right } = hwAtProgress(rp, W);
-      ctx.strokeStyle = `rgba(255,248,235,${0.02 + rp * 0.05})`; ctx.lineWidth = 1;
+      ctx.strokeStyle = `rgba(255,248,235,${0.015 + rp * 0.03})`; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(left, ry); ctx.lineTo(right, ry); ctx.stroke();
     }
 
-    // Lane groove lines (the gaps between keys/tracks)
+    // Lane groove lines
     for (let l = 1; l < LANE_COUNT; l++) {
       const topPos = laneAt(l, 0, W);
       const botPos = laneAt(l, 1, W);
-      // Groove: dark inset line with a tiny highlight
       ctx.strokeStyle = 'rgba(0,0,0,0.9)'; ctx.lineWidth = 4;
       ctx.beginPath(); ctx.moveTo(topPos.x, 0); ctx.lineTo(botPos.x, hitY); ctx.stroke();
       ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 1;
@@ -298,7 +323,7 @@ export default function Game() {
     ctx.restore();
 
     // ── 3. TRACK EDGE RAILS ─────────────────────────────────────
-    // Thin glowing lines along the highway edges — white normally, power-up color when active
+    // Bezier curves that bow outward at the shoulder, reinforcing the hill-crest perspective.
     const railColor = puColor ?? 'rgba(255,248,235,0.35)';
     const railGlow  = puColor ? `${puColor}AA` : 'rgba(255,248,235,0.15)';
 
@@ -307,8 +332,16 @@ export default function Game() {
     railGrad.addColorStop(0.4, railGlow);
     railGrad.addColorStop(1, railColor);
     ctx.strokeStyle = railGrad; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(hwTop.left, 0); ctx.lineTo(hwBot.left, hitY); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(hwTop.right, 0); ctx.lineTo(hwBot.right, hitY); ctx.stroke();
+    // Left rail — bows left
+    ctx.beginPath();
+    ctx.moveTo(hwTop.left, 0);
+    ctx.quadraticCurveTo(hwTop.left - hillBow, bowY, hwBot.left, hitY);
+    ctx.stroke();
+    // Right rail — bows right
+    ctx.beginPath();
+    ctx.moveTo(hwTop.right, 0);
+    ctx.quadraticCurveTo(hwTop.right + hillBow, bowY, hwBot.right, hitY);
+    ctx.stroke();
 
     // ── 4. POWER-UP SCREEN EDGE GLOW ───────────────────────────
     if (puActive && puColor) {
@@ -324,10 +357,9 @@ export default function Game() {
     }
 
     // ── 4.5. HIT ZONE BUTTONS (behind notes, semi-transparent) ──
-    // Centered on hitY so the baseline runs through their middle.
-    // btnH mirrors the space below hitY above it → baseline is exactly at 50%.
-    const btnH = (H - hitY) * 2;
-    const btnY = 2 * hitY - H;          // = hitY - (H - hitY)
+    // Original height (space below hit line), centered so baseline bisects each button.
+    const btnH = H - hitY;
+    const btnY = hitY - btnH / 2;       // baseline runs through the exact center
     for (let i = 0; i < LANE_COUNT; i++) {
       const { x, w } = laneAt(i, 1, W);
       const pressed  = laneRef.current[i].pressed;
