@@ -81,8 +81,10 @@ export default function Game() {
   const hitFxRef       = useRef<HitEffect[]>([]);
   const coverImgRef    = useRef<HTMLImageElement | null>(null);
   const coverBlurRef   = useRef<HTMLCanvasElement | null>(null);
-  const scanPatternRef = useRef<CanvasPattern | null>(null);
-  const audioCtxRef    = useRef<AudioContext | null>(null);
+  const scanPatternRef  = useRef<CanvasPattern | null>(null);
+  const lastMedalRef    = useRef<string>('NONE');
+  const medalStampRef   = useRef<{ medal: string; startT: number } | null>(null);
+  const audioCtxRef     = useRef<AudioContext | null>(null);
   const laneGainsRef      = useRef<GainNode[]>([]);
   const laneSilenced      = useRef<boolean[]>([false, false, false]);
   const laneRestoreTimers = useRef<ReturnType<typeof setTimeout>[]>([] as ReturnType<typeof setTimeout>[]);
@@ -284,11 +286,11 @@ export default function Game() {
       ctx.globalAlpha = 1;
     }
 
-    // Heavy vignette — keeps everything readable over the photo
+    // Vignette — dark edges keep game elements readable
     const vig = ctx.createRadialGradient(W / 2, H * 0.42, H * 0.08, W / 2, H * 0.42, H * 0.9);
-    vig.addColorStop(0,   'rgba(0,0,0,0.30)');
-    vig.addColorStop(0.5, 'rgba(0,0,0,0.58)');
-    vig.addColorStop(1,   'rgba(0,0,0,0.93)');
+    vig.addColorStop(0,   'rgba(0,0,0,0.22)');
+    vig.addColorStop(0.5, 'rgba(0,0,0,0.50)');
+    vig.addColorStop(1,   'rgba(0,0,0,0.84)');
     ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
 
     // Mood color pulse (dark = orange-red, light = teal)
@@ -634,6 +636,118 @@ export default function Game() {
     baseGlow.addColorStop(1, 'rgba(255,255,255,0.0)');
     ctx.fillStyle = baseGlow; ctx.fillRect(hwBot.left - 16, hitY, hwBot.width + 32, 20);
 
+    // ── 7. MEDAL PROGRESS METER ─────────────────────────────────
+    const MEDAL_STOPS = [
+      { name: 'BRONZE',   acc: 40, color: '#CD7F32' },
+      { name: 'SILVER',   acc: 60, color: '#C0C0C0' },
+      { name: 'GOLD',     acc: 80, color: '#FFD700' },
+      { name: 'PLATINUM', acc: 93, color: '#E0E0FF' },
+    ];
+    const MEDAL_COLOR_MAP: Record<string, string> = {
+      BRONZE: '#CD7F32', SILVER: '#C0C0C0', GOLD: '#FFD700', PLATINUM: '#E0E0FF', NONE: '#444',
+    };
+    const { perfectPlus: pp, perfects: pfp, goods: gd, misses: ms } = gs;
+    const tot = pp + pfp + gd + ms;
+    const acc = tot > 0 ? ((pp + pfp * 0.9 + gd * 0.5) / tot) * 100 : 0;
+    const curMedal =
+      acc >= 93 ? 'PLATINUM' : acc >= 80 ? 'GOLD' : acc >= 60 ? 'SILVER' : acc >= 40 ? 'BRONZE' : 'NONE';
+
+    // Trigger stamp on new medal
+    if (curMedal !== 'NONE' && curMedal !== lastMedalRef.current) {
+      lastMedalRef.current = curMedal;
+      medalStampRef.current = { medal: curMedal, startT: t };
+    }
+
+    // Bar geometry — thin strip at very bottom
+    const bPad = 14; const bH = 7; const bY = H - bH - 8;
+    const bX = bPad; const bW = W - bPad * 2;
+
+    // Track bg
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.beginPath(); ctx.roundRect(bX, bY, bW, bH, bH / 2); ctx.fill();
+
+    // Filled portion
+    const fillFrac = Math.min(acc / 93, 1);
+    if (fillFrac > 0) {
+      const fW = bW * fillFrac;
+      const fg = ctx.createLinearGradient(bX, 0, bX + bW, 0);
+      fg.addColorStop(0,    '#CD7F32');
+      fg.addColorStop(0.43, '#C0C0C0');
+      fg.addColorStop(0.72, '#FFD700');
+      fg.addColorStop(1,    '#E0E0FF');
+      ctx.shadowColor = MEDAL_COLOR_MAP[curMedal]; ctx.shadowBlur = 10;
+      ctx.fillStyle = fg;
+      ctx.beginPath(); ctx.roundRect(bX, bY, fW, bH, bH / 2); ctx.fill();
+      ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+      // Sheen highlight
+      ctx.fillStyle = 'rgba(255,255,255,0.22)';
+      ctx.beginPath(); ctx.roundRect(bX, bY, fW, bH * 0.45, [bH / 2, bH / 2, 0, 0]); ctx.fill();
+    }
+
+    // Medal threshold ticks + labels
+    for (const ms2 of MEDAL_STOPS) {
+      const mx = bX + bW * (ms2.acc / 93);
+      const achieved = fillFrac >= ms2.acc / 93;
+      ctx.strokeStyle = achieved ? ms2.color : 'rgba(100,100,100,0.5)';
+      ctx.lineWidth = achieved ? 2 : 1;
+      ctx.beginPath(); ctx.moveTo(mx, bY - 5); ctx.lineTo(mx, bY + bH + 5); ctx.stroke();
+      ctx.font = `bold 7px "Space Mono", monospace`;
+      ctx.fillStyle = achieved ? ms2.color : 'rgba(100,100,100,0.5)';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillText(ms2.name[0], mx, bY - 7);
+    }
+
+    // Medal stamp animation
+    const stamp = medalStampRef.current;
+    if (stamp) {
+      const elapsed = t - stamp.startT;
+      if (elapsed > 1.6) {
+        medalStampRef.current = null;
+      } else {
+        const t01 = elapsed / 1.6;
+        let scale: number; let alpha: number;
+        if (t01 < 0.18) {
+          // Smash in: huge → normal
+          const inT = t01 / 0.18;
+          scale = 2.6 - 1.6 * (1 - Math.pow(1 - inT, 2.5));
+          alpha = 1;
+        } else if (t01 < 0.72) {
+          // Hold with triple bounce
+          scale = 1 + 0.08 * Math.abs(Math.sin((t01 - 0.18) / 0.54 * Math.PI * 3));
+          alpha = 1;
+        } else {
+          // Fade out
+          scale = 1;
+          alpha = 1 - (t01 - 0.72) / 0.28;
+        }
+        const mc = MEDAL_COLOR_MAP[stamp.medal] ?? '#fff';
+        const scx = W / 2; const scy = H * 0.36;
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, alpha);
+        ctx.translate(scx, scy); ctx.scale(scale, scale);
+        // Glow halo
+        ctx.shadowColor = mc; ctx.shadowBlur = 36;
+        const sw = 230; const sh = 68;
+        ctx.fillStyle = 'rgba(8,8,12,0.82)';
+        ctx.beginPath(); ctx.roundRect(-sw / 2, -sh / 2, sw, sh, 10); ctx.fill();
+        ctx.shadowBlur = 0;
+        // Border
+        ctx.strokeStyle = mc; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.roundRect(-sw / 2, -sh / 2, sw, sh, 10); ctx.stroke();
+        // ★ MEDAL NAME ★
+        ctx.fillStyle = mc;
+        ctx.font = `bold 26px "Space Mono", monospace`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(`★ ${stamp.medal} ★`, 0, -8);
+        // Sub-label
+        ctx.font = `bold 10px "Space Mono", monospace`;
+        ctx.fillStyle = 'rgba(255,255,255,0.65)';
+        ctx.fillText('MEDAL UNLOCKED', 0, 18);
+        ctx.restore();
+        ctx.globalAlpha = 1;
+      }
+    }
+
     if (dirty) syncDisplay();
 
     // ── end check ──
@@ -710,7 +824,7 @@ export default function Game() {
           const off = document.createElement('canvas');
           off.width = 512; off.height = 512;
           const offCtx = off.getContext('2d')!;
-          offCtx.filter = 'blur(28px) brightness(0.30) saturate(2.2)';
+          offCtx.filter = 'blur(10px) brightness(0.52) saturate(1.5)';
           offCtx.drawImage(img, -24, -24, 560, 560);
           offCtx.filter = 'none';
           coverBlurRef.current = off;
