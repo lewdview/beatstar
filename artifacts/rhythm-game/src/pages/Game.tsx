@@ -11,11 +11,12 @@ const LANE_COLORS = ['#E53A00', '#A855F7', '#48E5C2'];
 
 const APPROACH_TIME       = 2.0;
 const HIT_RATIO           = 0.80;
-const PERFECT_PLUS_WINDOW = 0.030;   // ≤30ms → PERFECT+
+const PERFECT_PLUS_WINDOW = 0.030;
 const PERFECT_WINDOW      = 0.065;
 const GOOD_WINDOW         = 0.130;
 const MISS_WINDOW         = 0.185;
 
+// Perspective highway geometry
 const HW_TOP = 0.54;
 const HW_BOT = 0.97;
 
@@ -42,23 +43,17 @@ function laneAt(lane: number, progress: number, W: number) {
 
 function getAccuracy(pp: number, p: number, g: number, m: number) {
   const tot = pp + p + g + m;
-  if (!tot) return 0;
-  return Math.round(((pp * 1.0 + p * 0.9 + g * 0.5) / tot) * 100);
+  return tot > 0 ? Math.round(((pp + p * 0.9 + g * 0.5) / tot) * 100) : 0;
 }
-
-function getMedal(pp: number, p: number, g: number, m: number): string {
-  const acc = getAccuracy(pp, p, g, m);
-  if (acc >= 93) return 'PLATINUM';
-  if (acc >= 80) return 'GOLD';
-  if (acc >= 60) return 'SILVER';
-  if (acc >= 40) return 'BRONZE';
-  return 'NONE';
+function getMedal(pp: number, p: number, g: number, m: number) {
+  const a = getAccuracy(pp, p, g, m);
+  return a >= 93 ? 'PLATINUM' : a >= 80 ? 'GOLD' : a >= 60 ? 'SILVER' : a >= 40 ? 'BRONZE' : 'NONE';
 }
 
 // ── interfaces ───────────────────────────────────────────────────
-interface NoteState  { note: Note; hit: boolean; missed: boolean; holdActive: boolean; holdProgress: number; }
-interface LanePress  { pressed: boolean; touchId?: number; }
-interface PUState    { active: PUType | null; endTime: number; startTime: number; multiplier: number; color: string; label: string; duration: number; triggered: Set<number>; }
+interface NoteState { note: Note; hit: boolean; missed: boolean; holdActive: boolean; holdProgress: number; }
+interface LanePress { pressed: boolean; touchId?: number; }
+interface PUState   { active: PUType | null; endTime: number; startTime: number; multiplier: number; color: string; label: string; duration: number; triggered: Set<number>; }
 
 // ── component ────────────────────────────────────────────────────
 export default function Game() {
@@ -89,14 +84,13 @@ export default function Game() {
     setDisplayGs({ ...gsRef.current });
     setDisplayJudge([...jRef.current]);
   }, []);
-
   const getT = useCallback(() => audioRef.current?.currentTime ?? 0, []);
 
   const calcScore = useCallback((combo: number, j: 'PERFECT+' | 'PERFECT' | 'GOOD') => {
     const pu = puRef.current;
-    const puMul = (pu.active && getT() < pu.endTime) ? pu.multiplier : 1;
+    const puMul    = (pu.active && getT() < pu.endTime) ? pu.multiplier : 1;
     const comboMul = combo < 10 ? 1 : combo < 25 ? 1.5 : combo < 50 ? 2 : 3;
-    const base = j === 'PERFECT+' ? 500 : j === 'PERFECT' ? 300 : 150;
+    const base     = j === 'PERFECT+' ? 500 : j === 'PERFECT' ? 300 : 150;
     return Math.round(base * puMul * comboMul);
   }, [getT]);
 
@@ -117,7 +111,7 @@ export default function Game() {
     const t = getT();
     const candidates = notesRef.current.filter(ns => ns.note.lane === lane && !ns.hit && !ns.missed);
     if (!candidates.length) return;
-    const ns = candidates.reduce((b, c) => Math.abs(c.note.time - t) < Math.abs(b.note.time - t) ? c : b);
+    const ns   = candidates.reduce((b, c) => Math.abs(c.note.time - t) < Math.abs(b.note.time - t) ? c : b);
     const diff = Math.abs(ns.note.time - t);
     if (diff > MISS_WINDOW) return;
     const j: 'PERFECT+' | 'PERFECT' | 'GOOD' | null =
@@ -136,8 +130,7 @@ export default function Game() {
     else gs.goods++;
     checkPowerUps(gs.combo);
 
-    const jid = ++jCounter.current;
-    jRef.current = [...jRef.current.filter(x => Date.now() - x.ts < 600), { type: j, lane, id: jid, ts: Date.now() }];
+    jRef.current = [...jRef.current.filter(x => Date.now() - x.ts < 600), { type: j, lane, id: ++jCounter.current, ts: Date.now() }];
     syncDisplay();
   }, [getT, calcScore, checkPowerUps, syncDisplay]);
 
@@ -172,7 +165,9 @@ export default function Game() {
     setTimeout(() => setLocation(`/results/${songId}`), 800);
   }, [songId, setLocation]);
 
-  // ── draw ─────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+  //  DRAW LOOP
+  // ═══════════════════════════════════════════════════════════════
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas || phaseRef.current !== 'playing') return;
@@ -184,81 +179,94 @@ export default function Game() {
     const gs = gsRef.current; const pu = puRef.current;
     gs.progress = Math.min(1, t / song.duration);
 
+    // Power-up display sync
     if (pu.active && t < pu.endTime) {
       setPuDisplay({ label: pu.label, color: pu.color, multiplier: pu.multiplier, progress: (pu.endTime - t) / pu.duration });
     } else if (pu.active && t >= pu.endTime) { pu.active = null; setPuDisplay(null); }
 
-    // ── background ──
-    ctx.fillStyle = '#05030d'; ctx.fillRect(0, 0, W, H);
-    const vpGrad = ctx.createRadialGradient(W / 2, 0, 0, W / 2, 0, H * 0.7);
-    vpGrad.addColorStop(0, 'rgba(120,60,220,0.13)'); vpGrad.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = vpGrad; ctx.fillRect(0, 0, W, H);
+    const puActive = !!(pu.active && t < pu.endTime);
+    const puColor  = puActive ? pu.color : null;
 
-    const hwTop = hwAtProgress(0, W); const hwBot = hwAtProgress(1, W);
+    // ── 1. BACKGROUND ──────────────────────────────────────────
+    ctx.fillStyle = '#0c0c14';
+    ctx.fillRect(0, 0, W, H);
 
-    // ── highway clip ──
+    // Subtle warm center vignette (the track)
+    const bgVig = ctx.createRadialGradient(W / 2, hitY, 0, W / 2, hitY, W * 0.8);
+    bgVig.addColorStop(0, 'rgba(255,248,235,0.03)');
+    bgVig.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = bgVig; ctx.fillRect(0, 0, W, H);
+
+    const hwTop = hwAtProgress(0, W);
+    const hwBot = hwAtProgress(1, W);
+
+    // ── 2. LANE TRACK SURFACE ───────────────────────────────────
+    // Clip to highway shape
     ctx.save();
-    ctx.beginPath(); ctx.moveTo(hwTop.left, 0); ctx.lineTo(hwTop.right, 0); ctx.lineTo(hwBot.right, hitY); ctx.lineTo(hwBot.left, hitY); ctx.closePath(); ctx.clip();
+    ctx.beginPath();
+    ctx.moveTo(hwTop.left, 0); ctx.lineTo(hwTop.right, 0);
+    ctx.lineTo(hwBot.right, hitY); ctx.lineTo(hwBot.left, hitY);
+    ctx.closePath(); ctx.clip();
 
-    // Horizontal perspective lines
-    for (let row = 0; row <= 12; row++) {
-      const ry = (row / 12) * hitY; const rp = ry / hitY;
+    // Track surface: very dark, slightly warm
+    ctx.fillStyle = '#10101a'; ctx.fillRect(0, 0, W, hitY);
+
+    // Subtle perspective horizontal lines (like a road disappearing)
+    for (let row = 0; row <= 14; row++) {
+      const ry = (row / 14) * hitY; const rp = ry / hitY;
       const { left, right } = hwAtProgress(rp, W);
-      ctx.strokeStyle = `rgba(80,40,160,${0.06 + rp * 0.14})`; ctx.lineWidth = 1;
+      ctx.strokeStyle = `rgba(255,248,235,${0.02 + rp * 0.05})`; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(left, ry); ctx.lineTo(right, ry); ctx.stroke();
     }
-    // Lane dividers
+
+    // Lane groove lines (the gaps between keys/tracks)
     for (let l = 1; l < LANE_COUNT; l++) {
-      const top = laneAt(l, 0, W); const bot = laneAt(l, 1, W);
-      const lg = ctx.createLinearGradient(0, 0, 0, hitY);
-      lg.addColorStop(0, 'rgba(255,255,255,0.0)'); lg.addColorStop(1, 'rgba(255,255,255,0.13)');
-      ctx.strokeStyle = lg; ctx.lineWidth = 1;
-      ctx.setLineDash([6, 10]); ctx.beginPath(); ctx.moveTo(top.x, 0); ctx.lineTo(bot.x, hitY); ctx.stroke(); ctx.setLineDash([]);
+      const topPos = laneAt(l, 0, W);
+      const botPos = laneAt(l, 1, W);
+      // Groove: dark inset line with a tiny highlight
+      ctx.strokeStyle = 'rgba(0,0,0,0.9)'; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(topPos.x, 0); ctx.lineTo(botPos.x, hitY); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(topPos.x + 2, 0); ctx.lineTo(botPos.x + 2, hitY); ctx.stroke();
     }
+
     ctx.restore();
 
-    // ── neon corridor walls ──
-    const puColor = (pu.active && t < pu.endTime) ? pu.color : '#48E5C2';
-    const wallW = W * 0.06;
-    const lWG = ctx.createLinearGradient(hwBot.left, 0, hwBot.left - wallW, 0);
-    lWG.addColorStop(0, `${puColor}95`); lWG.addColorStop(0.5, `${puColor}28`); lWG.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.beginPath(); ctx.moveTo(hwTop.left, 0); ctx.lineTo(hwBot.left, hitY); ctx.lineTo(hwBot.left - wallW, hitY); ctx.lineTo(hwTop.left - 3, 0); ctx.closePath();
-    ctx.fillStyle = lWG; ctx.fill();
-    const rWG = ctx.createLinearGradient(hwBot.right, 0, hwBot.right + wallW, 0);
-    rWG.addColorStop(0, `${puColor}95`); rWG.addColorStop(0.5, `${puColor}28`); rWG.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.beginPath(); ctx.moveTo(hwTop.right, 0); ctx.lineTo(hwBot.right, hitY); ctx.lineTo(hwBot.right + wallW, hitY); ctx.lineTo(hwTop.right + 3, 0); ctx.closePath();
-    ctx.fillStyle = rWG; ctx.fill();
-    // Edge neon lines
-    const edgeG = ctx.createLinearGradient(0, 0, 0, hitY);
-    edgeG.addColorStop(0, 'rgba(255,255,255,0.0)'); edgeG.addColorStop(0.5, `${puColor}AA`); edgeG.addColorStop(1, `${puColor}FF`);
-    ctx.strokeStyle = edgeG; ctx.lineWidth = 2.5;
+    // ── 3. TRACK EDGE RAILS ─────────────────────────────────────
+    // Thin glowing lines along the highway edges — white normally, power-up color when active
+    const railColor = puColor ?? 'rgba(255,248,235,0.35)';
+    const railGlow  = puColor ? `${puColor}AA` : 'rgba(255,248,235,0.15)';
+
+    const railGrad = ctx.createLinearGradient(0, 0, 0, hitY);
+    railGrad.addColorStop(0, 'rgba(255,255,255,0.0)');
+    railGrad.addColorStop(0.4, railGlow);
+    railGrad.addColorStop(1, railColor);
+    ctx.strokeStyle = railGrad; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(hwTop.left, 0); ctx.lineTo(hwBot.left, hitY); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(hwTop.right, 0); ctx.lineTo(hwBot.right, hitY); ctx.stroke();
 
-    // ── power-up screen edge glow ──
-    if (pu.active && t < pu.endTime) {
-      const pulse = 0.55 + 0.45 * Math.sin(t * 7);
-      const ei = Math.min(1, (pu.endTime - t) / 2) * pulse;
-      const hex = Math.round(ei * 170).toString(16).padStart(2, '0');
-      const eg1 = ctx.createLinearGradient(0, 0, 90, 0); eg1.addColorStop(0, `${pu.color}${hex}`); eg1.addColorStop(1, 'transparent');
-      ctx.fillStyle = eg1; ctx.fillRect(0, 0, 90, H);
-      const eg2 = ctx.createLinearGradient(W, 0, W - 90, 0); eg2.addColorStop(0, `${pu.color}${hex}`); eg2.addColorStop(1, 'transparent');
-      ctx.fillStyle = eg2; ctx.fillRect(W - 90, 0, 90, H);
+    // ── 4. POWER-UP SCREEN EDGE GLOW ───────────────────────────
+    if (puActive && puColor) {
+      const pulse = 0.5 + 0.5 * Math.sin(t * 7);
+      const ei    = Math.min(1, (pu.endTime - t) / 2) * pulse * 0.7;
+      const hex   = Math.round(ei * 200).toString(16).padStart(2, '0');
+      const eg1   = ctx.createLinearGradient(0, 0, 80, 0);
+      eg1.addColorStop(0, `${puColor}${hex}`); eg1.addColorStop(1, 'transparent');
+      ctx.fillStyle = eg1; ctx.fillRect(0, 0, 80, H);
+      const eg2 = ctx.createLinearGradient(W, 0, W - 80, 0);
+      eg2.addColorStop(0, `${puColor}${hex}`); eg2.addColorStop(1, 'transparent');
+      ctx.fillStyle = eg2; ctx.fillRect(W - 80, 0, 80, H);
     }
 
-    // ── hit zone line ──
-    ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(hwBot.left - 12, hitY); ctx.lineTo(hwBot.right + 12, hitY); ctx.stroke();
-
-    // ── notes ──
+    // ── 5. NOTES ────────────────────────────────────────────────
     let dirty = false;
     for (const ns of notesRef.current) {
       if (ns.hit || ns.missed) continue;
       const { note } = ns;
       const lc = LANE_COLORS[note.lane];
       const spawnT = note.time - APPROACH_TIME;
-      const prog = (t - spawnT) / APPROACH_TIME;
-      const noteY = prog * hitY;
+      const prog   = (t - spawnT) / APPROACH_TIME;
+      const noteY  = prog * hitY;
 
       if (ns.holdActive) ns.holdProgress = Math.min(1, (t - note.time) / (note.holdDuration || 0.5));
 
@@ -274,15 +282,14 @@ export default function Game() {
       if (noteY < -80) continue;
 
       const { x: lx, w: lw } = laneAt(note.lane, prog, W);
-      // Bigger notes: height lerps from 20px to 50px with perspective
-      const noteH = lerp(20, 50, prog);
-      const noteX = lx + 8; const noteW = lw - 16;
-      const r = noteH * 0.35;
+      const noteH = lerp(22, 54, prog);   // perspective scale — bigger closer
+      const noteX = lx + 7; const noteW = lw - 14;
+      const r     = noteH * 0.32;
 
       if (note.type === 'tap') {
-        drawNote(ctx, noteX, noteY, noteW, noteH, r, lc, prog);
+        drawKey(ctx, noteX, noteY, noteW, noteH, r, lc, prog, false);
       } else {
-        // Hold trail
+        // Hold trail — ivory ribbon with colored stripe
         const holdDur = note.holdDuration || 0.5;
         const headP   = Math.max(0, prog - holdDur / APPROACH_TIME);
         const headY   = headP * hitY;
@@ -291,51 +298,106 @@ export default function Game() {
           const top = lerp(headY, hitY, ns.holdProgress);
           if (noteY > top) {
             const { x: ax, w: aw } = laneAt(note.lane, Math.min(prog, 1), W);
-            const trailGrad = ctx.createLinearGradient(0, top, 0, noteY);
-            trailGrad.addColorStop(0, `${lc}25`); trailGrad.addColorStop(1, `${lc}60`);
-            ctx.fillStyle = trailGrad;
-            ctx.beginPath(); ctx.roundRect(ax + aw * 0.28, top, aw * 0.44, noteY - top + noteH / 2, 4); ctx.fill();
+            // Trail body (ivory semi-transparent)
+            ctx.fillStyle = 'rgba(245,240,228,0.18)';
+            ctx.beginPath(); ctx.roundRect(ax + aw * 0.25, top, aw * 0.5, noteY - top + noteH / 2, 4); ctx.fill();
+            // Colored stripe through the trail
+            ctx.fillStyle = lc; ctx.globalAlpha = 0.55;
+            ctx.shadowColor = lc; ctx.shadowBlur = 8;
+            ctx.beginPath(); ctx.roundRect(ax + aw * 0.38, top, aw * 0.24, noteY - top + noteH / 2, 2); ctx.fill();
+            ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
           }
         } else if (headY < noteY) {
           const { x: hx, w: hw } = laneAt(note.lane, headP, W);
-          const trailGrad = ctx.createLinearGradient(0, headY, 0, noteY);
-          trailGrad.addColorStop(0, `${lc}20`); trailGrad.addColorStop(1, `${lc}55`);
-          ctx.fillStyle = trailGrad;
+          ctx.fillStyle = 'rgba(245,240,228,0.15)';
           ctx.beginPath();
-          ctx.moveTo(hx + hw * 0.28, headY); ctx.lineTo(hx + hw * 0.72, headY);
-          ctx.lineTo(lx + lw * 0.72, noteY + noteH / 2); ctx.lineTo(lx + lw * 0.28, noteY + noteH / 2);
+          ctx.moveTo(hx + hw * 0.25, headY); ctx.lineTo(hx + hw * 0.75, headY);
+          ctx.lineTo(lx + lw * 0.75, noteY + noteH / 2); ctx.lineTo(lx + lw * 0.25, noteY + noteH / 2);
           ctx.closePath(); ctx.fill();
+          // Colored center ribbon
+          ctx.fillStyle = lc; ctx.globalAlpha = 0.45;
+          ctx.shadowColor = lc; ctx.shadowBlur = 6;
+          ctx.beginPath();
+          ctx.moveTo(hx + hw * 0.40, headY); ctx.lineTo(hx + hw * 0.60, headY);
+          ctx.lineTo(lx + lw * 0.60, noteY + noteH / 2); ctx.lineTo(lx + lw * 0.40, noteY + noteH / 2);
+          ctx.closePath(); ctx.fill();
+          ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
         }
-        drawNote(ctx, noteX, noteY, noteW, noteH, r, lc, prog);
+        drawKey(ctx, noteX, noteY, noteW, noteH, r, lc, prog, true);
       }
     }
 
-    // ── hit zone buttons ──
-    const btnY = hitY + 2; const btnH = H - btnY - 4;
+    // ── 6. HIT ZONE BASELINE ────────────────────────────────────
+    // Thick white glowing baseline — the stripe on the note must line up with this
+    ctx.shadowColor = 'rgba(255,255,255,0.8)'; ctx.shadowBlur = 18;
+    ctx.strokeStyle = 'rgba(255,255,255,0.95)'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(hwBot.left - 16, hitY); ctx.lineTo(hwBot.right + 16, hitY); ctx.stroke();
+    ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+    // Subtle glow bloom below baseline
+    const baseGlow = ctx.createLinearGradient(0, hitY, 0, hitY + 20);
+    baseGlow.addColorStop(0, 'rgba(255,255,255,0.08)');
+    baseGlow.addColorStop(1, 'rgba(255,255,255,0.0)');
+    ctx.fillStyle = baseGlow; ctx.fillRect(hwBot.left - 16, hitY, hwBot.width + 32, 20);
+
+    // ── 7. HIT ZONE BUTTONS (ivory piano keys) ──────────────────
+    const btnY = hitY + 3; const btnH = H - btnY - 4;
     for (let i = 0; i < LANE_COUNT; i++) {
       const { x, w } = laneAt(i, 1, W);
-      const pressed = laneRef.current[i].pressed; const lc = LANE_COLORS[i];
-      const bx = x + 6; const bw = w - 12;
-      ctx.shadowColor = pressed ? lc : 'transparent'; ctx.shadowBlur = pressed ? 35 : 0;
-      const bf = ctx.createLinearGradient(bx, btnY, bx, btnY + btnH);
-      bf.addColorStop(0, pressed ? `${lc}40` : 'rgba(14,8,28,0.92)'); bf.addColorStop(1, pressed ? `${lc}22` : 'rgba(7,3,14,0.92)');
-      ctx.fillStyle = bf; ctx.beginPath(); ctx.roundRect(bx, btnY, bw, btnH, 14); ctx.fill();
-      ctx.strokeStyle = pressed ? lc : `${lc}65`; ctx.lineWidth = pressed ? 2.5 : 1.5;
-      ctx.beginPath(); ctx.roundRect(bx, btnY, bw, btnH, 14); ctx.stroke();
-      // Bottom accent strip
-      ctx.fillStyle = pressed ? lc : `${lc}50`; ctx.globalAlpha = pressed ? 0.9 : 0.45;
-      ctx.beginPath(); ctx.roundRect(bx + 4, btnY + btnH - 7, bw - 8, 7, [0, 0, 10, 10]); ctx.fill();
-      ctx.globalAlpha = 1;
-      const fs = Math.max(13, Math.floor(btnH * 0.30));
-      ctx.fillStyle = pressed ? '#fff' : `${lc}CC`;
+      const pressed = laneRef.current[i].pressed;
+      const lc = LANE_COLORS[i];
+      const bx = x + 5; const bw = w - 10;
+
+      // Drop shadow (simulated — shadow behind the key)
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.beginPath(); ctx.roundRect(bx + 2, btnY + 4, bw, btnH, 12); ctx.fill();
+
+      // Ivory key body
+      const kGrad = ctx.createLinearGradient(bx, btnY, bx, btnY + btnH);
+      if (pressed) {
+        kGrad.addColorStop(0, 'rgba(215,208,196,1)');
+        kGrad.addColorStop(1, 'rgba(200,193,180,1)');
+      } else {
+        kGrad.addColorStop(0, 'rgba(255,252,245,1)');
+        kGrad.addColorStop(0.25, 'rgba(252,248,238,1)');
+        kGrad.addColorStop(0.8, 'rgba(242,236,222,1)');
+        kGrad.addColorStop(1, 'rgba(230,223,208,1)');
+      }
+      ctx.fillStyle = kGrad;
+      ctx.beginPath(); ctx.roundRect(bx, btnY + (pressed ? 2 : 0), bw, btnH - (pressed ? 2 : 0), 12); ctx.fill();
+
+      // Key border (subtle groove edge)
+      ctx.strokeStyle = pressed ? 'rgba(100,94,82,0.6)' : 'rgba(180,172,158,0.5)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.roundRect(bx, btnY + (pressed ? 2 : 0), bw, btnH - (pressed ? 2 : 0), 12); ctx.stroke();
+
+      // Top highlight (3D key lighting)
+      if (!pressed) {
+        ctx.fillStyle = 'rgba(255,255,255,0.7)';
+        ctx.beginPath(); ctx.roundRect(bx + 3, btnY + 2, bw - 6, btnH * 0.12, [8, 8, 0, 0]); ctx.fill();
+      }
+
+      // COLORED STRIPE on the key (matches note center stripe)
+      const stripeTop = btnY + btnH * 0.36 + (pressed ? 2 : 0);
+      const stripeH   = Math.max(6, btnH * 0.14);
+      ctx.shadowColor = lc; ctx.shadowBlur = pressed ? 20 : 12;
+      ctx.fillStyle = lc; ctx.globalAlpha = pressed ? 1 : 0.85;
+      ctx.beginPath(); ctx.roundRect(bx + 5, stripeTop, bw - 10, stripeH, stripeH * 0.4); ctx.fill();
+      // Bright core of stripe
+      ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.globalAlpha = pressed ? 0.8 : 0.6;
+      ctx.beginPath(); ctx.roundRect(bx + 8, stripeTop + stripeH * 0.1, bw - 16, stripeH * 0.4, stripeH * 0.2); ctx.fill();
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+
+      // Key label (dark text below stripe)
+      const fs = Math.max(13, Math.floor(btnH * 0.26));
+      ctx.fillStyle = pressed ? '#555' : '#2a2520';
       ctx.font = `bold ${fs}px "Space Mono", monospace`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(LANE_KEYS[i].toUpperCase(), x + w / 2, btnY + btnH / 2);
-      ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+      ctx.fillText(LANE_KEYS[i].toUpperCase(), x + w / 2, btnY + btnH * 0.72 + (pressed ? 2 : 0));
     }
 
     if (dirty) syncDisplay();
 
+    // ── end check ──
     const allDone = notesRef.current.every(ns => ns.hit || ns.missed);
     const lastT   = notesRef.current.length ? Math.max(...notesRef.current.map(ns => ns.note.time)) : 0;
     if ((allDone && t > lastT + 1.5 && t > 2) || t >= song.duration) { finishGame(); return; }
@@ -435,12 +497,12 @@ export default function Game() {
   // ── render ──
   const gs = displayGs; const song = songRef.current;
   const puColor = puDisplay?.color ?? '#E5B800';
-  const comboColor = gs.combo < 10 ? 'hsl(30 15% 45%)' : gs.combo < 20 ? LANE_COLORS[2] : gs.combo < 40 ? '#E5B800' : gs.combo < 60 ? '#E53A00' : '#48E5C2';
+  const comboColor = gs.combo < 10 ? '#888' : gs.combo < 20 ? LANE_COLORS[2] : gs.combo < 40 ? '#E5B800' : gs.combo < 60 ? '#E53A00' : '#48E5C2';
 
   return (
-    <div className="fixed inset-0 flex flex-col overflow-hidden" style={{ background: '#05030d' }}>
+    <div className="fixed inset-0 flex flex-col overflow-hidden" style={{ background: '#0c0c14' }}>
       {/* HUD */}
-      <div className="flex items-center justify-between px-4 py-2 flex-shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+      <div className="flex items-center justify-between px-4 py-2 flex-shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <button data-testid="button-quit" onClick={() => { audioRef.current?.pause(); setLocation('/songs'); }}
           className="font-mono text-xs tracking-widest transition-colors" style={{ color: 'hsl(30 15% 30%)' }}
           onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#E53A00')}
@@ -457,7 +519,7 @@ export default function Game() {
           <div className="text-center">
             <div className="font-mono text-xs" style={{ color: 'hsl(30 15% 38%)' }}>COMBO</div>
             <div className="font-mono font-bold text-xl leading-none" data-testid="text-combo"
-              style={{ color: comboColor, textShadow: gs.combo >= 20 ? `0 0 15px ${comboColor}` : 'none' }}>
+              style={{ color: comboColor, textShadow: gs.combo >= 20 ? `0 0 12px ${comboColor}` : 'none' }}>
               {gs.combo > 0 ? gs.combo : '—'}
             </div>
           </div>
@@ -473,7 +535,7 @@ export default function Game() {
         </div>
       </div>
 
-      {/* Progress */}
+      {/* Progress bar */}
       <div className="h-0.5 flex-shrink-0" style={{ background: 'rgba(255,255,255,0.04)' }}>
         <div className="h-full" style={{ width: `${(gs.progress || 0) * 100}%`, background: 'linear-gradient(90deg, #E53A00, #A855F7, #48E5C2)', transition: 'width 0.2s linear' }} />
       </div>
@@ -486,10 +548,10 @@ export default function Game() {
         {puDisplay && (
           <div className="absolute top-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 pointer-events-none">
             <div className="font-mono font-bold text-base px-5 py-2 tracking-[0.3em]"
-              style={{ color: puColor, border: `2px solid ${puColor}`, background: `${puColor}15`, textShadow: `0 0 20px ${puColor}`, boxShadow: `0 0 30px ${puColor}40`, clipPath: 'polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)' }}>
+              style={{ color: puColor, border: `2px solid ${puColor}`, background: `${puColor}18`, textShadow: `0 0 20px ${puColor}`, boxShadow: `0 0 30px ${puColor}40`, clipPath: 'polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)' }}>
               {puDisplay.label} ×{puDisplay.multiplier}
             </div>
-            <div className="w-36 h-1" style={{ background: 'rgba(255,255,255,0.1)' }}>
+            <div className="w-36 h-1" style={{ background: 'rgba(255,255,255,0.08)' }}>
               <div className="h-full" style={{ width: `${puDisplay.progress * 100}%`, background: puColor }} />
             </div>
           </div>
@@ -498,12 +560,11 @@ export default function Game() {
         {/* Judgment text */}
         {displayJudge.map(j => {
           if (Date.now() - j.ts > 600) return null;
-          const pct = (j.lane / LANE_COUNT + 1 / (LANE_COUNT * 2)) * 100;
+          const pct   = (j.lane / LANE_COUNT + 1 / (LANE_COUNT * 2)) * 100;
           const color = j.type === 'PERFECT+' ? '#E5B800' : j.type === 'PERFECT' ? '#48E5C2' : j.type === 'GOOD' ? '#A855F7' : '#444';
-          const big   = j.type === 'PERFECT+';
           return (
             <div key={j.id} className="absolute font-mono font-bold pointer-events-none judgment-pop"
-              style={{ left: `${pct}%`, top: '72%', transform: 'translateX(-50%)', color, textShadow: `0 0 18px ${color}`, letterSpacing: '0.12em', fontSize: big ? 15 : 12 }}>
+              style={{ left: `${pct}%`, top: '72%', transform: 'translateX(-50%)', color, textShadow: `0 0 18px ${color}`, letterSpacing: '0.12em', fontSize: j.type === 'PERFECT+' ? 15 : 12 }}>
               {j.type}
             </div>
           );
@@ -511,7 +572,7 @@ export default function Game() {
 
         {/* Loading overlay */}
         {(phase === 'loading' || phase === 'buffering') && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-5" style={{ background: 'rgba(5,3,13,0.96)' }}>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-5" style={{ background: 'rgba(12,12,20,0.97)' }}>
             <div className="font-mono text-xs tracking-[0.3em]" style={{ color: '#48E5C2' }}>{loadMsg}</div>
             {song && (
               <div className="text-center">
@@ -522,9 +583,7 @@ export default function Game() {
             )}
             {phase === 'buffering' && bufferPct > 0 && (
               <div className="w-48">
-                <div className="h-0.5 w-full mb-1" style={{ background: 'rgba(255,255,255,0.08)' }}>
-                  <div className="h-full" style={{ width: `${bufferPct}%`, background: '#E53A00' }} />
-                </div>
+                <div className="h-0.5 w-full mb-1" style={{ background: 'rgba(255,255,255,0.08)' }}><div className="h-full" style={{ width: `${bufferPct}%`, background: '#E53A00' }} /></div>
                 <div className="font-mono text-xs text-center" style={{ color: 'hsl(30 15% 40%)' }}>{bufferPct}%</div>
               </div>
             )}
@@ -534,8 +593,8 @@ export default function Game() {
 
         {/* Countdown */}
         {phase === 'countdown' && (
-          <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(5,3,13,0.80)' }}>
-            <div className="font-mono font-bold text-center" style={{ fontSize: 120, lineHeight: 1, background: 'linear-gradient(135deg, #E53A00, #A855F7, #48E5C2)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', filter: 'drop-shadow(0 0 30px rgba(168,85,247,0.6))' }}>
+          <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(12,12,20,0.82)' }}>
+            <div className="font-mono font-bold text-center" style={{ fontSize: 120, lineHeight: 1, background: 'linear-gradient(135deg, #E53A00, #A855F7, #48E5C2)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', filter: 'drop-shadow(0 0 30px rgba(168,85,247,0.5))' }}>
               {countdown > 0 ? countdown : 'GO!'}
             </div>
           </div>
@@ -545,44 +604,62 @@ export default function Game() {
   );
 }
 
-// ── note drawing helper ──────────────────────────────────────────
-function drawNote(
+// ═══════════════════════════════════════════════════════════════
+//  KEY NOTE DRAWING — ivory piano key with colored center stripe
+// ═══════════════════════════════════════════════════════════════
+function drawKey(
   ctx: CanvasRenderingContext2D,
   noteX: number, noteY: number,
   noteW: number, noteH: number,
-  r: number, lc: string, prog: number
+  r: number, lc: string, prog: number,
+  _isHold: boolean
 ) {
-  ctx.shadowColor = lc; ctx.shadowBlur = lerp(10, 28, prog);
+  // ── Drop shadow ──
+  ctx.shadowColor = 'rgba(0,0,0,0.65)';
+  ctx.shadowBlur  = lerp(4, 14, prog);
+  ctx.shadowOffsetY = lerp(2, 5, prog);
 
-  // Dark body
+  // ── Ivory body ──
   const bodyGrad = ctx.createLinearGradient(noteX, noteY - noteH / 2, noteX, noteY + noteH / 2);
-  bodyGrad.addColorStop(0, 'rgba(18,8,32,0.92)'); bodyGrad.addColorStop(0.45, 'rgba(10,4,20,0.92)'); bodyGrad.addColorStop(1, 'rgba(6,2,12,0.92)');
+  bodyGrad.addColorStop(0,    'rgba(255, 252, 243, 0.98)');
+  bodyGrad.addColorStop(0.22, 'rgba(252, 248, 238, 0.97)');
+  bodyGrad.addColorStop(0.75, 'rgba(242, 236, 220, 0.97)');
+  bodyGrad.addColorStop(1,    'rgba(228, 220, 204, 0.96)');
   ctx.fillStyle = bodyGrad;
   ctx.beginPath(); ctx.roundRect(noteX, noteY - noteH / 2, noteW, noteH, r); ctx.fill();
 
-  // Colored border
-  ctx.strokeStyle = lc; ctx.lineWidth = lerp(1.5, 3, prog);
+  // ── Subtle edge border ──
+  ctx.shadowColor   = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+  ctx.strokeStyle   = 'rgba(160, 150, 132, 0.45)';
+  ctx.lineWidth     = 1;
   ctx.beginPath(); ctx.roundRect(noteX, noteY - noteH / 2, noteW, noteH, r); ctx.stroke();
 
-  // ── CENTER LINE (PERFECT+ indicator) ──
-  const clGrad = ctx.createLinearGradient(noteX, noteY, noteX + noteW, noteY);
-  clGrad.addColorStop(0,   'rgba(255,255,255,0.0)');
-  clGrad.addColorStop(0.1, `${lc}FF`);
-  clGrad.addColorStop(0.5, 'rgba(255,255,255,0.95)');
-  clGrad.addColorStop(0.9, `${lc}FF`);
-  clGrad.addColorStop(1,   'rgba(255,255,255,0.0)');
-  ctx.strokeStyle = clGrad; ctx.lineWidth = lerp(1, 2.5, prog);
-  ctx.shadowColor = 'rgba(255,255,255,0.8)'; ctx.shadowBlur = lerp(4, 10, prog);
-  ctx.beginPath(); ctx.moveTo(noteX + 4, noteY); ctx.lineTo(noteX + noteW - 4, noteY); ctx.stroke();
+  // ── Top highlight (3D key bevel) ──
+  ctx.fillStyle = 'rgba(255,255,255,0.65)';
+  ctx.beginPath();
+  ctx.roundRect(noteX + 3, noteY - noteH / 2 + 2, noteW - 6, noteH * 0.18, [r, r, 0, 0]);
+  ctx.fill();
 
-  ctx.shadowColor = lc; ctx.shadowBlur = lerp(10, 28, prog);
+  // ── COLORED CENTER STRIPE ── (this is the PERFECT+ target line)
+  const stripeH = Math.max(6, noteH * 0.26);
+  const stripeY = noteY - stripeH / 2;
 
-  // Bright bottom strip
-  ctx.fillStyle = lc; ctx.globalAlpha = 0.9;
-  ctx.beginPath(); ctx.roundRect(noteX + 2, noteY + noteH / 2 - noteH * 0.3, noteW - 4, noteH * 0.3, [0, 0, r, r]); ctx.fill();
-  // Top highlight
-  ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.globalAlpha = 1;
-  ctx.beginPath(); ctx.roundRect(noteX + 4, noteY - noteH / 2 + 3, noteW - 8, noteH * 0.22, r * 0.6); ctx.fill();
+  // Outer glow
+  ctx.shadowColor = lc; ctx.shadowBlur = lerp(14, 30, prog);
+  ctx.fillStyle   = lc; ctx.globalAlpha = 0.9;
+  ctx.beginPath(); ctx.roundRect(noteX + 2, stripeY, noteW - 4, stripeH, stripeH * 0.35); ctx.fill();
 
-  ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+  // Bright inner core of stripe
+  const coreGrad = ctx.createLinearGradient(noteX, stripeY, noteX, stripeY + stripeH);
+  coreGrad.addColorStop(0,   'rgba(255,255,255,0.5)');
+  coreGrad.addColorStop(0.4, 'rgba(255,255,255,0.85)');
+  coreGrad.addColorStop(1,   'rgba(255,255,255,0.2)');
+  ctx.fillStyle = coreGrad; ctx.globalAlpha = 0.75;
+  ctx.beginPath();
+  ctx.roundRect(noteX + 5, stripeY + stripeH * 0.08, noteW - 10, stripeH * 0.48, stripeH * 0.2);
+  ctx.fill();
+
+  ctx.globalAlpha  = 1;
+  ctx.shadowBlur   = 0;
+  ctx.shadowColor  = 'transparent';
 }
