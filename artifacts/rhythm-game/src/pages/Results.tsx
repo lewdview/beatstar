@@ -1,8 +1,8 @@
 import { useParams, useLocation } from "wouter";
 import { useEffect, useState } from "react";
-import { getSongById } from "@/game/api";
+import { getSongById, loadCatalog } from "@/game/api";
 import type { GameSong } from "@/game/api";
-import { getHighScore } from "@/game/progress";
+import { getHighScore, getChapterPlatinums } from "@/game/progress";
 
 interface ResultData {
   score: number; maxCombo: number; perfectPlus: number;
@@ -18,6 +18,10 @@ const MEDALS: Record<string, { color: string; abbr: string; message: string }> =
 };
 
 const MEDAL_ORDER = ['NONE','BRONZE','SILVER','GOLD','PLATINUM'];
+
+const CHAPTER_PLAT_NEEDED: Record<number, number> = {
+  1:5, 2:5, 3:6, 4:7, 5:7, 6:8, 7:9, 8:10, 9:11, 10:12, 11:13, 12:15,
+};
 
 function Counter({ target, duration = 1400 }: { target: number; duration?: number }) {
   const [value, setValue] = useState(0);
@@ -38,10 +42,12 @@ function Counter({ target, duration = 1400 }: { target: number; duration?: numbe
 export default function Results() {
   const { songId } = useParams<{ songId: string }>();
   const [, setLocation] = useLocation();
-  const [song, setSong]     = useState<GameSong | null>(null);
-  const [result, setResult] = useState<ResultData | null>(null);
-  const [isNew, setIsNew]   = useState(false);
-  const [ready, setReady]   = useState(false);
+  const [song, setSong]         = useState<GameSong | null>(null);
+  const [result, setResult]     = useState<ResultData | null>(null);
+  const [isNew, setIsNew]       = useState(false);
+  const [ready, setReady]       = useState(false);
+  const [nextSong, setNextSong] = useState<GameSong | null>(null);
+  const [chapterMonth, setChapterMonth] = useState<number>(1);
 
   useEffect(() => {
     if (!songId) { setLocation('/songs'); return; }
@@ -53,7 +59,41 @@ export default function Results() {
     setResult(data);
     const prev = getHighScore(songId);
     if (data.score >= prev) setIsNew(true);
-    getSongById(songId).then(s => { setSong(s); setReady(true); });
+
+    Promise.all([getSongById(songId), loadCatalog()]).then(([s, catalog]) => {
+      setSong(s);
+
+      if (s) {
+        const month = new Date(s.date).getMonth() + 1;
+        setChapterMonth(month);
+
+        // Sort all songs by day to find next
+        const sorted = [...catalog].sort((a, b) => a.day - b.day);
+        const idx = sorted.findIndex(c => c.id === s.id);
+
+        if (idx >= 0 && idx < sorted.length - 1) {
+          const candidate = sorted[idx + 1];
+          const cMonth = new Date(candidate.date).getMonth() + 1;
+          const monthSongs = sorted.filter(c => new Date(c.date).getMonth() + 1 === cMonth);
+          // Last 5 of the month are bonus
+          const bonusStart = monthSongs.length - 5;
+          const candidateIdxInMonth = monthSongs.findIndex(c => c.id === candidate.id);
+          const isBonus = candidateIdxInMonth >= bonusStart;
+
+          if (isBonus) {
+            const regularIds = monthSongs.slice(0, bonusStart).map(c => c.id);
+            const platinums = getChapterPlatinums(regularIds);
+            const needed = CHAPTER_PLAT_NEEDED[cMonth] ?? 5;
+            if (platinums >= needed) setNextSong(candidate);
+            // else bonus locked — no next stage button
+          } else {
+            setNextSong(candidate);
+          }
+        }
+      }
+
+      setReady(true);
+    });
   }, [songId, setLocation]);
 
   if (!ready || !result) {
@@ -68,7 +108,6 @@ export default function Results() {
   const mc       = medal.color;
   const total    = result.total || 1;
   const accuracy = Math.round(((result.perfectPlus * 1.0 + result.perfects * 0.9 + result.goods * 0.5) / total) * 100);
-  const mIdx     = MEDAL_ORDER.indexOf(result.medal);
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center px-4 py-8"
@@ -127,7 +166,7 @@ export default function Results() {
             </div>
             {/* Medal tier ladder */}
             <div className="flex flex-col gap-0.5 items-end">
-              {MEDAL_ORDER.slice(1).reverse().map((m, i) => {
+              {MEDAL_ORDER.slice(1).reverse().map(m => {
                 const cfg = MEDALS[m]; const active = result.medal === m;
                 return (
                   <div key={m} className="flex items-center gap-1.5">
@@ -187,32 +226,58 @@ export default function Results() {
           ))}
         </div>
 
-        {/* ── Buttons ── */}
-        <div className="flex gap-3">
+        {/* ── Primary action: NEXT STAGE or CHAPTER ── */}
+        {nextSong ? (
+          <div className="mb-2">
+            <div className="font-mono text-xs mb-1.5 px-1" style={{ color: 'rgba(255,255,255,0.2)', letterSpacing: '0.3em' }}>
+              NEXT — DAY {nextSong.day}
+            </div>
+            <button
+              onClick={() => setLocation(`/play/${nextSong.id}`)}
+              className="w-full py-5 font-mono font-bold text-base tracking-[0.35em] transition-all duration-75"
+              style={{ border: '3px solid #F2F0E8', color: '#080808', background: '#F2F0E8', boxShadow: `6px 6px 0 ${mc}` }}
+              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.boxShadow = `3px 3px 0 ${mc}`; el.style.transform = 'translate(3px,3px)'; }}
+              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.boxShadow = `6px 6px 0 ${mc}`; el.style.transform = ''; }}
+            >
+              ▶ NEXT STAGE — {nextSong.title.length > 22 ? nextSong.title.slice(0, 22) + '…' : nextSong.title}
+            </button>
+          </div>
+        ) : (
+          <div className="mb-2">
+            <button
+              onClick={() => setLocation(`/chapter/${chapterMonth}`)}
+              className="w-full py-5 font-mono font-bold text-base tracking-[0.35em] transition-all duration-75"
+              style={{ border: '3px solid #F2F0E8', color: '#080808', background: '#F2F0E8', boxShadow: '6px 6px 0 rgba(255,255,255,0.15)' }}
+              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.boxShadow = '3px 3px 0 rgba(255,255,255,0.15)'; el.style.transform = 'translate(3px,3px)'; }}
+              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.boxShadow = '6px 6px 0 rgba(255,255,255,0.15)'; el.style.transform = ''; }}
+            >
+              ← BACK TO CHAPTER
+            </button>
+          </div>
+        )}
+
+        {/* ── Secondary actions ── */}
+        <div className="flex gap-2">
           <button data-testid="button-retry" onClick={() => setLocation(`/play/${songId}`)}
-            className="flex-1 py-4 font-mono font-bold text-sm tracking-[0.3em] transition-all duration-75"
-            style={{ border: '2px solid rgba(255,255,255,0.2)', color: '#F2F0E8', background: 'transparent', boxShadow: '4px 4px 0 rgba(255,255,255,0.08)' }}
-            onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = '#E53A00'; el.style.boxShadow = '4px 4px 0 #E53A00'; el.style.transform = 'translate(-1px,-1px)'; }}
-            onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = 'rgba(255,255,255,0.2)'; el.style.boxShadow = '4px 4px 0 rgba(255,255,255,0.08)'; el.style.transform = ''; }}>
+            className="flex-1 py-3 font-mono font-bold text-sm tracking-[0.3em] transition-all duration-75"
+            style={{ border: '2px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.6)', background: 'transparent', boxShadow: '3px 3px 0 rgba(255,255,255,0.06)' }}
+            onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = '#E53A00'; el.style.borderColor = '#E53A00'; el.style.boxShadow = '3px 3px 0 #E53A00'; }}
+            onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.color = 'rgba(255,255,255,0.6)'; el.style.borderColor = 'rgba(255,255,255,0.15)'; el.style.boxShadow = '3px 3px 0 rgba(255,255,255,0.06)'; }}>
             ↺ RETRY
           </button>
-          <button data-testid="button-select-song" onClick={() => setLocation('/campaign')}
-            className="flex-1 py-4 font-mono font-bold text-sm tracking-[0.3em] transition-all duration-75"
-            style={{ border: '2px solid #F2F0E8', color: '#080808', background: '#F2F0E8', boxShadow: '4px 4px 0 #A855F7' }}
-            onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.boxShadow = '2px 2px 0 #A855F7'; el.style.transform = 'translate(2px,2px)'; }}
-            onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.boxShadow = '4px 4px 0 #A855F7'; el.style.transform = ''; }}>
-            ▶ CAMPAIGN
+          <button onClick={() => setLocation(`/chapter/${chapterMonth}`)}
+            className="flex-1 py-3 font-mono font-bold text-sm tracking-[0.3em] transition-all duration-75"
+            style={{ border: '2px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.6)', background: 'transparent', boxShadow: '3px 3px 0 rgba(255,255,255,0.06)' }}
+            onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = '#A855F7'; el.style.borderColor = '#A855F7'; el.style.boxShadow = '3px 3px 0 #A855F7'; }}
+            onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.color = 'rgba(255,255,255,0.6)'; el.style.borderColor = 'rgba(255,255,255,0.15)'; el.style.boxShadow = '3px 3px 0 rgba(255,255,255,0.06)'; }}>
+            ≡ CHAPTER
           </button>
-        </div>
-
-        {/* Free play link */}
-        <div className="text-center mt-3">
-          <button onClick={() => setLocation('/songs')}
-            className="font-mono text-xs tracking-widest transition-colors"
-            style={{ color: 'rgba(255,255,255,0.2)' }}
-            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#48E5C2')}
-            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.2)')}>
-            ◈ FREE PLAY
+          <button data-testid="button-select-song" onClick={() => setLocation('/campaign')}
+            className="flex-1 py-3 font-mono font-bold text-sm tracking-[0.3em] transition-all duration-75"
+            style={{ border: '2px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.6)', background: 'transparent', boxShadow: '3px 3px 0 rgba(255,255,255,0.06)' }}
+            onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = '#48E5C2'; el.style.borderColor = '#48E5C2'; el.style.boxShadow = '3px 3px 0 #48E5C2'; }}
+            onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.color = 'rgba(255,255,255,0.6)'; el.style.borderColor = 'rgba(255,255,255,0.15)'; el.style.boxShadow = '3px 3px 0 rgba(255,255,255,0.06)'; }}>
+            ◈ CAMPAIGN
           </button>
         </div>
       </div>
