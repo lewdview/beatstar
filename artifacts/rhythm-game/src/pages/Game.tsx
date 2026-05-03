@@ -275,6 +275,16 @@ export default function Game() {
   const optsRef = useRef(opts);
   useEffect(() => { optsRef.current = opts; }, [opts]);
   const [showOptions, setShowOptions] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+    else document.exitFullscreen?.();
+  };
 
   const syncDisplay = useCallback(() => {
     setDisplayGs({ ...gsRef.current });
@@ -1675,9 +1685,13 @@ export default function Game() {
 
   return (
     <div
-      className="fixed inset-0 flex flex-col overflow-hidden"
+      className="fixed inset-0 flex justify-center overflow-hidden"
       style={{ background: "#0c0c14" }}
     >
+      <div
+        className="relative flex flex-col overflow-hidden w-full"
+        style={{ maxWidth: isFullscreen ? 420 : undefined }}
+      >
       {/* HUD */}
       <div
         className="flex items-center justify-between px-3 py-2 flex-shrink-0"
@@ -1707,6 +1721,32 @@ export default function Game() {
             onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = showOptions ? "#E5B800" : "hsl(30 15% 28%)")}
           >
             ⚙
+          </button>
+          <button
+            onClick={toggleFullscreen}
+            title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+            style={{ color: isFullscreen ? "#ACE894" : "hsl(30 15% 28%)", lineHeight: 1, padding: "2px 3px", transition: "color 0.15s" }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#ACE894")}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = isFullscreen ? "#ACE894" : "hsl(30 15% 28%)")}
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+              {isFullscreen ? (
+                <>
+                  <path d="M4 0H0v4h1.5V1.5H4V0z" opacity=".35"/>
+                  <path d="M8 0h4v4h-1.5V1.5H8V0z" opacity=".35"/>
+                  <path d="M0 8h1.5v2.5H4V12H0V8z" opacity=".35"/>
+                  <path d="M12 8h-1.5v2.5H8V12h4V8z" opacity=".35"/>
+                  <rect x="3.5" y="3.5" width="5" height="5" rx="0.5"/>
+                </>
+              ) : (
+                <>
+                  <path d="M0 0h4v1.5H1.5V4H0V0z"/>
+                  <path d="M12 0H8v1.5h2.5V4H12V0z"/>
+                  <path d="M0 12h4v-1.5H1.5V8H0v4z"/>
+                  <path d="M12 12H8v-1.5h2.5V8H12v4z"/>
+                </>
+              )}
+            </svg>
           </button>
         </div>
 
@@ -2116,6 +2156,7 @@ export default function Game() {
             </div>
           </div>
         )}
+      </div>
       </div>
     </div>
   );
