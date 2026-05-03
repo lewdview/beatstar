@@ -4,6 +4,7 @@ import Home from "@/pages/Home";
 import SongSelect from "@/pages/SongSelect";
 import Campaign from "@/pages/Campaign";
 import Chapter from "@/pages/Chapter";
+import SongDetail from "@/pages/SongDetail";
 import Game from "@/pages/Game";
 import Results from "@/pages/Results";
 
@@ -16,6 +17,7 @@ function Router() {
       <Route path="/campaign" component={Campaign} />
       <Route path="/chapter/:month" component={Chapter} />
       <Route path="/songs" component={SongSelect} />
+      <Route path="/song/:songId" component={SongDetail} />
       <Route path="/play/:songId" component={Game} />
       <Route path="/results/:songId" component={Results} />
       <Route>

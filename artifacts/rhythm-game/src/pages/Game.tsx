@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useLocation } from "wouter";
 import { getSongById, saveHighScore, isSongTimeLocked } from "@/game/api";
-import { saveMedal } from "@/game/progress";
+import { saveMedal, saveScoreHistory } from "@/game/progress";
 import type { GameSong } from "@/game/api";
 import type { Note, JudgmentDisplay, GameState } from "@/game/types";
 
@@ -434,6 +434,7 @@ export default function Game() {
     if (songRef.current) {
       saveHighScore(songRef.current.id, gs.score);
       saveMedal(songRef.current.id, medal);
+      saveScoreHistory(songRef.current.id, gs.score);
     }
     sessionStorage.setItem(
       `result_${songId}`,
@@ -452,8 +453,15 @@ export default function Game() {
   }, [songId, setLocation]);
 
   const doAbandon = useCallback(() => {
-    finishGame();
-  }, [finishGame]);
+    if (phaseRef.current === "finished") return;
+    phaseRef.current = "finished";
+    cancelAnimationFrame(rafRef.current);
+    audioRef.current?.pause();
+    audioRef.current && (audioRef.current.currentTime = 0);
+    const origin = sessionStorage.getItem(`game_origin_${songId}`) ?? '';
+    const dest = origin === 'songs' ? '/songs' : origin ? `/${origin}` : '/campaign';
+    setTimeout(() => setLocation(dest), 100);
+  }, [songId, setLocation]);
 
   const doReturn = useCallback(() => {
     const actx = audioCtxRef.current;
@@ -1439,15 +1447,22 @@ export default function Game() {
       phaseRef.current = "loading";
       setPhase("loading");
       const song = await getSongById(songId);
+      const origin = sessionStorage.getItem(`game_origin_${songId}`) ?? '';
+      const originRoute = origin === 'songs' ? '/songs' : origin ? `/${origin}` : '/campaign';
       if (cancelled || !song) {
-        setLocation("/songs");
+        setLocation(originRoute);
         return;
       }
       if (isSongTimeLocked(song)) {
-        setLocation("/campaign");
+        setLocation(originRoute);
         return;
       }
       songRef.current = song;
+      // Apply difficulty override set by SongDetail page
+      const diffOverrideNum = parseInt(sessionStorage.getItem(`diff_override_${songId}`) ?? '', 10);
+      if (!isNaN(diffOverrideNum) && diffOverrideNum >= 1 && diffOverrideNum <= 10) {
+        songRef.current.difficultyLevel = diffOverrideNum;
+      }
       // Pre-load + pre-blur cover art for background effect
       coverImgRef.current = null;
       coverBlurRef.current = null;
@@ -1580,7 +1595,10 @@ export default function Game() {
     };
 
     init().catch(() => {
-      if (!cancelled) setLocation("/songs");
+      if (!cancelled) {
+        const origin = sessionStorage.getItem(`game_origin_${songId}`) ?? '';
+        setLocation(origin === 'songs' ? '/songs' : origin ? `/${origin}` : '/campaign');
+      }
     });
     return () => {
       cancelled = true;
@@ -1629,7 +1647,8 @@ export default function Game() {
           data-testid="button-quit"
           onClick={() => {
             audioRef.current?.pause();
-            setLocation("/songs");
+            const origin = sessionStorage.getItem(`game_origin_${songId}`) ?? '';
+            setLocation(origin === 'songs' ? '/songs' : origin ? `/${origin}` : '/campaign');
           }}
           className="font-mono text-xs tracking-widest transition-colors"
           style={{ color: "hsl(30 15% 30%)" }}

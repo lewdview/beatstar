@@ -386,21 +386,40 @@ export default function SongSelect() {
                 )}
               </div>
 
-              <button
-                data-testid="button-play"
-                onClick={() => setLocation(`/play/${selected.id}`)}
-                className="w-full py-5 font-mono font-bold text-sm tracking-[0.4em] uppercase transition-all duration-200 mt-6"
-                style={{
-                  background: 'hsl(14 100% 48%)',
-                  color: '#fff',
-                  clipPath: 'polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)',
-                  boxShadow: '0 0 40px rgba(229,58,0,0.3)',
-                }}
-                onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.boxShadow = '0 0 60px rgba(229,58,0,0.6)')}
-                onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.boxShadow = '0 0 40px rgba(229,58,0,0.3)')}
-              >
-                ▶ START TRANSMISSION
-              </button>
+              <div className="flex flex-col gap-2 mt-6">
+                <button
+                  data-testid="button-play"
+                  onClick={() => {
+                    sessionStorage.setItem(`game_origin_${selected.id}`, 'songs');
+                    sessionStorage.setItem(`diff_override_${selected.id}`, String(selected.difficultyLevel));
+                    setLocation(`/play/${selected.id}`);
+                  }}
+                  className="w-full py-5 font-mono font-bold text-sm tracking-[0.4em] uppercase transition-all duration-200"
+                  style={{
+                    background: 'hsl(14 100% 48%)',
+                    color: '#fff',
+                    clipPath: 'polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)',
+                    boxShadow: '0 0 40px rgba(229,58,0,0.3)',
+                  }}
+                  onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.boxShadow = '0 0 60px rgba(229,58,0,0.6)')}
+                  onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.boxShadow = '0 0 40px rgba(229,58,0,0.3)')}
+                >
+                  ▶ START TRANSMISSION
+                </button>
+                <button
+                  onClick={() => setLocation(`/song/${selected.id}?from=songs`)}
+                  className="w-full py-3 font-mono font-bold text-xs tracking-[0.35em] uppercase transition-all duration-150"
+                  style={{
+                    border: '1px solid hsl(20 25% 18%)',
+                    color: 'hsl(30 15% 50%)',
+                    background: 'transparent',
+                  }}
+                  onMouseEnter={(e) => { const el = e.currentTarget as HTMLElement; el.style.borderColor = '#A855F7'; el.style.color = '#A855F7'; }}
+                  onMouseLeave={(e) => { const el = e.currentTarget as HTMLElement; el.style.borderColor = 'hsl(20 25% 18%)'; el.style.color = 'hsl(30 15% 50%)'; }}
+                >
+                  ◆ TRACK STATS · CHANGE DIFFICULTY
+                </button>
+              </div>
             </>
           ) : (
             <div className="flex items-center justify-center h-full font-mono text-xs tracking-widest" style={{ color: 'hsl(30 15% 30%)' }}>
@@ -416,18 +435,31 @@ export default function SongSelect() {
           className="lg:hidden flex-shrink-0 p-4 border-t"
           style={{ borderColor: 'hsl(20 25% 10%)' }}
         >
-          <button
-            data-testid="button-play-mobile"
-            onClick={() => setLocation(`/play/${selected.id}`)}
-            className="w-full py-4 font-mono font-bold text-sm tracking-[0.3em]"
-            style={{
-              background: 'hsl(14 100% 48%)',
-              color: '#fff',
-              clipPath: 'polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)',
-            }}
-          >
-            ▶ START: {selected.title.substring(0, 20)}
-          </button>
+          <div className="flex gap-2">
+            <button
+              data-testid="button-play-mobile"
+              onClick={() => {
+                sessionStorage.setItem(`game_origin_${selected.id}`, 'songs');
+                sessionStorage.setItem(`diff_override_${selected.id}`, String(selected.difficultyLevel));
+                setLocation(`/play/${selected.id}`);
+              }}
+              className="flex-1 py-4 font-mono font-bold text-sm tracking-[0.3em]"
+              style={{
+                background: 'hsl(14 100% 48%)',
+                color: '#fff',
+                clipPath: 'polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)',
+              }}
+            >
+              ▶ START: {selected.title.substring(0, 16)}
+            </button>
+            <button
+              onClick={() => setLocation(`/song/${selected.id}?from=songs`)}
+              className="py-4 px-4 font-mono font-bold text-xs tracking-widest"
+              style={{ border: '1px solid hsl(20 25% 18%)', color: 'hsl(30 15% 50%)', background: 'transparent' }}
+            >
+              STATS
+            </button>
+          </div>
         </div>
       )}
     </div>

@@ -27,9 +27,9 @@ const MEDAL_ABBR: Record<string, string> = {
 };
 
 // ── Stage row ────────────────────────────────────────────────────
-function StageRow({ song, stageNum, isBonus, locked, lockReason, dc }: {
+function StageRow({ song, stageNum, isBonus, locked, lockReason, dc, from }: {
   song: GameSong; stageNum: number; isBonus: boolean;
-  locked: boolean; lockReason?: 'time' | 'bonus'; dc: string;
+  locked: boolean; lockReason?: 'time' | 'bonus'; dc: string; from: string;
 }) {
   const [, setLocation] = useLocation();
   const medal    = getMedalForSong(song.id);
@@ -38,11 +38,23 @@ function StageRow({ song, stageNum, isBonus, locked, lockReason, dc }: {
   const mc       = MEDAL_COLOR[medal] ?? '#1a1a1a';
   const timeLock = locked && lockReason === 'time';
 
-  // Format unlock date as "JAN 04"
   const unlockLabel = timeLock ? (() => {
     const d = new Date(song.date + 'T12:00:00');
     return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit' }).toUpperCase();
   })() : '';
+
+  const goToDetail = () => {
+    if (locked) return;
+    setLocation(`/song/${song.id}?from=${from}`);
+  };
+
+  const goToPlay = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (locked) return;
+    sessionStorage.setItem(`game_origin_${song.id}`, from);
+    sessionStorage.setItem(`diff_override_${song.id}`, String(song.difficultyLevel));
+    setLocation(`/play/${song.id}`);
+  };
 
   return (
     <div className="flex items-stretch"
@@ -51,7 +63,7 @@ function StageRow({ song, stageNum, isBonus, locked, lockReason, dc }: {
       {/* Number block */}
       <div className="flex-shrink-0 flex items-center justify-center font-mono font-bold text-sm"
         style={{
-          width: 44, flexShrink: 0,
+          width: 40, flexShrink: 0,
           background: cleared ? `${mc}18` : 'rgba(255,255,255,0.02)',
           borderRight: `2px solid ${cleared ? mc : 'rgba(255,255,255,0.07)'}`,
           color: cleared ? mc : 'rgba(255,255,255,0.2)',
@@ -59,72 +71,78 @@ function StageRow({ song, stageNum, isBonus, locked, lockReason, dc }: {
         {String(stageNum).padStart(2, '0')}
       </div>
 
-      {/* Content */}
-      <button
-        onClick={locked ? undefined : () => setLocation(`/play/${song.id}`)}
-        disabled={locked}
-        className="flex-1 text-left px-4 py-3 transition-all duration-75"
+      {/* Content — click to song detail */}
+      <div
+        onClick={goToDetail}
+        className="flex-1 min-w-0 px-3 py-2.5 transition-all duration-75 overflow-hidden"
         style={{ cursor: locked ? 'not-allowed' : 'pointer', background: 'transparent' }}
         onMouseEnter={e => { if (!locked) (e.currentTarget as HTMLElement).style.background = `${dc}08`; }}
         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
       >
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-0.5">
-              {isBonus && (
-                <span className="font-mono font-bold px-1.5 py-px"
-                  style={{ fontSize: 7, color: '#080808', background: '#E5B800', letterSpacing: '0.2em', flexShrink: 0 }}>
-                  ★BONUS
-                </span>
-              )}
-              <span className="font-mono font-bold truncate"
-                style={{ fontSize: 13, color: locked ? 'rgba(255,255,255,0.2)' : cleared ? '#F2F0E8' : 'rgba(255,255,255,0.6)' }}>
-                {timeLock ? '— — —' : song.title}
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="font-mono" style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.15em' }}>DAY {song.day}</span>
-              {!timeLock && <>
-                <span className="font-mono" style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.15em' }}>{song.bpm}BPM</span>
-                <span className="font-mono" style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.15em' }}>{song.notes.length}N</span>
-              </>}
-            </div>
-          </div>
+        <div className="flex items-center gap-1.5 mb-0.5 overflow-hidden">
+          {isBonus && (
+            <span className="font-mono font-bold px-1.5 py-px flex-shrink-0"
+              style={{ fontSize: 7, color: '#080808', background: '#E5B800', letterSpacing: '0.2em' }}>
+              ★BONUS
+            </span>
+          )}
+          <span className="font-mono font-bold flex-1 min-w-0 truncate block"
+            style={{ fontSize: 13, color: locked ? 'rgba(255,255,255,0.2)' : cleared ? '#F2F0E8' : 'rgba(255,255,255,0.6)' }}>
+            {timeLock ? '— — —' : song.title}
+          </span>
+        </div>
+        <div className="flex items-center gap-2.5">
+          <span className="font-mono" style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.15em' }}>DAY {song.day}</span>
+          {!timeLock && <>
+            <span className="font-mono" style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.15em' }}>{song.bpm}BPM</span>
+            <span className="font-mono" style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.15em' }}>{song.notes.length}N</span>
+          </>}
+        </div>
+      </div>
 
-          <div className="flex-shrink-0 text-right">
-            {timeLock ? (
-              <div className="text-right">
-                <div className="font-mono font-bold"
-                  style={{ fontSize: 9, color: 'rgba(255,255,255,0.18)', letterSpacing: '0.2em', border: '1px solid rgba(255,255,255,0.1)', padding: '3px 8px' }}>
-                  ◷ {unlockLabel}
-                </div>
-              </div>
-            ) : locked ? (
-              <div className="font-mono font-bold px-2 py-1"
-                style={{ fontSize: 9, color: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.08)', letterSpacing: '0.2em' }}>
-                🔒 PT LOCK
-              </div>
-            ) : cleared ? (
-              <div>
-                <div className="font-mono font-bold px-2 py-0.5 inline-block"
+      {/* Right action area */}
+      <div className="flex-shrink-0 flex flex-col items-end justify-center gap-1 px-2 py-1.5">
+        {timeLock ? (
+          <div className="font-mono font-bold"
+            style={{ fontSize: 9, color: 'rgba(255,255,255,0.18)', letterSpacing: '0.2em', border: '1px solid rgba(255,255,255,0.1)', padding: '3px 8px' }}>
+            ◷ {unlockLabel}
+          </div>
+        ) : locked ? (
+          <div className="font-mono font-bold px-2 py-1"
+            style={{ fontSize: 9, color: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.08)', letterSpacing: '0.2em' }}>
+            🔒 LOCK
+          </div>
+        ) : (
+          <>
+            {cleared ? (
+              <>
+                <div className="font-mono font-bold px-2 py-0.5"
                   style={{ fontSize: 10, color: '#080808', background: mc, letterSpacing: '0.2em' }}>
                   {MEDAL_ABBR[medal]}
                 </div>
                 {score > 0 && (
-                  <div className="font-mono text-right mt-0.5" style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)' }}>
+                  <div className="font-mono" style={{ fontSize: 8, color: 'rgba(255,255,255,0.22)' }}>
                     {score.toLocaleString()}
                   </div>
                 )}
-              </div>
+              </>
             ) : (
-              <div className="font-mono font-bold px-3 py-1.5 transition-all"
-                style={{ fontSize: 9, color: dc, border: `1px solid ${dc}`, boxShadow: `2px 2px 0 ${dc}`, letterSpacing: '0.2em' }}>
+              <button onClick={goToPlay}
+                className="font-mono font-bold px-2.5 py-1 transition-all"
+                style={{ fontSize: 9, color: dc, border: `1px solid ${dc}`, boxShadow: `2px 2px 0 ${dc}`, letterSpacing: '0.15em' }}>
                 PLAY ▶
-              </div>
+              </button>
             )}
-          </div>
-        </div>
-      </button>
+            <button onClick={goToDetail}
+              className="font-mono transition-all"
+              style={{ fontSize: 7, color: 'rgba(255,255,255,0.25)', border: '1px solid rgba(255,255,255,0.08)', padding: '2px 6px', letterSpacing: '0.15em' }}
+              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = dc; el.style.borderColor = dc; }}
+              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.color = 'rgba(255,255,255,0.25)'; el.style.borderColor = 'rgba(255,255,255,0.08)'; }}>
+              STATS
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -227,7 +245,7 @@ export default function Chapter() {
           {regularSongs.map((song, i) => {
             const timeLocked = isSongTimeLocked(song);
             return <StageRow key={song.id} song={song} stageNum={i + 1} isBonus={false}
-              locked={timeLocked} lockReason={timeLocked ? 'time' : undefined} dc={meta.dc} />;
+              locked={timeLocked} lockReason={timeLocked ? 'time' : undefined} dc={meta.dc} from={`chapter/${monthNum}`} />;
           })}
 
           {/* Bonus section */}
@@ -250,7 +268,7 @@ export default function Chapter() {
                 const bonusLocked = !bonusUnlocked;
                 const isLocked = timeLocked || bonusLocked;
                 return <StageRow key={song.id} song={song} stageNum={regularSongs.length + i + 1} isBonus
-                  locked={isLocked} lockReason={timeLocked ? 'time' : bonusLocked ? 'bonus' : undefined} dc="#E5B800" />;
+                  locked={isLocked} lockReason={timeLocked ? 'time' : bonusLocked ? 'bonus' : undefined} dc="#E5B800" from={`chapter/${monthNum}`} />;
               })}
             </>
           )}

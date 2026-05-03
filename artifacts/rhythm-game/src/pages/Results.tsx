@@ -48,15 +48,21 @@ export default function Results() {
   const [ready, setReady]       = useState(false);
   const [nextSong, setNextSong] = useState<GameSong | null>(null);
   const [chapterMonth, setChapterMonth] = useState<number>(1);
+  const [gameOrigin, setGameOrigin]     = useState<string>('');
 
   useEffect(() => {
-    if (!songId) { setLocation('/songs'); return; }
+    const originFallback = (() => {
+      const o = songId ? (sessionStorage.getItem(`game_origin_${songId}`) ?? '') : '';
+      return o === 'songs' ? '/songs' : o ? `/${o}` : '/campaign';
+    })();
+    if (!songId) { setLocation(originFallback); return; }
     const raw = sessionStorage.getItem(`result_${songId}`);
-    if (!raw) { setLocation('/songs'); return; }
+    if (!raw) { setLocation(originFallback); return; }
     const data = JSON.parse(raw) as ResultData;
     if (!data.medal) data.medal = 'NONE';
     if (data.perfectPlus === undefined) data.perfectPlus = 0;
     setResult(data);
+    setGameOrigin(sessionStorage.getItem(`game_origin_${songId}`) ?? '');
     const prev = getHighScore(songId);
     if (data.score >= prev) setIsNew(true);
 
@@ -229,60 +235,74 @@ export default function Results() {
           ))}
         </div>
 
-        {/* ── Primary action: NEXT STAGE or CHAPTER ── */}
-        {nextSong ? (
-          <div className="mb-2">
-            <div className="font-mono text-xs mb-1.5 px-1" style={{ color: 'rgba(255,255,255,0.2)', letterSpacing: '0.3em' }}>
-              NEXT — DAY {nextSong.day}
+        {/* ── Primary action: NEXT STAGE or BACK ── */}
+        {(() => {
+          const fromFreePlay = gameOrigin === 'songs';
+          const backLabel = fromFreePlay ? '← BACK TO FREE PLAY' : '← BACK TO CHAPTER';
+          const backRoute = fromFreePlay ? '/songs' : `/chapter/${chapterMonth}`;
+          return nextSong ? (
+            <div className="mb-2">
+              <div className="font-mono text-xs mb-1.5 px-1" style={{ color: 'rgba(255,255,255,0.2)', letterSpacing: '0.3em' }}>
+                NEXT — DAY {nextSong.day}
+              </div>
+              <button
+                onClick={() => setLocation(`/play/${nextSong.id}`)}
+                className="w-full py-5 font-mono font-bold text-base tracking-[0.35em] transition-all duration-75"
+                style={{ border: '3px solid #F2F0E8', color: '#080808', background: '#F2F0E8', boxShadow: `6px 6px 0 ${mc}` }}
+                onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.boxShadow = `3px 3px 0 ${mc}`; el.style.transform = 'translate(3px,3px)'; }}
+                onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.boxShadow = `6px 6px 0 ${mc}`; el.style.transform = ''; }}
+              >
+                ▶ NEXT STAGE — {nextSong.title.length > 22 ? nextSong.title.slice(0, 22) + '…' : nextSong.title}
+              </button>
             </div>
-            <button
-              onClick={() => setLocation(`/play/${nextSong.id}`)}
-              className="w-full py-5 font-mono font-bold text-base tracking-[0.35em] transition-all duration-75"
-              style={{ border: '3px solid #F2F0E8', color: '#080808', background: '#F2F0E8', boxShadow: `6px 6px 0 ${mc}` }}
-              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.boxShadow = `3px 3px 0 ${mc}`; el.style.transform = 'translate(3px,3px)'; }}
-              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.boxShadow = `6px 6px 0 ${mc}`; el.style.transform = ''; }}
-            >
-              ▶ NEXT STAGE — {nextSong.title.length > 22 ? nextSong.title.slice(0, 22) + '…' : nextSong.title}
-            </button>
-          </div>
-        ) : (
-          <div className="mb-2">
-            <button
-              onClick={() => setLocation(`/chapter/${chapterMonth}`)}
-              className="w-full py-5 font-mono font-bold text-base tracking-[0.35em] transition-all duration-75"
-              style={{ border: '3px solid #F2F0E8', color: '#080808', background: '#F2F0E8', boxShadow: '6px 6px 0 rgba(255,255,255,0.15)' }}
-              onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.boxShadow = '3px 3px 0 rgba(255,255,255,0.15)'; el.style.transform = 'translate(3px,3px)'; }}
-              onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.boxShadow = '6px 6px 0 rgba(255,255,255,0.15)'; el.style.transform = ''; }}
-            >
-              ← BACK TO CHAPTER
-            </button>
-          </div>
-        )}
+          ) : (
+            <div className="mb-2">
+              <button
+                onClick={() => setLocation(backRoute)}
+                className="w-full py-5 font-mono font-bold text-base tracking-[0.35em] transition-all duration-75"
+                style={{ border: '3px solid #F2F0E8', color: '#080808', background: '#F2F0E8', boxShadow: '6px 6px 0 rgba(255,255,255,0.15)' }}
+                onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.boxShadow = '3px 3px 0 rgba(255,255,255,0.15)'; el.style.transform = 'translate(3px,3px)'; }}
+                onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.boxShadow = '6px 6px 0 rgba(255,255,255,0.15)'; el.style.transform = ''; }}
+              >
+                {backLabel}
+              </button>
+            </div>
+          );
+        })()}
 
         {/* ── Secondary actions ── */}
-        <div className="flex gap-2">
-          <button data-testid="button-retry" onClick={() => setLocation(`/play/${songId}`)}
-            className="flex-1 py-3 font-mono font-bold text-sm tracking-[0.3em] transition-all duration-75"
-            style={{ border: '2px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.6)', background: 'transparent', boxShadow: '3px 3px 0 rgba(255,255,255,0.06)' }}
-            onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = '#E53A00'; el.style.borderColor = '#E53A00'; el.style.boxShadow = '3px 3px 0 #E53A00'; }}
-            onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.color = 'rgba(255,255,255,0.6)'; el.style.borderColor = 'rgba(255,255,255,0.15)'; el.style.boxShadow = '3px 3px 0 rgba(255,255,255,0.06)'; }}>
-            ↺ RETRY
-          </button>
-          <button onClick={() => setLocation(`/chapter/${chapterMonth}`)}
-            className="flex-1 py-3 font-mono font-bold text-sm tracking-[0.3em] transition-all duration-75"
-            style={{ border: '2px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.6)', background: 'transparent', boxShadow: '3px 3px 0 rgba(255,255,255,0.06)' }}
-            onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = '#A855F7'; el.style.borderColor = '#A855F7'; el.style.boxShadow = '3px 3px 0 #A855F7'; }}
-            onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.color = 'rgba(255,255,255,0.6)'; el.style.borderColor = 'rgba(255,255,255,0.15)'; el.style.boxShadow = '3px 3px 0 rgba(255,255,255,0.06)'; }}>
-            ≡ CHAPTER
-          </button>
-          <button data-testid="button-select-song" onClick={() => setLocation('/campaign')}
-            className="flex-1 py-3 font-mono font-bold text-sm tracking-[0.3em] transition-all duration-75"
-            style={{ border: '2px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.6)', background: 'transparent', boxShadow: '3px 3px 0 rgba(255,255,255,0.06)' }}
-            onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = '#48E5C2'; el.style.borderColor = '#48E5C2'; el.style.boxShadow = '3px 3px 0 #48E5C2'; }}
-            onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.color = 'rgba(255,255,255,0.6)'; el.style.borderColor = 'rgba(255,255,255,0.15)'; el.style.boxShadow = '3px 3px 0 rgba(255,255,255,0.06)'; }}>
-            ◈ CAMPAIGN
-          </button>
-        </div>
+        {(() => {
+          const fromFreePlay = gameOrigin === 'songs';
+          const modeRoute = fromFreePlay ? '/songs' : `/chapter/${chapterMonth}`;
+          const modeLabel = fromFreePlay ? '◈ FREE PLAY' : '≡ CHAPTER';
+          const homeRoute = fromFreePlay ? '/songs' : '/campaign';
+          const homeLabel = fromFreePlay ? '⌂ HOME' : '◈ CAMPAIGN';
+          return (
+            <div className="flex gap-2">
+              <button data-testid="button-retry" onClick={() => setLocation(`/play/${songId}`)}
+                className="flex-1 py-3 font-mono font-bold text-sm tracking-[0.3em] transition-all duration-75"
+                style={{ border: '2px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.6)', background: 'transparent', boxShadow: '3px 3px 0 rgba(255,255,255,0.06)' }}
+                onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = '#E53A00'; el.style.borderColor = '#E53A00'; el.style.boxShadow = '3px 3px 0 #E53A00'; }}
+                onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.color = 'rgba(255,255,255,0.6)'; el.style.borderColor = 'rgba(255,255,255,0.15)'; el.style.boxShadow = '3px 3px 0 rgba(255,255,255,0.06)'; }}>
+                ↺ RETRY
+              </button>
+              <button onClick={() => setLocation(modeRoute)}
+                className="flex-1 py-3 font-mono font-bold text-sm tracking-[0.3em] transition-all duration-75"
+                style={{ border: '2px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.6)', background: 'transparent', boxShadow: '3px 3px 0 rgba(255,255,255,0.06)' }}
+                onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = '#A855F7'; el.style.borderColor = '#A855F7'; el.style.boxShadow = '3px 3px 0 #A855F7'; }}
+                onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.color = 'rgba(255,255,255,0.6)'; el.style.borderColor = 'rgba(255,255,255,0.15)'; el.style.boxShadow = '3px 3px 0 rgba(255,255,255,0.06)'; }}>
+                {modeLabel}
+              </button>
+              <button data-testid="button-select-song" onClick={() => setLocation(homeRoute)}
+                className="flex-1 py-3 font-mono font-bold text-sm tracking-[0.3em] transition-all duration-75"
+                style={{ border: '2px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.6)', background: 'transparent', boxShadow: '3px 3px 0 rgba(255,255,255,0.06)' }}
+                onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = '#48E5C2'; el.style.borderColor = '#48E5C2'; el.style.boxShadow = '3px 3px 0 #48E5C2'; }}
+                onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.color = 'rgba(255,255,255,0.6)'; el.style.borderColor = 'rgba(255,255,255,0.15)'; el.style.boxShadow = '3px 3px 0 rgba(255,255,255,0.06)'; }}>
+                {homeLabel}
+              </button>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

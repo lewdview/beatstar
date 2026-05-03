@@ -62,3 +62,14 @@ export function getChapterCleared(songIds: string[]): number {
     return m && m !== '';
   }).length;
 }
+
+export function saveScoreHistory(songId: string, score: number): void {
+  const h = getScoreHistory(songId);
+  h.unshift(score);
+  localStorage.setItem(`scores_${songId}`, JSON.stringify(h.slice(0, 10)));
+}
+
+export function getScoreHistory(songId: string): number[] {
+  try { return JSON.parse(localStorage.getItem(`scores_${songId}`) ?? '[]'); }
+  catch { return []; }
+}
