@@ -612,35 +612,8 @@ export default function Game() {
     const puColor = puActive ? pu.color : null;
 
     // ── 1. BACKGROUND ──────────────────────────────────────────
-    ctx.fillStyle = "#0c0c14";
-    ctx.fillRect(0, 0, W, H);
-
-    const coverBlur = coverBlurRef.current;
-    if (coverBlur) {
-      // Ken-burns: very slow zoom + drift across the image
-      const kp = (t % 34) / 34;
-      const zoom = 1.04 + 0.07 * Math.sin(kp * Math.PI * 2);
-      const panX = Math.sin(kp * Math.PI * 2 * 0.6) * W * 0.025;
-      const panY = Math.cos(kp * Math.PI * 2 * 0.4) * H * 0.018;
-      const scale = (Math.max(W, H) / 512) * zoom;
-      const cw = 512 * scale;
-      const ch = 512 * scale;
-      const ox = (W - cw) / 2 + panX;
-      const oy = (H - ch) / 2 + panY;
-
-      // Chromatic aberration fringe (RGB offset layers)
-      const aberr = 4 + Math.sin(t * 0.28) * 1.8;
-      ctx.globalCompositeOperation = "screen";
-      ctx.globalAlpha = 0.11;
-      ctx.drawImage(coverBlur, ox - aberr, oy, cw, ch); // R shift left
-      ctx.drawImage(coverBlur, ox + aberr, oy, cw, ch); // B shift right
-      ctx.globalAlpha = 0.14;
-      ctx.drawImage(coverBlur, ox, oy + aberr * 0.5, cw, ch); // G shift down
-      ctx.globalCompositeOperation = "source-over";
-      ctx.globalAlpha = 0.75;
-      ctx.drawImage(coverBlur, ox, oy, cw, ch); // main layer
-      ctx.globalAlpha = 1;
-    }
+    // Canvas is transparent — CSS cover art layer shows through beneath everything
+    ctx.clearRect(0, 0, W, H);
 
     // Vignette — dark edges keep game elements readable
     const vig = ctx.createRadialGradient(
@@ -805,6 +778,11 @@ export default function Game() {
     // Original height (space below hit line), centered so baseline bisects each button.
     const btnH = H - hitY;
     const btnY = hitY - btnH / 2; // baseline runs through the exact center
+    // Clip to track width so buttons never overflow the highway edges
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(hwBot.left, 0, hwBot.right - hwBot.left, H);
+    ctx.clip();
     for (let i = 0; i < LANE_COUNT; i++) {
       const { x, w } = laneAt(i, 1, W);
       const pressed = laneRef.current[i].pressed;
@@ -897,6 +875,7 @@ export default function Game() {
         ctx.stroke();
       }
     }
+    ctx.restore(); // end button clip
 
     // ── 5. NOTES ────────────────────────────────────────────────
     let dirty = false;
@@ -1706,12 +1685,12 @@ export default function Game() {
       )}
       <div
         className="relative flex flex-col overflow-hidden w-full"
-        style={{ maxWidth: 500, background: "#0c0c14" }}
+        style={{ maxWidth: 500 }}
       >
       {/* HUD */}
       <div
         className="flex items-center justify-between px-3 py-2 flex-shrink-0"
-        style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(12,12,20,0.92)" }}
       >
         {/* Left: QUIT + OPTIONS */}
         <div className="flex items-center gap-3">
