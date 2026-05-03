@@ -11,11 +11,11 @@ const LANE_KEYS   = ['a', 's', 'd'];
 const LANE_COLORS = ['#E53A00', '#A855F7', '#48E5C2'];
 
 const APPROACH_TIME       = 2.0;
-const HIT_RATIO           = 0.80;
+const HIT_RATIO           = 0.73;
 const PERFECT_PLUS_WINDOW = 0.030;
 const PERFECT_WINDOW      = 0.065;
 const GOOD_WINDOW         = 0.130;
-const MISS_WINDOW         = 0.185;
+const MISS_WINDOW         = 0.250;
 
 // Perspective highway geometry
 const HW_TOP = 0.54;
@@ -323,6 +323,73 @@ export default function Game() {
       ctx.fillStyle = eg2; ctx.fillRect(W - 80, 0, 80, H);
     }
 
+    // ── 4.5. HIT ZONE BUTTONS (behind notes, semi-transparent) ──
+    // Centered on hitY so the baseline runs through their middle.
+    // btnH mirrors the space below hitY above it → baseline is exactly at 50%.
+    const btnH = (H - hitY) * 2;
+    const btnY = 2 * hitY - H;          // = hitY - (H - hitY)
+    for (let i = 0; i < LANE_COUNT; i++) {
+      const { x, w } = laneAt(i, 1, W);
+      const pressed  = laneRef.current[i].pressed;
+      const lc       = LANE_COLORS[i];
+      const silenced = laneSilenced.current[i];
+      const bx = x + 4; const bw = w - 8;
+      const bTop = btnY + (pressed ? 2 : 0);
+
+      // Key body — semi-transparent ivory
+      const kGrad = ctx.createLinearGradient(bx, bTop, bx, bTop + btnH);
+      if (pressed) {
+        kGrad.addColorStop(0,   'rgba(210,203,191,0.52)');
+        kGrad.addColorStop(1,   'rgba(195,188,175,0.56)');
+      } else {
+        kGrad.addColorStop(0,   'rgba(255,252,245,0.32)');
+        kGrad.addColorStop(0.3, 'rgba(252,248,238,0.28)');
+        kGrad.addColorStop(1,   'rgba(230,223,208,0.22)');
+      }
+      ctx.fillStyle = kGrad;
+      ctx.beginPath(); ctx.roundRect(bx, bTop, bw, btnH, 10); ctx.fill();
+
+      // Subtle border
+      ctx.strokeStyle = pressed ? 'rgba(120,114,102,0.35)' : 'rgba(200,193,178,0.18)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.roundRect(bx, bTop, bw, btnH, 10); ctx.stroke();
+
+      // Colored stripe — centered exactly on hitY
+      const stripeH   = Math.max(5, btnH * 0.06);
+      const stripeTop = hitY - stripeH / 2 + (pressed ? 1 : 0);
+      const stripeCol = silenced ? 'rgba(70,68,65,0.55)' : lc;
+      ctx.shadowColor = silenced ? 'transparent' : lc;
+      ctx.shadowBlur  = pressed ? 18 : 10;
+      ctx.fillStyle   = stripeCol;
+      ctx.globalAlpha = pressed ? 0.95 : (silenced ? 0.35 : 0.78);
+      ctx.beginPath(); ctx.roundRect(bx + 4, stripeTop, bw - 8, stripeH, stripeH * 0.4); ctx.fill();
+      // Bright core
+      ctx.fillStyle = silenced ? 'rgba(50,48,45,0.3)' : 'rgba(255,255,255,0.5)';
+      ctx.globalAlpha = pressed ? 0.75 : 0.55;
+      ctx.beginPath(); ctx.roundRect(bx + 7, stripeTop + stripeH * 0.15, bw - 14, stripeH * 0.38, stripeH * 0.2); ctx.fill();
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+
+      // Key label — below the baseline (lower half of key)
+      const fs = Math.max(12, Math.floor(btnH * 0.13));
+      ctx.fillStyle = pressed ? 'rgba(50,45,40,0.7)' : 'rgba(42,37,32,0.45)';
+      ctx.font = `bold ${fs}px "Space Mono", monospace`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(LANE_KEYS[i].toUpperCase(), x + w / 2, hitY + (H - hitY) * 0.42 + (pressed ? 2 : 0));
+
+      // Muted overlay + ⊘ icon
+      if (silenced) {
+        ctx.fillStyle = 'rgba(0,0,0,0.32)';
+        ctx.beginPath(); ctx.roundRect(bx, bTop, bw, btnH, 10); ctx.fill();
+        const iconR = Math.min(bw, btnH) * 0.07;
+        const iconX = bx + bw * 0.78; const iconY = hitY + (H - hitY) * 0.22;
+        ctx.strokeStyle = 'rgba(180,70,70,0.65)'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(iconX, iconY, iconR, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(iconX - iconR * 0.7, iconY + iconR * 0.7);
+        ctx.lineTo(iconX + iconR * 0.7, iconY - iconR * 0.7); ctx.stroke();
+      }
+    }
+
     // ── 5. NOTES ────────────────────────────────────────────────
     let dirty = false;
     for (const ns of notesRef.current) {
@@ -488,78 +555,6 @@ export default function Game() {
     baseGlow.addColorStop(0, 'rgba(255,255,255,0.08)');
     baseGlow.addColorStop(1, 'rgba(255,255,255,0.0)');
     ctx.fillStyle = baseGlow; ctx.fillRect(hwBot.left - 16, hitY, hwBot.width + 32, 20);
-
-    // ── 7. HIT ZONE BUTTONS (ivory piano keys) ──────────────────
-    const btnY = hitY + 3; const btnH = H - btnY - 4;
-    for (let i = 0; i < LANE_COUNT; i++) {
-      const { x, w } = laneAt(i, 1, W);
-      const pressed = laneRef.current[i].pressed;
-      const lc = LANE_COLORS[i];
-      const bx = x + 5; const bw = w - 10;
-
-      // Drop shadow (simulated — shadow behind the key)
-      ctx.fillStyle = 'rgba(0,0,0,0.5)';
-      ctx.beginPath(); ctx.roundRect(bx + 2, btnY + 4, bw, btnH, 12); ctx.fill();
-
-      // Ivory key body
-      const kGrad = ctx.createLinearGradient(bx, btnY, bx, btnY + btnH);
-      if (pressed) {
-        kGrad.addColorStop(0, 'rgba(215,208,196,1)');
-        kGrad.addColorStop(1, 'rgba(200,193,180,1)');
-      } else {
-        kGrad.addColorStop(0, 'rgba(255,252,245,1)');
-        kGrad.addColorStop(0.25, 'rgba(252,248,238,1)');
-        kGrad.addColorStop(0.8, 'rgba(242,236,222,1)');
-        kGrad.addColorStop(1, 'rgba(230,223,208,1)');
-      }
-      ctx.fillStyle = kGrad;
-      ctx.beginPath(); ctx.roundRect(bx, btnY + (pressed ? 2 : 0), bw, btnH - (pressed ? 2 : 0), 12); ctx.fill();
-
-      // Key border (subtle groove edge)
-      ctx.strokeStyle = pressed ? 'rgba(100,94,82,0.6)' : 'rgba(180,172,158,0.5)';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.roundRect(bx, btnY + (pressed ? 2 : 0), bw, btnH - (pressed ? 2 : 0), 12); ctx.stroke();
-
-      // Top highlight (3D key lighting)
-      if (!pressed) {
-        ctx.fillStyle = 'rgba(255,255,255,0.7)';
-        ctx.beginPath(); ctx.roundRect(bx + 3, btnY + 2, bw - 6, btnH * 0.12, [8, 8, 0, 0]); ctx.fill();
-      }
-
-      // COLORED STRIPE on the key (matches note center stripe)
-      const silenced  = laneSilenced.current[i];
-      const stripeTop = btnY + btnH * 0.36 + (pressed ? 2 : 0);
-      const stripeH   = Math.max(6, btnH * 0.14);
-      const stripeCol = silenced ? 'rgba(80,78,75,0.7)' : lc;
-      ctx.shadowColor = silenced ? 'transparent' : lc; ctx.shadowBlur = pressed ? 20 : 12;
-      ctx.fillStyle = stripeCol; ctx.globalAlpha = pressed ? 1 : (silenced ? 0.45 : 0.85);
-      ctx.beginPath(); ctx.roundRect(bx + 5, stripeTop, bw - 10, stripeH, stripeH * 0.4); ctx.fill();
-      // Bright core of stripe
-      ctx.fillStyle = silenced ? 'rgba(60,58,55,0.4)' : 'rgba(255,255,255,0.55)';
-      ctx.globalAlpha = pressed ? 0.8 : 0.6;
-      ctx.beginPath(); ctx.roundRect(bx + 8, stripeTop + stripeH * 0.1, bw - 16, stripeH * 0.4, stripeH * 0.2); ctx.fill();
-      ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
-
-      // Muted overlay: dark wash + "◌" icon when lane is silenced
-      if (silenced) {
-        ctx.fillStyle = 'rgba(0,0,0,0.38)';
-        ctx.beginPath(); ctx.roundRect(bx, btnY + (pressed ? 2 : 0), bw, btnH - (pressed ? 2 : 0), 12); ctx.fill();
-        ctx.strokeStyle = 'rgba(180,70,70,0.7)'; ctx.lineWidth = 1.5;
-        const iconR = Math.min(bw, btnH) * 0.13;
-        const iconX = bx + bw * 0.78; const iconY = btnY + btnH * 0.22;
-        ctx.beginPath(); ctx.arc(iconX, iconY, iconR, 0, Math.PI * 2); ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(iconX - iconR * 0.7, iconY + iconR * 0.7);
-        ctx.lineTo(iconX + iconR * 0.7, iconY - iconR * 0.7); ctx.stroke();
-      }
-
-      // Key label (dark text below stripe)
-      const fs = Math.max(13, Math.floor(btnH * 0.26));
-      ctx.fillStyle = pressed ? '#555' : '#2a2520';
-      ctx.font = `bold ${fs}px "Space Mono", monospace`;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(LANE_KEYS[i].toUpperCase(), x + w / 2, btnY + btnH * 0.72 + (pressed ? 2 : 0));
-    }
 
     if (dirty) syncDisplay();
 
