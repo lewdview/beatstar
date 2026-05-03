@@ -10,7 +10,10 @@ const LANE_COUNT  = 3;
 const LANE_KEYS   = ['a', 's', 'd'];
 const LANE_COLORS = ['#E53A00', '#A855F7', '#48E5C2'];
 
-const APPROACH_TIME       = 2.0;
+// Approach time scales with difficulty: Level 1 = 2.5 s (easy), Level 10 = 1.35 s (brutal)
+function approachTime(diffLevel: number): number {
+  return Math.max(1.35, 2.5 - (diffLevel - 1) * 0.128);
+}
 const HIT_RATIO           = 0.70;
 const PERFECT_PLUS_WINDOW = 0.030;
 const PERFECT_WINDOW      = 0.065;
@@ -288,6 +291,7 @@ export default function Game() {
     if (!ctx || !songRef.current) return;
     const song = songRef.current;
     const t = getT(); const W = canvas.width; const H = canvas.height;
+    const AT  = approachTime(song.difficultyLevel);
     const hitY = H * HIT_RATIO;
     const gs = gsRef.current; const pu = puRef.current;
     gs.progress = Math.min(1, t / song.duration);
@@ -519,8 +523,8 @@ export default function Game() {
       if (ns.hit || ns.missed) continue;
       const { note } = ns;
       const lc = LANE_COLORS[note.lane];
-      const spawnT = note.time - APPROACH_TIME;
-      const prog   = (t - spawnT) / APPROACH_TIME;
+      const spawnT = note.time - AT;
+      const prog   = (t - spawnT) / AT;
       const noteY  = prog * hitY;
 
       if (ns.holdActive) ns.holdProgress = Math.min(1, (t - note.time) / (note.holdDuration || 0.5));
@@ -571,7 +575,7 @@ export default function Game() {
       } else {
         // Hold trail — ivory ribbon with colored stripe
         const holdDur = note.holdDuration || 0.5;
-        const headP   = Math.max(0, prog - holdDur / APPROACH_TIME);
+        const headP   = Math.max(0, prog - holdDur / AT);
         const headY   = headP * hitY;
 
         if (ns.holdActive) {
