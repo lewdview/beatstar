@@ -10,7 +10,7 @@ interface ResultData {
 }
 
 const MEDALS: Record<string, { color: string; abbr: string; message: string }> = {
-  PLATINUM: { color: '#48E5C2', abbr: 'PT', message: 'PERFECT SIGNAL — ALL TRANSMISSIONS LOCKED' },
+  PLATINUM: { color: '#ACE894', abbr: 'PT', message: 'PERFECT SIGNAL — ALL TRANSMISSIONS LOCKED' },
   GOLD:     { color: '#E5B800', abbr: 'GO', message: 'STRONG SIGNAL — MINIMAL INTERFERENCE'       },
   SILVER:   { color: '#A0AABB', abbr: 'SI', message: 'SIGNAL STABLE — SOME STATIC DETECTED'       },
   BRONZE:   { color: '#C97A3A', abbr: 'BR', message: 'WEAK SIGNAL — SIGNIFICANT NOISE'            },
@@ -203,8 +203,8 @@ export default function Results() {
           <div className="grid grid-cols-5">
             {[
               { label: 'PERFECT+', value: result.perfectPlus, color: '#E5B800' },
-              { label: 'PERFECT',  value: result.perfects,    color: '#48E5C2' },
-              { label: 'GOOD',     value: result.goods,       color: '#A855F7' },
+              { label: 'PERFECT',  value: result.perfects,    color: '#ACE894' },
+              { label: 'GOOD',     value: result.goods,       color: '#4A314D' },
               { label: 'MISS',     value: result.misses,      color: '#555'    },
               { label: 'ACC',      value: `${accuracy}%`,     color: mc        },
             ].map(({ label, value, color }, i) => (
@@ -221,8 +221,8 @@ export default function Results() {
         <div className="mb-4 space-y-2 px-1">
           {[
             { label: 'PERFECT+', count: result.perfectPlus, color: '#E5B800' },
-            { label: 'PERFECT',  count: result.perfects,    color: '#48E5C2' },
-            { label: 'GOOD',     count: result.goods,       color: '#A855F7' },
+            { label: 'PERFECT',  count: result.perfects,    color: '#ACE894' },
+            { label: 'GOOD',     count: result.goods,       color: '#4A314D' },
             { label: 'MISS',     count: result.misses,      color: '#333'    },
           ].map(({ label, count, color }) => (
             <div key={label} className="flex items-center gap-3">
@@ -282,21 +282,21 @@ export default function Results() {
               <button data-testid="button-retry" onClick={() => setLocation(`/play/${songId}`)}
                 className="flex-1 py-3 font-mono font-bold text-sm tracking-[0.3em] transition-all duration-75"
                 style={{ border: '2px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.6)', background: 'transparent', boxShadow: '3px 3px 0 rgba(255,255,255,0.06)' }}
-                onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = '#E53A00'; el.style.borderColor = '#E53A00'; el.style.boxShadow = '3px 3px 0 #E53A00'; }}
+                onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = '#FF5400'; el.style.borderColor = '#FF5400'; el.style.boxShadow = '3px 3px 0 #FF5400'; }}
                 onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.color = 'rgba(255,255,255,0.6)'; el.style.borderColor = 'rgba(255,255,255,0.15)'; el.style.boxShadow = '3px 3px 0 rgba(255,255,255,0.06)'; }}>
                 ↺ RETRY
               </button>
               <button onClick={() => setLocation(modeRoute)}
                 className="flex-1 py-3 font-mono font-bold text-sm tracking-[0.3em] transition-all duration-75"
                 style={{ border: '2px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.6)', background: 'transparent', boxShadow: '3px 3px 0 rgba(255,255,255,0.06)' }}
-                onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = '#A855F7'; el.style.borderColor = '#A855F7'; el.style.boxShadow = '3px 3px 0 #A855F7'; }}
+                onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = '#4A314D'; el.style.borderColor = '#4A314D'; el.style.boxShadow = '3px 3px 0 #4A314D'; }}
                 onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.color = 'rgba(255,255,255,0.6)'; el.style.borderColor = 'rgba(255,255,255,0.15)'; el.style.boxShadow = '3px 3px 0 rgba(255,255,255,0.06)'; }}>
                 {modeLabel}
               </button>
               <button data-testid="button-select-song" onClick={() => setLocation(homeRoute)}
                 className="flex-1 py-3 font-mono font-bold text-sm tracking-[0.3em] transition-all duration-75"
                 style={{ border: '2px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.6)', background: 'transparent', boxShadow: '3px 3px 0 rgba(255,255,255,0.06)' }}
-                onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = '#48E5C2'; el.style.borderColor = '#48E5C2'; el.style.boxShadow = '3px 3px 0 #48E5C2'; }}
+                onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = '#ACE894'; el.style.borderColor = '#ACE894'; el.style.boxShadow = '3px 3px 0 #ACE894'; }}
                 onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.color = 'rgba(255,255,255,0.6)'; el.style.borderColor = 'rgba(255,255,255,0.15)'; el.style.boxShadow = '3px 3px 0 rgba(255,255,255,0.06)'; }}>
                 {homeLabel}
               </button>

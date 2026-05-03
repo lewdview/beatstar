@@ -8,18 +8,18 @@ import {
 } from "@/game/progress";
 
 const CHAPTERS = [
-  { month: 1,  name: 'JANUARY',   sub: 'GATEWAY SIGNAL',   diff: 'EASY',   dc: '#48E5C2', platNeeded: 2  },
-  { month: 2,  name: 'FEBRUARY',  sub: 'EMERGENCE',         diff: 'EASY',   dc: '#48E5C2', platNeeded: 2  },
-  { month: 3,  name: 'MARCH',     sub: 'STATIC RISE',       diff: 'EASY',   dc: '#48E5C2', platNeeded: 3  },
-  { month: 4,  name: 'APRIL',     sub: 'FREQUENCY',         diff: 'MEDIUM', dc: '#A855F7', platNeeded: 3  },
-  { month: 5,  name: 'MAY',       sub: 'SIGNAL SURGE',      diff: 'MEDIUM', dc: '#A855F7', platNeeded: 3  },
-  { month: 6,  name: 'JUNE',      sub: 'INTERFERENCE',      diff: 'MEDIUM', dc: '#A855F7', platNeeded: 4  },
+  { month: 1,  name: 'JANUARY',   sub: 'GATEWAY SIGNAL',   diff: 'EASY',   dc: '#ACE894', platNeeded: 2  },
+  { month: 2,  name: 'FEBRUARY',  sub: 'EMERGENCE',         diff: 'EASY',   dc: '#ACE894', platNeeded: 2  },
+  { month: 3,  name: 'MARCH',     sub: 'STATIC RISE',       diff: 'EASY',   dc: '#ACE894', platNeeded: 3  },
+  { month: 4,  name: 'APRIL',     sub: 'FREQUENCY',         diff: 'MEDIUM', dc: '#4A314D', platNeeded: 3  },
+  { month: 5,  name: 'MAY',       sub: 'SIGNAL SURGE',      diff: 'MEDIUM', dc: '#4A314D', platNeeded: 3  },
+  { month: 6,  name: 'JUNE',      sub: 'INTERFERENCE',      diff: 'MEDIUM', dc: '#4A314D', platNeeded: 4  },
   { month: 7,  name: 'JULY',      sub: 'WAVELENGTH',        diff: 'HARD',   dc: '#E5B800', platNeeded: 4  },
   { month: 8,  name: 'AUGUST',    sub: 'RESONANCE',         diff: 'HARD',   dc: '#E5B800', platNeeded: 5  },
   { month: 9,  name: 'SEPTEMBER', sub: 'DISTORTION',        diff: 'HARD',   dc: '#E5B800', platNeeded: 5  },
-  { month: 10, name: 'OCTOBER',   sub: 'THRESHOLD',         diff: 'BRUTAL', dc: '#E53A00', platNeeded: 5  },
-  { month: 11, name: 'NOVEMBER',  sub: 'FRACTURE',          diff: 'BRUTAL', dc: '#E53A00', platNeeded: 6  },
-  { month: 12, name: 'DECEMBER',  sub: 'TRANSMISSION END',  diff: 'BRUTAL', dc: '#E53A00', platNeeded: 7  },
+  { month: 10, name: 'OCTOBER',   sub: 'THRESHOLD',         diff: 'BRUTAL', dc: '#FF5400', platNeeded: 5  },
+  { month: 11, name: 'NOVEMBER',  sub: 'FRACTURE',          diff: 'BRUTAL', dc: '#FF5400', platNeeded: 6  },
+  { month: 12, name: 'DECEMBER',  sub: 'TRANSMISSION END',  diff: 'BRUTAL', dc: '#FF5400', platNeeded: 7  },
 ];
 
 // ── animated score counter ───────────────────────────────────────
@@ -227,7 +227,7 @@ export default function Campaign() {
         <button onClick={() => setLocation('/songs')}
           className="font-mono text-xs tracking-widest transition-all"
           style={{ color: 'rgba(255,255,255,0.35)', border: '1px solid rgba(255,255,255,0.1)', padding: '4px 10px', boxShadow: '2px 2px 0 rgba(255,255,255,0.06)' }}
-          onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = '#48E5C2'; el.style.borderColor = '#48E5C2'; el.style.boxShadow = '2px 2px 0 #48E5C2'; }}
+          onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = '#ACE894'; el.style.borderColor = '#ACE894'; el.style.boxShadow = '2px 2px 0 #ACE894'; }}
           onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.color = 'rgba(255,255,255,0.35)'; el.style.borderColor = 'rgba(255,255,255,0.1)'; el.style.boxShadow = '2px 2px 0 rgba(255,255,255,0.06)'; }}>
           FREE PLAY →
         </button>
@@ -255,9 +255,9 @@ export default function Campaign() {
           {/* Stats row */}
           <div className="grid grid-cols-3" style={{ borderTop: '2px solid rgba(255,255,255,0.08)' }}>
             {[
-              { label: 'PLATINUM',  value: totals.platinums,                     color: '#48E5C2' },
-              { label: 'CLEARED',   value: totals.cleared,                        color: '#A855F7' },
-              { label: 'CHAPTERS',  value: `${startedChapters}/${CHAPTERS.length}`, color: '#E53A00' },
+              { label: 'PLATINUM',  value: totals.platinums,                     color: '#ACE894' },
+              { label: 'CLEARED',   value: totals.cleared,                        color: '#4A314D' },
+              { label: 'CHAPTERS',  value: `${startedChapters}/${CHAPTERS.length}`, color: '#FF5400' },
             ].map((s, i) => (
               <div key={s.label} className="py-3 px-4"
                 style={{ borderRight: i < 2 ? '2px solid rgba(255,255,255,0.08)' : 'none' }}>
@@ -297,7 +297,7 @@ export default function Campaign() {
         {/* Legend */}
         <div className="mt-6 flex gap-0 overflow-hidden"
           style={{ border: '2px solid rgba(255,255,255,0.06)' }}>
-          {[['EASY','#48E5C2'],['MEDIUM','#A855F7'],['HARD','#E5B800'],['BRUTAL','#E53A00']].map(([diff, color], i) => (
+          {[['EASY','#ACE894'],['MEDIUM','#4A314D'],['HARD','#E5B800'],['BRUTAL','#FF5400']].map(([diff, color], i) => (
             <div key={diff} className="flex-1 text-center py-2"
               style={{ borderRight: i < 3 ? '2px solid rgba(255,255,255,0.06)' : 'none' }}>
               <div style={{ width: 8, height: 8, background: color as string, margin: '0 auto 4px' }} />

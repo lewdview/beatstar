@@ -5,14 +5,14 @@ import type { GameSong } from "@/game/api";
 import { getMedalForSong, getHighScore, getScoreHistory } from "@/game/progress";
 
 const MEDAL_COLOR: Record<string, string> = {
-  PLATINUM: '#48E5C2', GOLD: '#E5B800', SILVER: '#A0AABB', BRONZE: '#C97A3A', NONE: '#444', '': '#1a1a1a',
+  PLATINUM: '#ACE894', GOLD: '#E5B800', SILVER: '#A0AABB', BRONZE: '#C97A3A', NONE: '#444', '': '#1a1a1a',
 };
 
 const DIFF_COLORS = [
-  '#48E5C2','#48E5C2','#48E5C2',
-  '#A855F7','#A855F7','#A855F7',
+  '#ACE894','#ACE894','#ACE894',
+  '#4A314D','#4A314D','#4A314D',
   '#E5B800','#E5B800','#E5B800',
-  '#E53A00',
+  '#FF5400',
 ];
 
 function DiffBars({ level }: { level: number }) {
@@ -80,7 +80,7 @@ export default function SongDetail() {
 
   if (!song) return null;
 
-  const moodColor = song.mood === 'light' ? '#48E5C2' : '#E53A00';
+  const moodColor = song.mood === 'light' ? '#ACE894' : '#FF5400';
   const bestScore = history.length > 0 ? Math.max(...history) : 0;
 
   return (
@@ -91,7 +91,7 @@ export default function SongDetail() {
         <button onClick={() => setLocation(backRoute)}
           className="font-mono text-xs tracking-widest transition-all"
           style={{ color: 'rgba(255,255,255,0.35)', border: '1px solid rgba(255,255,255,0.1)', padding: '4px 10px', boxShadow: '2px 2px 0 rgba(255,255,255,0.06)' }}
-          onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = '#E53A00'; el.style.borderColor = '#E53A00'; el.style.boxShadow = '2px 2px 0 #E53A00'; }}
+          onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = '#FF5400'; el.style.borderColor = '#FF5400'; el.style.boxShadow = '2px 2px 0 #FF5400'; }}
           onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.color = 'rgba(255,255,255,0.35)'; el.style.borderColor = 'rgba(255,255,255,0.1)'; el.style.boxShadow = '2px 2px 0 rgba(255,255,255,0.06)'; }}>
           ← {isFromFreePlay ? 'FREE PLAY' : 'CHAPTER'}
         </button>
@@ -184,8 +184,8 @@ export default function SongDetail() {
               style={{ accentColor: diffColor, cursor: 'pointer' }}
             />
             <div className="flex justify-between mt-1">
-              <span className="font-mono" style={{ fontSize: 8, color: '#48E5C2', letterSpacing: '0.15em' }}>EASY</span>
-              <span className="font-mono" style={{ fontSize: 8, color: '#E53A00', letterSpacing: '0.15em' }}>BRUTAL</span>
+              <span className="font-mono" style={{ fontSize: 8, color: '#ACE894', letterSpacing: '0.15em' }}>EASY</span>
+              <span className="font-mono" style={{ fontSize: 8, color: '#FF5400', letterSpacing: '0.15em' }}>BRUTAL</span>
             </div>
           </div>
         )}
@@ -258,12 +258,12 @@ export default function SongDetail() {
           <button onClick={handlePlay}
             className="w-full py-5 font-mono font-bold text-sm tracking-[0.4em] uppercase transition-all duration-200"
             style={{
-              background: '#E53A00', color: '#fff',
+              background: '#FF5400', color: '#fff',
               clipPath: 'polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)',
-              boxShadow: '0 0 40px rgba(229,58,0,0.3)',
+              boxShadow: '0 0 40px rgba(255,84,0,0.3)',
             }}
-            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.boxShadow = '0 0 60px rgba(229,58,0,0.6)')}
-            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.boxShadow = '0 0 40px rgba(229,58,0,0.3)')}>
+            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.boxShadow = '0 0 60px rgba(255,84,0,0.6)')}
+            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.boxShadow = '0 0 40px rgba(255,84,0,0.3)')}>
             ▶ START TRANSMISSION{isFromFreePlay ? ` · LVL ${diffOverride}` : ''}
           </button>
         </div>

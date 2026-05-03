@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from "react";
 import { loadCatalog, getHighScore, isSongTimeLocked } from "@/game/api";
 import type { GameSong } from "@/game/api";
 
-const LANE_COLORS = ['#E53A00', '#48E5C2', '#E5B800', '#8B48E5'];
+const LANE_COLORS = ['#FF5400', '#ACE894', '#E5B800', '#8B48E5'];
 
 function DiffBars({ level }: { level: number }) {
   return (
@@ -56,7 +56,7 @@ function SongRow({ song, selected, onClick }: {
   onClick: () => void;
 }) {
   const hs = getHighScore(song.id);
-  const moodColor = song.mood === 'light' ? '#48E5C2' : '#E53A00';
+  const moodColor = song.mood === 'light' ? '#ACE894' : '#FF5400';
   const durMin = Math.floor(song.duration / 60);
   const durSec = String(Math.round(song.duration % 60)).padStart(2, '0');
 
@@ -116,7 +116,7 @@ function SongRow({ song, selected, onClick }: {
           )}
           <DiffBars level={song.difficultyLevel} />
           {hs > 0 && (
-            <span className="font-mono text-xs ml-auto" style={{ color: '#48E5C2' }}>
+            <span className="font-mono text-xs ml-auto" style={{ color: '#ACE894' }}>
               {hs.toLocaleString()}
             </span>
           )}
@@ -170,12 +170,12 @@ export default function SongSelect() {
           onClick={() => setLocation('/')}
           className="font-mono text-xs tracking-widest transition-colors"
           style={{ color: 'hsl(30 15% 45%)' }}
-          onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = '#E53A00')}
+          onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = '#FF5400')}
           onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = 'hsl(30 15% 45%)')}
         >
           ← BACK
         </button>
-        <div className="font-mono text-xs tracking-widest" style={{ color: 'hsl(168 72% 59%)' }}>
+        <div className="font-mono text-xs tracking-widest" style={{ color: '#ACE894' }}>
           {loading ? 'LOADING TRANSMISSIONS...' : `${songs.length} TRANSMISSIONS`}
         </div>
         <div className="font-mono text-xs" style={{ color: 'hsl(30 15% 35%)' }}>
@@ -209,7 +209,7 @@ export default function SongSelect() {
                   onClick={() => { setMoodFilter(m); setShowCount(50); }}
                   className="font-mono text-xs px-3 py-1 tracking-widest transition-all"
                   style={{
-                    background: moodFilter === m ? 'hsl(14 100% 48%)' : 'hsl(18 35% 7%)',
+                    background: moodFilter === m ? '#FF5400' : 'hsl(18 35% 7%)',
                     color: moodFilter === m ? '#fff' : 'hsl(30 15% 50%)',
                     border: `1px solid ${moodFilter === m ? 'transparent' : 'hsl(20 25% 12%)'}`,
                   }}
@@ -278,7 +278,7 @@ export default function SongSelect() {
                       color: 'hsl(30 15% 45%)',
                       background: 'transparent',
                     }}
-                    onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = '#E53A00')}
+                    onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = '#FF5400')}
                     onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = 'hsl(30 15% 45%)')}
                   >
                     LOAD MORE ({filtered.length - showCount} remaining)
@@ -314,7 +314,7 @@ export default function SongSelect() {
                   <div
                     className="absolute top-2 left-2 font-mono text-xs px-2 py-0.5 font-bold"
                     style={{
-                      background: selected.mood === 'light' ? '#48E5C2' : '#E53A00',
+                      background: selected.mood === 'light' ? '#ACE894' : '#FF5400',
                       color: '#000',
                     }}
                   >
@@ -380,7 +380,7 @@ export default function SongSelect() {
 
                 <DiffBars level={selected.difficultyLevel} />
                 {getHighScore(selected.id) > 0 && (
-                  <div className="font-mono text-sm mt-2" style={{ color: '#48E5C2' }}>
+                  <div className="font-mono text-sm mt-2" style={{ color: '#ACE894' }}>
                     BEST: {getHighScore(selected.id).toLocaleString()}
                   </div>
                 )}
@@ -396,13 +396,13 @@ export default function SongSelect() {
                   }}
                   className="w-full py-5 font-mono font-bold text-sm tracking-[0.4em] uppercase transition-all duration-200"
                   style={{
-                    background: 'hsl(14 100% 48%)',
+                    background: '#FF5400',
                     color: '#fff',
                     clipPath: 'polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%)',
-                    boxShadow: '0 0 40px rgba(229,58,0,0.3)',
+                    boxShadow: '0 0 40px rgba(255,84,0,0.3)',
                   }}
-                  onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.boxShadow = '0 0 60px rgba(229,58,0,0.6)')}
-                  onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.boxShadow = '0 0 40px rgba(229,58,0,0.3)')}
+                  onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.boxShadow = '0 0 60px rgba(255,84,0,0.6)')}
+                  onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.boxShadow = '0 0 40px rgba(255,84,0,0.3)')}
                 >
                   ▶ START TRANSMISSION
                 </button>
@@ -414,7 +414,7 @@ export default function SongSelect() {
                     color: 'hsl(30 15% 50%)',
                     background: 'transparent',
                   }}
-                  onMouseEnter={(e) => { const el = e.currentTarget as HTMLElement; el.style.borderColor = '#A855F7'; el.style.color = '#A855F7'; }}
+                  onMouseEnter={(e) => { const el = e.currentTarget as HTMLElement; el.style.borderColor = '#4A314D'; el.style.color = '#4A314D'; }}
                   onMouseLeave={(e) => { const el = e.currentTarget as HTMLElement; el.style.borderColor = 'hsl(20 25% 18%)'; el.style.color = 'hsl(30 15% 50%)'; }}
                 >
                   ◆ TRACK STATS · CHANGE DIFFICULTY
@@ -445,7 +445,7 @@ export default function SongSelect() {
               }}
               className="flex-1 py-4 font-mono font-bold text-sm tracking-[0.3em]"
               style={{
-                background: 'hsl(14 100% 48%)',
+                background: '#FF5400',
                 color: '#fff',
                 clipPath: 'polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)',
               }}

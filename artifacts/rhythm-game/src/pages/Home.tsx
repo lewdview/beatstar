@@ -2,7 +2,7 @@ import { useLocation } from "wouter";
 import { useEffect, useState } from "react";
 import { getTotalScore, getTotalPlatinums, getTotalCleared } from "@/game/progress";
 
-const LANE_COLORS = ['#E53A00', '#A855F7', '#48E5C2'];
+const LANE_COLORS = ['#FF5400', '#4A314D', '#ACE894'];
 const LANE_KEYS   = ['A', 'S', 'D'];
 
 export default function Home() {
@@ -30,7 +30,7 @@ export default function Home() {
       {/* Top bar */}
       <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-6 py-4"
         style={{ borderBottom: '2px solid rgba(255,255,255,0.08)' }}>
-        <div className="font-mono text-xs tracking-[0.5em]" style={{ color: '#48E5C2' }}>
+        <div className="font-mono text-xs tracking-[0.5em]" style={{ color: '#ACE894' }}>
           TH3SCR1B3
         </div>
         <div className="font-mono text-xs tracking-[0.4em]" style={{ color: 'rgba(255,255,255,0.2)' }}>
@@ -65,8 +65,8 @@ export default function Home() {
           <div className="w-full grid grid-cols-3 mb-0" style={{ borderBottom: '2px solid rgba(255,255,255,0.08)' }}>
             {[
               { label: 'SCORE',    value: stats.score.toLocaleString(), color: '#F2F0E8' },
-              { label: 'PLATINUM', value: stats.platinums,              color: '#48E5C2' },
-              { label: 'CLEARED',  value: stats.cleared,                color: '#A855F7' },
+              { label: 'PLATINUM', value: stats.platinums,              color: '#ACE894' },
+              { label: 'CLEARED',  value: stats.cleared,                color: '#4A314D' },
             ].map((s, i) => (
               <div key={s.label} className="py-3 text-center"
                 style={{ borderRight: i < 2 ? '2px solid rgba(255,255,255,0.08)' : 'none' }}>
@@ -83,9 +83,9 @@ export default function Home() {
             data-testid="button-start"
             onClick={() => setLocation('/campaign')}
             className="brutal-btn w-full py-5 font-mono font-bold text-base tracking-[0.4em] transition-all duration-100"
-            style={{ border: '3px solid #F2F0E8', color: '#080808', background: '#F2F0E8', boxShadow: '6px 6px 0 #E53A00' }}
-            onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.boxShadow = '3px 3px 0 #E53A00'; el.style.transform = 'translate(3px,3px)'; }}
-            onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.boxShadow = '6px 6px 0 #E53A00'; el.style.transform = ''; }}>
+            style={{ border: '3px solid #F2F0E8', color: '#080808', background: '#F2F0E8', boxShadow: '6px 6px 0 #FF5400' }}
+            onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.boxShadow = '3px 3px 0 #FF5400'; el.style.transform = 'translate(3px,3px)'; }}
+            onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.boxShadow = '6px 6px 0 #FF5400'; el.style.transform = ''; }}>
             ▶ CAMPAIGN
           </button>
 
@@ -93,7 +93,7 @@ export default function Home() {
             onClick={() => setLocation('/songs')}
             className="w-full py-3 font-mono text-xs tracking-[0.35em] transition-all duration-100"
             style={{ border: '2px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.4)', background: 'transparent', boxShadow: '4px 4px 0 rgba(255,255,255,0.06)' }}
-            onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = '#48E5C2'; el.style.borderColor = '#48E5C2'; el.style.boxShadow = '4px 4px 0 #48E5C2'; }}
+            onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = '#ACE894'; el.style.borderColor = '#ACE894'; el.style.boxShadow = '4px 4px 0 #ACE894'; }}
             onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.color = 'rgba(255,255,255,0.4)'; el.style.borderColor = 'rgba(255,255,255,0.15)'; el.style.boxShadow = '4px 4px 0 rgba(255,255,255,0.06)'; }}>
             ◈ FREE PLAY — ALL 365 SONGS
           </button>
@@ -123,8 +123,8 @@ export default function Home() {
         <div className="mt-3 flex w-full max-w-xs mx-auto" style={{ border: '2px solid rgba(255,255,255,0.06)' }}>
           {[
             { label: 'FEVER',       color: '#E5B800', mult: 2, combo: 20 },
-            { label: 'SURGE',       color: '#E53A00', mult: 3, combo: 40 },
-            { label: 'SIGNAL LOCK', color: '#48E5C2', mult: 4, combo: 60 },
+            { label: 'SURGE',       color: '#FF5400', mult: 3, combo: 40 },
+            { label: 'SIGNAL LOCK', color: '#ACE894', mult: 4, combo: 60 },
           ].map((p, i) => (
             <div key={p.label} className="flex-1 py-2 text-center"
               style={{ borderRight: i < 2 ? '2px solid rgba(255,255,255,0.06)' : 'none' }}>
@@ -141,7 +141,7 @@ export default function Home() {
         <a href="https://th3scr1b3.art" target="_blank" rel="noopener noreferrer"
           className="font-mono text-xs tracking-widest transition-colors"
           style={{ color: 'rgba(255,255,255,0.2)' }}
-          onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#48E5C2')}
+          onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#ACE894')}
           onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.2)')}>
           TH3SCR1B3.ART
         </a>

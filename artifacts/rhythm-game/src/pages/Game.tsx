@@ -8,7 +8,7 @@ import type { Note, JudgmentDisplay, GameState } from "@/game/types";
 // ── constants ────────────────────────────────────────────────────
 const LANE_COUNT = 3;
 const LANE_KEYS = ["a", "s", "d"];
-const LANE_COLORS = ["#E53A00", "#A855F7", "#48E5C2"];
+const LANE_COLORS = ["#FF5400", "#4A314D", "#ACE894"];
 
 // Approach time scales with difficulty: Level 1 = 2.5 s (easy), Level 10 = 1.35 s (brutal)
 function approachTime(diffLevel: number): number {
@@ -38,7 +38,7 @@ const POWER_UPS = [
     type: "SURGE",
     duration: 11,
     multiplier: 3,
-    color: "#E53A00",
+    color: "#FF5400",
     label: "SURGE",
   },
   {
@@ -46,7 +46,7 @@ const POWER_UPS = [
     type: "SIGNAL_LOCK",
     duration: 14,
     multiplier: 4,
-    color: "#48E5C2",
+    color: "#ACE894",
     label: "SIGNAL LOCK",
   },
 ] as const;
@@ -651,8 +651,8 @@ export default function Game() {
     const moodPulse = 0.5 + 0.5 * Math.sin(t * 0.75);
     ctx.fillStyle =
       song.mood === "dark"
-        ? `rgba(229,58,0,${0.06 + moodPulse * 0.035})`
-        : `rgba(72,229,194,${0.05 + moodPulse * 0.028})`;
+        ? `rgba(255,84,0,${0.06 + moodPulse * 0.035})`
+        : `rgba(172,232,148,${0.05 + moodPulse * 0.028})`;
     ctx.fillRect(0, 0, W, H);
 
     // Scanlines (lazy-cached repeating pattern)
@@ -1362,9 +1362,9 @@ export default function Game() {
         const active = i < missCountRef.current; // filled = miss accumulated
         ctx.save();
         ctx.globalAlpha = active ? 0.88 : 0.15;
-        ctx.fillStyle = "#E53A00";
+        ctx.fillStyle = "#FF5400";
         ctx.shadowBlur = active ? 14 : 0;
-        ctx.shadowColor = "#E53A00";
+        ctx.shadowColor = "#FF5400";
         ctx.fillRect(
           startX + i * (dotSize + dotGap),
           dotY - dotSize / 2,
@@ -1669,8 +1669,8 @@ export default function Game() {
         : gs.combo < 40
           ? "#E5B800"
           : gs.combo < 60
-            ? "#E53A00"
-            : "#48E5C2";
+            ? "#FF5400"
+            : "#ACE894";
   const animatedScore = useAnimatedCount(gs.score);
 
   return (
@@ -1694,7 +1694,7 @@ export default function Game() {
             }}
             className="font-mono text-xs tracking-widest transition-colors"
             style={{ color: "hsl(30 15% 30%)" }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#E53A00")}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#FF5400")}
             onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "hsl(30 15% 30%)")}
           >
             ✕ QUIT
@@ -1741,8 +1741,8 @@ export default function Game() {
                   key={i}
                   style={{
                     width: 7, height: 7,
-                    background: i < missCount ? "#E53A00" : "rgba(255,255,255,0.1)",
-                    boxShadow: i < missCount ? "0 0 6px rgba(229,58,0,0.9)" : "none",
+                    background: i < missCount ? "#FF5400" : "rgba(255,255,255,0.1)",
+                    boxShadow: i < missCount ? "0 0 6px rgba(255,84,0,0.9)" : "none",
                     transition: "background 0.15s, box-shadow 0.15s",
                   }}
                 />
@@ -1788,8 +1788,8 @@ export default function Game() {
                     }}
                     style={{
                       width: 38, height: 20, position: "relative", flexShrink: 0,
-                      background: on ? "#E53A00" : "rgba(255,255,255,0.1)",
-                      border: on ? "1px solid #E53A00" : "1px solid rgba(255,255,255,0.15)",
+                      background: on ? "#FF5400" : "rgba(255,255,255,0.1)",
+                      border: on ? "1px solid #FF5400" : "1px solid rgba(255,255,255,0.15)",
                       transition: "background 0.15s",
                       cursor: "pointer",
                     }}
@@ -1815,7 +1815,7 @@ export default function Game() {
           className="h-full"
           style={{
             width: `${(gs.progress || 0) * 100}%`,
-            background: "linear-gradient(90deg, #E53A00, #A855F7, #48E5C2)",
+            background: "linear-gradient(90deg, #FF5400, #4A314D, #ACE894)",
             transition: "width 0.2s linear",
           }}
         />
@@ -1871,9 +1871,9 @@ export default function Game() {
             j.type === "PERFECT+"
               ? "#E5B800"
               : j.type === "PERFECT"
-                ? "#48E5C2"
+                ? "#ACE894"
                 : j.type === "GOOD"
-                  ? "#A855F7"
+                  ? "#4A314D"
                   : "#444";
           return (
             <div
@@ -1902,7 +1902,7 @@ export default function Game() {
           >
             <div
               className="font-mono text-xs tracking-[0.3em]"
-              style={{ color: "#48E5C2" }}
+              style={{ color: "#ACE894" }}
             >
               {loadMsg}
             </div>
@@ -1938,7 +1938,7 @@ export default function Game() {
                 >
                   <div
                     className="h-full"
-                    style={{ width: `${bufferPct}%`, background: "#E53A00" }}
+                    style={{ width: `${bufferPct}%`, background: "#FF5400" }}
                   />
                 </div>
                 <div
@@ -1976,10 +1976,10 @@ export default function Game() {
                 fontSize: 120,
                 lineHeight: 1,
                 background:
-                  "linear-gradient(135deg, #E53A00, #A855F7, #48E5C2)",
+                  "linear-gradient(135deg, #FF5400, #4A314D, #ACE894)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
-                filter: "drop-shadow(0 0 30px rgba(168,85,247,0.5))",
+                filter: "drop-shadow(0 0 30px rgba(74,49,77,0.5))",
               }}
             >
               {countdown > 0 ? countdown : "GO!"}
@@ -2001,8 +2001,8 @@ export default function Game() {
               className="font-mono font-bold tracking-[0.35em]"
               style={{
                 fontSize: 28,
-                color: "#E53A00",
-                textShadow: "0 0 40px rgba(229,58,0,0.9)",
+                color: "#FF5400",
+                textShadow: "0 0 40px rgba(255,84,0,0.9)",
               }}
             >
               SIGNAL LOST
@@ -2023,8 +2023,8 @@ export default function Game() {
                     style={{
                       width: 16,
                       height: 16,
-                      background: "#E53A00",
-                      boxShadow: "0 0 14px rgba(229,58,0,0.75)",
+                      background: "#FF5400",
+                      boxShadow: "0 0 14px rgba(255,84,0,0.75)",
                     }}
                   />
                 ))}
@@ -2036,11 +2036,11 @@ export default function Game() {
               onClick={doReturn}
               className="font-mono font-bold tracking-[0.3em] px-10 py-3"
               style={{
-                background: "rgba(229,58,0,0.12)",
-                border: "2px solid #E53A00",
-                color: "#E53A00",
-                textShadow: "0 0 20px rgba(229,58,0,0.7)",
-                boxShadow: "0 0 30px rgba(229,58,0,0.2)",
+                background: "rgba(255,84,0,0.12)",
+                border: "2px solid #FF5400",
+                color: "#FF5400",
+                textShadow: "0 0 20px rgba(255,84,0,0.7)",
+                boxShadow: "0 0 30px rgba(255,84,0,0.2)",
                 clipPath:
                   "polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%)",
               }}
@@ -2097,8 +2097,8 @@ export default function Game() {
                 className="font-mono font-bold rewind-flicker"
                 style={{
                   fontSize: 34,
-                  color: "#48E5C2",
-                  textShadow: "0 0 40px rgba(72,229,194,0.9)",
+                  color: "#ACE894",
+                  textShadow: "0 0 40px rgba(172,232,148,0.9)",
                   letterSpacing: "0.28em",
                 }}
               >
@@ -2107,7 +2107,7 @@ export default function Game() {
               <div
                 className="font-mono text-xs"
                 style={{
-                  color: "rgba(72,229,194,0.4)",
+                  color: "rgba(172,232,148,0.4)",
                   letterSpacing: "0.2em",
                 }}
               >
