@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useLocation } from "wouter";
-import { loadCatalog } from "@/game/api";
+import { loadCatalog, isSongTimeLocked } from "@/game/api";
 import type { GameSong } from "@/game/api";
 import { getMedalForSong, getChapterPlatinums, getHighScore } from "@/game/progress";
 
@@ -27,18 +27,26 @@ const MEDAL_ABBR: Record<string, string> = {
 };
 
 // ── Stage row ────────────────────────────────────────────────────
-function StageRow({ song, stageNum, isBonus, locked, dc }: {
-  song: GameSong; stageNum: number; isBonus: boolean; locked: boolean; dc: string;
+function StageRow({ song, stageNum, isBonus, locked, lockReason, dc }: {
+  song: GameSong; stageNum: number; isBonus: boolean;
+  locked: boolean; lockReason?: 'time' | 'bonus'; dc: string;
 }) {
   const [, setLocation] = useLocation();
-  const medal   = getMedalForSong(song.id);
-  const score   = getHighScore(song.id);
-  const cleared = !!medal && medal !== '';
-  const mc      = MEDAL_COLOR[medal] ?? '#1a1a1a';
+  const medal    = getMedalForSong(song.id);
+  const score    = getHighScore(song.id);
+  const cleared  = !!medal && medal !== '';
+  const mc       = MEDAL_COLOR[medal] ?? '#1a1a1a';
+  const timeLock = locked && lockReason === 'time';
+
+  // Format unlock date as "JAN 04"
+  const unlockLabel = timeLock ? (() => {
+    const d = new Date(song.date + 'T12:00:00');
+    return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit' }).toUpperCase();
+  })() : '';
 
   return (
     <div className="flex items-stretch"
-      style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', opacity: locked ? 0.4 : 1 }}>
+      style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', opacity: timeLock ? 0.45 : locked ? 0.4 : 1 }}>
 
       {/* Number block */}
       <div className="flex-shrink-0 flex items-center justify-center font-mono font-bold text-sm"
@@ -69,20 +77,33 @@ function StageRow({ song, stageNum, isBonus, locked, dc }: {
                   ★BONUS
                 </span>
               )}
-              <span className="font-mono font-bold truncate" style={{ fontSize: 13, color: locked ? 'rgba(255,255,255,0.2)' : cleared ? '#F2F0E8' : 'rgba(255,255,255,0.6)' }}>
-                {song.title}
+              <span className="font-mono font-bold truncate"
+                style={{ fontSize: 13, color: locked ? 'rgba(255,255,255,0.2)' : cleared ? '#F2F0E8' : 'rgba(255,255,255,0.6)' }}>
+                {timeLock ? '— — —' : song.title}
               </span>
             </div>
             <div className="flex items-center gap-3">
               <span className="font-mono" style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.15em' }}>DAY {song.day}</span>
-              <span className="font-mono" style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.15em' }}>{song.bpm}BPM</span>
-              <span className="font-mono" style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.15em' }}>{song.notes.length}N</span>
+              {!timeLock && <>
+                <span className="font-mono" style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.15em' }}>{song.bpm}BPM</span>
+                <span className="font-mono" style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.15em' }}>{song.notes.length}N</span>
+              </>}
             </div>
           </div>
 
           <div className="flex-shrink-0 text-right">
-            {locked ? (
-              <span style={{ fontSize: 16, opacity: 0.4 }}>🔒</span>
+            {timeLock ? (
+              <div className="text-right">
+                <div className="font-mono font-bold"
+                  style={{ fontSize: 9, color: 'rgba(255,255,255,0.18)', letterSpacing: '0.2em', border: '1px solid rgba(255,255,255,0.1)', padding: '3px 8px' }}>
+                  ◷ {unlockLabel}
+                </div>
+              </div>
+            ) : locked ? (
+              <div className="font-mono font-bold px-2 py-1"
+                style={{ fontSize: 9, color: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.08)', letterSpacing: '0.2em' }}>
+                🔒 PT LOCK
+              </div>
             ) : cleared ? (
               <div>
                 <div className="font-mono font-bold px-2 py-0.5 inline-block"
@@ -203,9 +224,11 @@ export default function Chapter() {
             </div>
           </div>
 
-          {regularSongs.map((song, i) => (
-            <StageRow key={song.id} song={song} stageNum={i + 1} isBonus={false} locked={false} dc={meta.dc} />
-          ))}
+          {regularSongs.map((song, i) => {
+            const timeLocked = isSongTimeLocked(song);
+            return <StageRow key={song.id} song={song} stageNum={i + 1} isBonus={false}
+              locked={timeLocked} lockReason={timeLocked ? 'time' : undefined} dc={meta.dc} />;
+          })}
 
           {/* Bonus section */}
           {bonusSongs.length > 0 && (
@@ -222,9 +245,13 @@ export default function Chapter() {
                   </div>
                 )}
               </div>
-              {bonusSongs.map((song, i) => (
-                <StageRow key={song.id} song={song} stageNum={regularSongs.length + i + 1} isBonus locked={!bonusUnlocked} dc="#E5B800" />
-              ))}
+              {bonusSongs.map((song, i) => {
+                const timeLocked = isSongTimeLocked(song);
+                const bonusLocked = !bonusUnlocked;
+                const isLocked = timeLocked || bonusLocked;
+                return <StageRow key={song.id} song={song} stageNum={regularSongs.length + i + 1} isBonus
+                  locked={isLocked} lockReason={timeLocked ? 'time' : bonusLocked ? 'bonus' : undefined} dc="#E5B800" />;
+              })}
             </>
           )}
         </div>

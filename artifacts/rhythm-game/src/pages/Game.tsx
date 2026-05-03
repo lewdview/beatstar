@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useLocation } from "wouter";
-import { getSongById, saveHighScore } from "@/game/api";
+import { getSongById, saveHighScore, isSongTimeLocked } from "@/game/api";
 import { saveMedal } from "@/game/progress";
 import type { GameSong } from "@/game/api";
 import type { Note, JudgmentDisplay, GameState } from "@/game/types";
@@ -625,6 +625,7 @@ export default function Game() {
       setLoadMsg('FETCHING TRANSMISSION...'); phaseRef.current = 'loading'; setPhase('loading');
       const song = await getSongById(songId);
       if (cancelled || !song) { setLocation('/songs'); return; }
+      if (isSongTimeLocked(song)) { setLocation('/campaign'); return; }
       songRef.current = song;
       notesRef.current = song.notes.map(n => ({ note: { ...n, lane: Math.min(n.lane, LANE_COUNT - 1) }, hit: false, missed: false, holdActive: false, holdProgress: 0 }));
       gsRef.current = { score: 0, combo: 0, maxCombo: 0, perfectPlus: 0, perfects: 0, goods: 0, misses: 0, progress: 0 };

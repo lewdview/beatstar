@@ -1,6 +1,6 @@
 import { useParams, useLocation } from "wouter";
 import { useEffect, useState } from "react";
-import { getSongById, loadCatalog } from "@/game/api";
+import { getSongById, loadCatalog, isSongTimeLocked } from "@/game/api";
 import type { GameSong } from "@/game/api";
 import { getHighScore, getChapterPlatinums } from "@/game/progress";
 
@@ -71,8 +71,10 @@ export default function Results() {
         const sorted = [...catalog].sort((a, b) => a.day - b.day);
         const idx = sorted.findIndex(c => c.id === s.id);
 
-        if (idx >= 0 && idx < sorted.length - 1) {
-          const candidate = sorted[idx + 1];
+        // Find next song that is also already released (not time-locked)
+        const nextReleased = sorted.slice(idx + 1).find(c => !isSongTimeLocked(c));
+        if (nextReleased !== undefined) {
+          const candidate = nextReleased;
           const cMonth = new Date(candidate.date).getMonth() + 1;
           const monthSongs = sorted.filter(c => new Date(c.date).getMonth() + 1 === cMonth);
           // Last 5 of the month are bonus

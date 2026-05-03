@@ -28,6 +28,13 @@ export interface GameSong {
   difficultyLevel: number;
 }
 
+/** True if the song's release date is still in the future (not yet playable). */
+export function isSongTimeLocked(song: GameSong): boolean {
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  return song.date > todayStr;
+}
+
 let catalogCache: GameSong[] | null = null;
 let loadingPromise: Promise<GameSong[]> | null = null;
 

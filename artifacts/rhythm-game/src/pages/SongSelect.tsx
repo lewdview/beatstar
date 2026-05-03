@@ -1,6 +1,6 @@
 import { useLocation } from "wouter";
 import { useState, useEffect, useMemo } from "react";
-import { loadCatalog, getHighScore } from "@/game/api";
+import { loadCatalog, getHighScore, isSongTimeLocked } from "@/game/api";
 import type { GameSong } from "@/game/api";
 
 const LANE_COLORS = ['#E53A00', '#48E5C2', '#E5B800', '#8B48E5'];
@@ -138,8 +138,9 @@ export default function SongSelect() {
 
   useEffect(() => {
     loadCatalog().then((catalog) => {
-      setSongs(catalog);
-      if (catalog.length > 0) setSelected(catalog[0]);
+      const released = catalog.filter(s => !isSongTimeLocked(s)).sort((a, b) => a.day - b.day);
+      setSongs(released);
+      if (released.length > 0) setSelected(released[released.length - 1]); // default to most recent
       setLoading(false);
     });
   }, []);
