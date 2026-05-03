@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useLocation } from "wouter";
 import { getSongById, saveHighScore } from "@/game/api";
+import { saveMedal } from "@/game/progress";
 import type { GameSong } from "@/game/api";
 import type { Note, JudgmentDisplay, GameState } from "@/game/types";
 
@@ -155,7 +156,11 @@ export default function Game() {
     cancelAnimationFrame(rafRef.current);
     audioRef.current?.pause();
     const gs = gsRef.current;
-    if (songRef.current) saveHighScore(songRef.current.id, gs.score);
+    const medal = getMedal(gs.perfectPlus, gs.perfects, gs.goods, gs.misses);
+    if (songRef.current) {
+      saveHighScore(songRef.current.id, gs.score);
+      saveMedal(songRef.current.id, medal);
+    }
     sessionStorage.setItem(`result_${songId}`, JSON.stringify({
       score: gs.score, maxCombo: gs.maxCombo,
       perfectPlus: gs.perfectPlus, perfects: gs.perfects, goods: gs.goods, misses: gs.misses,

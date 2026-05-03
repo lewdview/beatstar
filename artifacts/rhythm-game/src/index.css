@@ -236,3 +236,45 @@
 .judgment-pop {
   animation: judgment-pop 0.5s ease forwards;
 }
+
+/* ── Campaign score counter animations ──────────────────────── */
+@keyframes digitLand {
+  0%   { transform: translateY(-18px) scaleY(1.3); opacity: 0; }
+  60%  { transform: translateY(3px)   scaleY(0.9); opacity: 1; }
+  80%  { transform: translateY(-2px)  scaleY(1.05); }
+  100% { transform: translateY(0)     scaleY(1);   opacity: 1; }
+}
+
+@keyframes scoreScanMove {
+  0%   { top: 0%;   opacity: 0;   }
+  10%  { opacity: 0.9; }
+  90%  { opacity: 0.6; }
+  100% { top: 100%; opacity: 0;   }
+}
+.score-scanline {
+  position: absolute;
+  left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.7) 40%, rgba(255,255,255,0.9) 50%, rgba(255,255,255,0.7) 60%, transparent 100%);
+  animation: scoreScanMove 0.45s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes scoreFlash {
+  0%   { background: rgba(255,255,255,0.0); }
+  15%  { background: rgba(255,255,255,0.12); }
+  40%  { background: rgba(168,85,247,0.08); }
+  100% { background: rgba(255,255,255,0.0); }
+}
+.score-flash {
+  animation: scoreFlash 1.1s ease-out forwards;
+}
+
+@keyframes chapterCardIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.chapter-card-in {
+  animation: chapterCardIn 0.35s ease-out both;
+}
+
