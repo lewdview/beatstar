@@ -615,44 +615,8 @@ export default function Game() {
     // Canvas is transparent — CSS cover art layer shows through beneath everything
     ctx.clearRect(0, 0, W, H);
 
-    // Vignette — dark edges keep game elements readable
-    const vig = ctx.createRadialGradient(
-      W / 2,
-      H * 0.42,
-      H * 0.08,
-      W / 2,
-      H * 0.42,
-      H * 0.9,
-    );
-    vig.addColorStop(0, "rgba(0,0,0,0.22)");
-    vig.addColorStop(0.5, "rgba(0,0,0,0.50)");
-    vig.addColorStop(1, "rgba(0,0,0,0.84)");
-    ctx.fillStyle = vig;
-    ctx.fillRect(0, 0, W, H);
-
-    // Mood color pulse (dark = orange-red, light = teal)
-    const moodPulse = 0.5 + 0.5 * Math.sin(t * 0.75);
-    ctx.fillStyle =
-      song.mood === "dark"
-        ? `rgba(255,84,0,${0.06 + moodPulse * 0.035})`
-        : `rgba(172,232,148,${0.05 + moodPulse * 0.028})`;
-    ctx.fillRect(0, 0, W, H);
-
-    // Scanlines (lazy-cached repeating pattern)
-    if (!scanPatternRef.current) {
-      const sc = document.createElement("canvas");
-      sc.width = 2;
-      sc.height = 4;
-      const sc2 = sc.getContext("2d")!;
-      sc2.fillStyle = "rgba(0,0,0,0.075)";
-      sc2.fillRect(0, 0, 2, 2);
-      const pat = ctx.createPattern(sc, "repeat");
-      if (pat) scanPatternRef.current = pat;
-    }
-    if (scanPatternRef.current) {
-      ctx.fillStyle = scanPatternRef.current;
-      ctx.fillRect(0, 0, W, H);
-    }
+    // Full-screen effects (vignette, mood, scanlines) are now CSS overlays on the
+    // outer wrapper — they cover the entire viewport uniformly so no column seam appears.
 
     const hwTop = hwAtProgress(0, W);
     const hwBot = hwAtProgress(1, W);
@@ -1667,7 +1631,7 @@ export default function Game() {
       className="fixed inset-0 flex justify-center overflow-hidden"
       style={{ background: "#0c0c14" }}
     >
-      {/* Blurred cover art — fills the side strips outside the capped track column */}
+      {/* Blurred cover art — fills the full viewport edge to edge */}
       {song?.coverArt && (
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <img
@@ -1683,6 +1647,33 @@ export default function Game() {
           />
         </div>
       )}
+      {/* Vignette — full-screen radial dark gradient, no column boundary */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(ellipse 90% 90% at 50% 42%, rgba(0,0,0,0.10) 0%, rgba(0,0,0,0.50) 55%, rgba(0,0,0,0.86) 100%)",
+        }}
+      />
+      {/* Scanlines — full-screen CRT texture */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            "repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.07) 3px, rgba(0,0,0,0.07) 4px)",
+          mixBlendMode: "multiply",
+        }}
+      />
+      {/* Mood tint — subtle colour cast based on song mood */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            song?.mood === "dark"
+              ? "rgba(255,84,0,0.07)"
+              : "rgba(172,232,148,0.06)",
+        }}
+      />
       <div
         className="relative flex flex-col overflow-hidden w-full"
         style={{ maxWidth: 500 }}
