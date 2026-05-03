@@ -55,6 +55,12 @@ function getMedal(pp: number, p: number, g: number, m: number) {
 interface NoteState { note: Note; hit: boolean; missed: boolean; holdActive: boolean; holdProgress: number; }
 interface LanePress { pressed: boolean; touchId?: number; }
 interface PUState   { active: PUType | null; endTime: number; startTime: number; multiplier: number; color: string; label: string; duration: number; triggered: Set<number>; }
+interface HitParticle { vx: number; vy: number; size: number; }
+interface HitEffect {
+  lane: number; startMs: number; cx: number; cy: number; color: string;
+  kind: 'PERFECT+' | 'PERFECT' | 'GOOD';
+  particles: HitParticle[];
+}
 
 // ── component ────────────────────────────────────────────────────
 export default function Game() {
@@ -72,6 +78,7 @@ export default function Game() {
   const songRef   = useRef<GameSong | null>(null);
   const phaseRef  = useRef<'loading'|'buffering'|'countdown'|'playing'|'finished'>('loading');
   const puRef     = useRef<PUState>({ active: null, endTime: 0, startTime: 0, multiplier: 1, color: '#fff', label: '', duration: 0, triggered: new Set() });
+  const hitFxRef  = useRef<HitEffect[]>([]);
 
   const [phase, setPhase]               = useState<typeof phaseRef.current>('loading');
   const [countdown, setCountdown]       = useState(3);
@@ -132,6 +139,25 @@ export default function Game() {
     checkPowerUps(gs.combo);
 
     jRef.current = [...jRef.current.filter(x => Date.now() - x.ts < 600), { type: j, lane, id: ++jCounter.current, ts: Date.now() }];
+
+    // ── Hit explosion effect ──
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const W = canvas.width; const H = canvas.height;
+      const hitY = H * HIT_RATIO;
+      const { x: lx, w: lw } = laneAt(lane, 1, W);
+      const cx = lx + lw / 2;
+      const lc = LANE_COLORS[lane];
+      const count = j === 'PERFECT+' ? 18 : j === 'PERFECT' ? 13 : 9;
+      const particles: HitParticle[] = [];
+      for (let i = 0; i < count; i++) {
+        const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.6;
+        const speed = 90 + Math.random() * 160;
+        particles.push({ vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 80, size: 2.5 + Math.random() * 4.5 });
+      }
+      hitFxRef.current.push({ lane, startMs: Date.now(), cx, cy: hitY, color: lc, kind: j, particles });
+    }
+
     syncDisplay();
   }, [getT, calcScore, checkPowerUps, syncDisplay]);
 
@@ -330,6 +356,88 @@ export default function Game() {
         }
         drawKey(ctx, noteX, noteY, noteW, noteH, r, lc, prog, true);
       }
+    }
+
+    // ── 5b. HIT EXPLOSION EFFECTS ───────────────────────────────
+    const FX_DURATION = 520;
+    const nowMs = Date.now();
+    hitFxRef.current = hitFxRef.current.filter(e => nowMs - e.startMs < FX_DURATION);
+    for (const e of hitFxRef.current) {
+      const t01 = (nowMs - e.startMs) / FX_DURATION; // 0→1
+      const dt  = (nowMs - e.startMs) / 1000;        // seconds
+      const easeOut = 1 - t01;
+
+      // ─ Lane flash: bright overlay on the key area fading fast ─
+      if (t01 < 0.18) {
+        const flashAlpha = (1 - t01 / 0.18) * (e.kind === 'PERFECT+' ? 0.55 : 0.35);
+        const { x: fx, w: fw } = laneAt(e.lane, 1, W);
+        const flashGrad = ctx.createLinearGradient(fx, e.cy - 60, fx, e.cy + 40);
+        flashGrad.addColorStop(0, `${e.color}00`);
+        flashGrad.addColorStop(0.4, `${e.color}${Math.round(flashAlpha * 255).toString(16).padStart(2, '0')}`);
+        flashGrad.addColorStop(1, `${e.color}${Math.round(flashAlpha * 0.5 * 255).toString(16).padStart(2, '0')}`);
+        ctx.fillStyle = flashGrad;
+        ctx.fillRect(fx + 4, e.cy - 60, fw - 8, 100);
+      }
+
+      // ─ Expanding rings ─
+      const rings = e.kind === 'PERFECT+' ? 2 : 1;
+      for (let r = 0; r < rings; r++) {
+        const delay = r * 0.08;
+        const rt = Math.max(0, (t01 - delay) / (1 - delay));
+        if (rt <= 0) continue;
+        const maxR = e.kind === 'PERFECT+' ? (r === 0 ? 60 : 85) : 52;
+        const ringR = rt * maxR;
+        const ringAlpha = Math.pow(1 - rt, 1.6) * (r === 0 ? 0.9 : 0.55);
+        const ringW = lerp(r === 0 ? 5 : 3, 0.5, rt);
+        ctx.save();
+        ctx.shadowColor = e.color; ctx.shadowBlur = 10;
+        ctx.strokeStyle = e.color + Math.round(ringAlpha * 255).toString(16).padStart(2, '0');
+        ctx.lineWidth = ringW;
+        ctx.beginPath(); ctx.arc(e.cx, e.cy, ringR, 0, Math.PI * 2); ctx.stroke();
+        // White inner core ring (only first ring, very brief)
+        if (r === 0 && t01 < 0.2) {
+          const coreAlpha = (1 - t01 / 0.2) * 0.6;
+          ctx.strokeStyle = `rgba(255,255,255,${coreAlpha})`;
+          ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.arc(e.cx, e.cy, ringR * 0.45, 0, Math.PI * 2); ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      // ─ Particles ─
+      ctx.save();
+      for (const p of e.particles) {
+        const px = e.cx + p.vx * dt;
+        const py = e.cy + p.vy * dt + 180 * dt * dt; // gravity
+        const life = Math.max(0, 1 - t01 * 1.4);
+        const size = p.size * (0.3 + 0.7 * (1 - t01));
+        ctx.shadowColor = e.color; ctx.shadowBlur = size * 2.5;
+        ctx.fillStyle = e.color + Math.round(life * 255).toString(16).padStart(2, '0');
+        ctx.beginPath(); ctx.arc(px, py, size, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+
+      // ─ PERFECT+ sparkle stars ─
+      if (e.kind === 'PERFECT+' && t01 < 0.6) {
+        const starCount = 5;
+        for (let s = 0; s < starCount; s++) {
+          const angle = (s / starCount) * Math.PI * 2 + t01 * 2.5;
+          const dist  = 30 + t01 * 55;
+          const sx = e.cx + Math.cos(angle) * dist;
+          const sy = e.cy + Math.sin(angle) * dist;
+          const starAlpha = Math.pow(1 - t01 / 0.6, 1.4) * 0.85;
+          const starSize  = lerp(5, 1.5, t01 / 0.6);
+          ctx.strokeStyle = '#fff' + Math.round(starAlpha * 255).toString(16).padStart(2, '0');
+          ctx.lineWidth = 1.5; ctx.shadowColor = '#fff'; ctx.shadowBlur = 6;
+          // 4-point star (two crossed lines)
+          ctx.beginPath();
+          ctx.moveTo(sx - starSize, sy); ctx.lineTo(sx + starSize, sy); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(sx, sy - starSize); ctx.lineTo(sx, sy + starSize); ctx.stroke();
+        }
+      }
+      ctx.restore();
+      void easeOut; // suppress unused warning
     }
 
     // ── 6. HIT ZONE BASELINE ────────────────────────────────────
