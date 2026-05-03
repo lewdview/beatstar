@@ -54,6 +54,40 @@ function getMedal(pp: number, p: number, g: number, m: number) {
   return a >= 93 ? 'PLATINUM' : a >= 80 ? 'GOLD' : a >= 60 ? 'SILVER' : a >= 40 ? 'BRONZE' : 'NONE';
 }
 
+// ── rewind sound (Web Audio synthesis) ──────────────────────────
+function playRewindSound(actx: AudioContext) {
+  const now = actx.currentTime;
+  // Tape-noise burst — bandpass-filtered white noise that sweeps down in frequency
+  const bufSize = Math.floor(actx.sampleRate * 0.95);
+  const buffer  = actx.createBuffer(1, bufSize, actx.sampleRate);
+  const data    = buffer.getChannelData(0);
+  for (let i = 0; i < bufSize; i++) {
+    data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufSize, 0.4);
+  }
+  const noise = actx.createBufferSource();
+  noise.buffer = buffer;
+  const bpf = actx.createBiquadFilter();
+  bpf.type = 'bandpass';
+  bpf.frequency.setValueAtTime(2800, now);
+  bpf.frequency.exponentialRampToValueAtTime(500, now + 0.95);
+  bpf.Q.value = 2.8;
+  const noiseGain = actx.createGain();
+  noiseGain.gain.setValueAtTime(0.6, now);
+  noiseGain.gain.linearRampToValueAtTime(0, now + 0.95);
+  noise.connect(bpf); bpf.connect(noiseGain); noiseGain.connect(actx.destination);
+  noise.start(now); noise.stop(now + 0.95);
+  // Pitch swoosh — sawtooth sweeping downward like tape slowing
+  const osc = actx.createOscillator();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(420, now);
+  osc.frequency.exponentialRampToValueAtTime(55, now + 0.7);
+  const oscGain = actx.createGain();
+  oscGain.gain.setValueAtTime(0.22, now);
+  oscGain.gain.linearRampToValueAtTime(0, now + 0.7);
+  osc.connect(oscGain); oscGain.connect(actx.destination);
+  osc.start(now); osc.stop(now + 0.7);
+}
+
 // ── interfaces ───────────────────────────────────────────────────
 interface NoteState { note: Note; hit: boolean; missed: boolean; holdActive: boolean; holdProgress: number; }
 interface LanePress { pressed: boolean; touchId?: number; }
@@ -79,7 +113,7 @@ export default function Game() {
   const jRef      = useRef<JudgmentDisplay[]>([]);
   const jCounter  = useRef(0);
   const songRef   = useRef<GameSong | null>(null);
-  const phaseRef  = useRef<'loading'|'buffering'|'countdown'|'playing'|'finished'|'continue'>('loading');
+  const phaseRef  = useRef<'loading'|'buffering'|'countdown'|'playing'|'finished'|'continue'|'rewinding'>('loading');
   const puRef     = useRef<PUState>({ active: null, endTime: 0, startTime: 0, multiplier: 1, color: '#fff', label: '', duration: 0, triggered: new Set() });
   const hitFxRef       = useRef<HitEffect[]>([]);
   const coverImgRef    = useRef<HTMLImageElement | null>(null);
@@ -91,7 +125,7 @@ export default function Game() {
   const laneGainsRef      = useRef<GainNode[]>([]);
   const laneSilenced      = useRef<boolean[]>([false, false, false]);
   const laneRestoreTimers = useRef<ReturnType<typeof setTimeout>[]>([] as ReturnType<typeof setTimeout>[]);
-  const livesRef          = useRef(3);
+  const missCountRef      = useRef(0);   // misses accumulated this attempt (triggers continue at 3)
   const rewindToRef       = useRef(0);
   const drawRef           = useRef<(() => void) | null>(null);
 
@@ -102,7 +136,7 @@ export default function Game() {
   const [bufferPct, setBufferPct]             = useState(0);
   const [loadMsg, setLoadMsg]                 = useState('FETCHING TRANSMISSION...');
   const [puDisplay, setPuDisplay]             = useState<{ label: string; color: string; multiplier: number; progress: number } | null>(null);
-  const [lives, setLives]                     = useState(3);
+  const [missCount, setMissCount]             = useState(0);
   const [continueCountdown, setContinueCountdown] = useState(10);
 
   const syncDisplay = useCallback(() => {
@@ -249,12 +283,14 @@ export default function Game() {
   }, [finishGame]);
 
   const doReturn = useCallback(() => {
-    if (livesRef.current <= 0) { finishGame(); return; }
-    livesRef.current--;
-    setLives(livesRef.current);
-    const audio = audioRef.current;
+    // Play the rewind sound immediately
+    const actx = audioCtxRef.current;
+    if (actx) playRewindSound(actx);
+
+    const audio    = audioRef.current;
     const rewindTo = rewindToRef.current;
-    // Reset notes that were missed in or after the rewind window so they can be hit again
+
+    // Reset notes that fell in the rewind window so they can be hit again
     notesRef.current.forEach(ns => {
       if (ns.missed && ns.note.time >= rewindTo - 0.1) {
         ns.missed = false;
@@ -263,10 +299,19 @@ export default function Game() {
     });
     gsRef.current.combo = 0;
     [0, 1, 2].forEach(restoreLane);
-    if (audio) { audio.currentTime = rewindTo; audio.play(); }
-    phaseRef.current = 'playing'; setPhase('playing');
-    rafRef.current = requestAnimationFrame(() => drawRef.current?.());
-  }, [finishGame, restoreLane]);
+
+    // Reset miss counter so player gets a fresh 3-miss allowance
+    missCountRef.current = 0;
+    setMissCount(0);
+
+    // Show rewinding visual for 1.2 s, then resume
+    phaseRef.current = 'rewinding'; setPhase('rewinding');
+    setTimeout(() => {
+      if (audio) { audio.currentTime = rewindTo; audio.play(); }
+      phaseRef.current = 'playing'; setPhase('playing');
+      rafRef.current = requestAnimationFrame(() => drawRef.current?.());
+    }, 1200);
+  }, [restoreLane]);
 
   // Auto-abandon countdown while continue screen is visible
   useEffect(() => {
@@ -536,14 +581,15 @@ export default function Game() {
         muteLane(note.lane);
         dirty = true;
         if (phaseRef.current === 'playing') {
+          missCountRef.current++;
+          setMissCount(missCountRef.current);
           syncDisplay();
-          if (livesRef.current > 0) {
+          if (missCountRef.current >= 3) {
             const audio = audioRef.current;
             if (audio) { rewindToRef.current = Math.max(0, audio.currentTime - 2.5); audio.pause(); }
-            phaseRef.current = 'continue'; setPhase('continue'); setLives(livesRef.current);
+            phaseRef.current = 'continue'; setPhase('continue');
             return;
           }
-          finishGame(); return;
         }
         continue;
       }
@@ -552,14 +598,15 @@ export default function Game() {
         muteLane(note.lane);
         dirty = true;
         if (phaseRef.current === 'playing') {
+          missCountRef.current++;
+          setMissCount(missCountRef.current);
           syncDisplay();
-          if (livesRef.current > 0) {
+          if (missCountRef.current >= 3) {
             const audio = audioRef.current;
             if (audio) { rewindToRef.current = Math.max(0, audio.currentTime - 2.5); audio.pause(); }
-            phaseRef.current = 'continue'; setPhase('continue'); setLives(livesRef.current);
+            phaseRef.current = 'continue'; setPhase('continue');
             return;
           }
-          finishGame(); return;
         }
         continue;
       }
@@ -826,7 +873,7 @@ export default function Game() {
       const startX  = W - totalW - 18;
       const dotY    = hitY - 32;
       for (let i = 0; i < 3; i++) {
-        const active = i < livesRef.current;
+        const active = i < missCountRef.current;  // filled = miss accumulated
         ctx.save();
         ctx.globalAlpha = active ? 0.88 : 0.15;
         ctx.fillStyle   = '#E53A00';
@@ -924,7 +971,7 @@ export default function Game() {
       notesRef.current = song.notes.map(n => ({ note: { ...n, lane: Math.min(n.lane, LANE_COUNT - 1) }, hit: false, missed: false, holdActive: false, holdProgress: 0 }));
       gsRef.current  = { score: 0, combo: 0, maxCombo: 0, perfectPlus: 0, perfects: 0, goods: 0, misses: 0, progress: 0 };
       puRef.current  = { active: null, endTime: 0, startTime: 0, multiplier: 1, color: '#fff', label: '', duration: 0, triggered: new Set() };
-      livesRef.current = 3; setLives(3);
+      missCountRef.current = 0; setMissCount(0);
 
       setLoadMsg('BUFFERING AUDIO...'); phaseRef.current = 'buffering'; setPhase('buffering');
       audio = new Audio(); audio.crossOrigin = 'anonymous'; audio.preload = 'auto'; audioRef.current = audio;
@@ -1107,17 +1154,17 @@ export default function Game() {
               SIGNAL LOST
             </div>
 
-            {/* Lives dots */}
+            {/* Miss pips — all 3 lit = why we're here */}
             <div className="flex flex-col items-center gap-2">
               <div className="font-mono text-xs tracking-[0.25em]" style={{ color: 'rgba(255,255,255,0.28)' }}>
-                CONTINUES REMAINING
+                3 STRIKES
               </div>
               <div className="flex gap-3">
                 {[0, 1, 2].map(i => (
                   <div key={i} style={{
                     width: 16, height: 16,
-                    background: i < lives ? '#E53A00' : 'rgba(255,255,255,0.07)',
-                    boxShadow: i < lives ? '0 0 14px rgba(229,58,0,0.75)' : 'none',
+                    background: '#E53A00',
+                    boxShadow: '0 0 14px rgba(229,58,0,0.75)',
                   }} />
                 ))}
               </div>
@@ -1145,6 +1192,29 @@ export default function Game() {
                 style={{ color: 'rgba(255,255,255,0.22)', background: 'none', border: 'none', cursor: 'pointer' }}>
                 ABANDON RUN
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Rewinding overlay — VHS tape rewind visual */}
+        {phase === 'rewinding' && (
+          <div className="absolute inset-0 overflow-hidden rewind-overlay"
+            style={{ background: 'rgba(6,6,12,0.93)' }}>
+            {/* CRT scan lines */}
+            <div className="absolute inset-0 pointer-events-none" style={{
+              background: 'repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.28) 3px,rgba(0,0,0,0.28) 6px)',
+            }} />
+            {/* Glitch bands */}
+            <div className="absolute inset-0 rewind-glitch pointer-events-none" />
+            {/* Center text */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 pointer-events-none">
+              <div className="font-mono font-bold rewind-flicker"
+                style={{ fontSize: 34, color: '#48E5C2', textShadow: '0 0 40px rgba(72,229,194,0.9)', letterSpacing: '0.28em' }}>
+                ◀◀ REWINDING
+              </div>
+              <div className="font-mono text-xs" style={{ color: 'rgba(72,229,194,0.4)', letterSpacing: '0.2em' }}>
+                BACKING UP 2.5 SECONDS
+              </div>
             </div>
           </div>
         )}
