@@ -79,6 +79,10 @@ export default function Game() {
   const phaseRef  = useRef<'loading'|'buffering'|'countdown'|'playing'|'finished'>('loading');
   const puRef     = useRef<PUState>({ active: null, endTime: 0, startTime: 0, multiplier: 1, color: '#fff', label: '', duration: 0, triggered: new Set() });
   const hitFxRef  = useRef<HitEffect[]>([]);
+  const audioCtxRef       = useRef<AudioContext | null>(null);
+  const laneGainsRef      = useRef<GainNode[]>([]);
+  const laneSilenced      = useRef<boolean[]>([false, false, false]);
+  const laneRestoreTimers = useRef<ReturnType<typeof setTimeout>[]>([] as ReturnType<typeof setTimeout>[]);
 
   const [phase, setPhase]               = useState<typeof phaseRef.current>('loading');
   const [countdown, setCountdown]       = useState(3);
@@ -114,8 +118,38 @@ export default function Game() {
     }
   }, [getT]);
 
+  const muteLane = useCallback((lane: number) => {
+    const ctx = audioCtxRef.current; const gain = laneGainsRef.current[lane];
+    if (!ctx || !gain || laneSilenced.current[lane]) return;
+    laneSilenced.current[lane] = true;
+    gain.gain.cancelScheduledValues(ctx.currentTime);
+    gain.gain.setValueAtTime(gain.gain.value, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.04, ctx.currentTime + 0.12);
+    clearTimeout(laneRestoreTimers.current[lane]);
+    laneRestoreTimers.current[lane] = setTimeout(() => {
+      laneSilenced.current[lane] = false;
+      const c = audioCtxRef.current; const g = laneGainsRef.current[lane];
+      if (!c || !g) return;
+      g.gain.cancelScheduledValues(c.currentTime);
+      g.gain.setValueAtTime(g.gain.value, c.currentTime);
+      g.gain.linearRampToValueAtTime(1.0, c.currentTime + 0.4);
+    }, 3500);
+  }, []);
+
+  const restoreLane = useCallback((lane: number) => {
+    if (!laneSilenced.current[lane]) return;
+    laneSilenced.current[lane] = false;
+    clearTimeout(laneRestoreTimers.current[lane]);
+    const ctx = audioCtxRef.current; const gain = laneGainsRef.current[lane];
+    if (!ctx || !gain) return;
+    gain.gain.cancelScheduledValues(ctx.currentTime);
+    gain.gain.setValueAtTime(gain.gain.value, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(1.0, ctx.currentTime + 0.25);
+  }, []);
+
   const hitLane = useCallback((lane: number) => {
     if (phaseRef.current !== 'playing') return;
+    restoreLane(lane);
     const t = getT();
     const candidates = notesRef.current.filter(ns => ns.note.lane === lane && !ns.hit && !ns.missed);
     if (!candidates.length) return;
@@ -159,7 +193,7 @@ export default function Game() {
     }
 
     syncDisplay();
-  }, [getT, calcScore, checkPowerUps, syncDisplay]);
+  }, [getT, calcScore, checkPowerUps, syncDisplay, restoreLane]);
 
   const releaseLane = useCallback((lane: number) => {
     if (phaseRef.current !== 'playing') return;
@@ -305,10 +339,13 @@ export default function Game() {
       if (!ns.holdActive && note.type === 'tap' && t > note.time + MISS_WINDOW) {
         ns.missed = true; const gsx = gsRef.current; gsx.combo = 0; gsx.misses++;
         jRef.current = [...jRef.current.filter(x => Date.now() - x.ts < 600), { type: 'MISS', lane: note.lane, id: ++jCounter.current, ts: Date.now() }];
+        muteLane(note.lane);
         dirty = true; continue;
       }
       if (note.type === 'hold' && !ns.holdActive && t > note.time + MISS_WINDOW) {
-        ns.missed = true; const gsx = gsRef.current; gsx.combo = 0; gsx.misses++; dirty = true; continue;
+        ns.missed = true; const gsx = gsRef.current; gsx.combo = 0; gsx.misses++;
+        muteLane(note.lane);
+        dirty = true; continue;
       }
       if (noteY < -80) continue;
 
@@ -490,15 +527,31 @@ export default function Game() {
       }
 
       // COLORED STRIPE on the key (matches note center stripe)
+      const silenced  = laneSilenced.current[i];
       const stripeTop = btnY + btnH * 0.36 + (pressed ? 2 : 0);
       const stripeH   = Math.max(6, btnH * 0.14);
-      ctx.shadowColor = lc; ctx.shadowBlur = pressed ? 20 : 12;
-      ctx.fillStyle = lc; ctx.globalAlpha = pressed ? 1 : 0.85;
+      const stripeCol = silenced ? 'rgba(80,78,75,0.7)' : lc;
+      ctx.shadowColor = silenced ? 'transparent' : lc; ctx.shadowBlur = pressed ? 20 : 12;
+      ctx.fillStyle = stripeCol; ctx.globalAlpha = pressed ? 1 : (silenced ? 0.45 : 0.85);
       ctx.beginPath(); ctx.roundRect(bx + 5, stripeTop, bw - 10, stripeH, stripeH * 0.4); ctx.fill();
       // Bright core of stripe
-      ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.globalAlpha = pressed ? 0.8 : 0.6;
+      ctx.fillStyle = silenced ? 'rgba(60,58,55,0.4)' : 'rgba(255,255,255,0.55)';
+      ctx.globalAlpha = pressed ? 0.8 : 0.6;
       ctx.beginPath(); ctx.roundRect(bx + 8, stripeTop + stripeH * 0.1, bw - 16, stripeH * 0.4, stripeH * 0.2); ctx.fill();
       ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+
+      // Muted overlay: dark wash + "◌" icon when lane is silenced
+      if (silenced) {
+        ctx.fillStyle = 'rgba(0,0,0,0.38)';
+        ctx.beginPath(); ctx.roundRect(bx, btnY + (pressed ? 2 : 0), bw, btnH - (pressed ? 2 : 0), 12); ctx.fill();
+        ctx.strokeStyle = 'rgba(180,70,70,0.7)'; ctx.lineWidth = 1.5;
+        const iconR = Math.min(bw, btnH) * 0.13;
+        const iconX = bx + bw * 0.78; const iconY = btnY + btnH * 0.22;
+        ctx.beginPath(); ctx.arc(iconX, iconY, iconR, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(iconX - iconR * 0.7, iconY + iconR * 0.7);
+        ctx.lineTo(iconX + iconR * 0.7, iconY - iconR * 0.7); ctx.stroke();
+      }
 
       // Key label (dark text below stripe)
       const fs = Math.max(13, Math.floor(btnH * 0.26));
@@ -516,7 +569,7 @@ export default function Game() {
     if ((allDone && t > lastT + 1.5 && t > 2) || t >= song.duration) { finishGame(); return; }
 
     rafRef.current = requestAnimationFrame(draw);
-  }, [getT, syncDisplay, finishGame]);
+  }, [getT, syncDisplay, finishGame, muteLane]);
 
   // ── keyboard ──
   useEffect(() => {
@@ -599,12 +652,46 @@ export default function Game() {
       if (cancelled) return;
 
       phaseRef.current = 'playing'; setPhase('playing');
+
+      // ── Web Audio frequency-band routing ──────────────────────
+      // Lane 0 (A) → bass  · Lane 1 (S) → mids  · Lane 2 (D) → treble
+      try {
+        const actx = new AudioContext();
+        audioCtxRef.current = actx;
+        await actx.resume();
+        const src = actx.createMediaElementSource(audio);
+        const bandDefs: { type: BiquadFilterType; freq: number; Q: number }[] = [
+          { type: 'lowpass',  freq: 300,  Q: 0.8 },
+          { type: 'bandpass', freq: 1200, Q: 0.7 },
+          { type: 'highpass', freq: 3200, Q: 0.8 },
+        ];
+        laneGainsRef.current = bandDefs.map(({ type, freq, Q }) => {
+          const f = actx.createBiquadFilter();
+          f.type = type; f.frequency.value = freq; f.Q.value = Q;
+          const g = actx.createGain(); g.gain.value = 1.0;
+          src.connect(f); f.connect(g); g.connect(actx.destination);
+          return g;
+        });
+        laneSilenced.current = [false, false, false];
+      } catch {
+        // CORS or browser restriction — fall back to direct playback (no muting)
+      }
+
       await audio.play();
       rafRef.current = requestAnimationFrame(draw);
     };
 
     init().catch(() => { if (!cancelled) setLocation('/songs'); });
-    return () => { cancelled = true; cancelAnimationFrame(rafRef.current); if (audio) { audio.pause(); audio.src = ''; } audioRef.current = null; };
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(rafRef.current);
+      if (audio) { audio.pause(); audio.src = ''; }
+      audioRef.current = null;
+      laneRestoreTimers.current.forEach(clearTimeout);
+      if (audioCtxRef.current) { audioCtxRef.current.close(); audioCtxRef.current = null; }
+      laneGainsRef.current = [];
+      laneSilenced.current = [false, false, false];
+    };
   }, [songId, draw, setLocation]);
 
   // ── render ──
