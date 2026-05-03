@@ -20,7 +20,7 @@ const MEDALS: Record<string, { color: string; abbr: string; message: string }> =
 const MEDAL_ORDER = ['NONE','BRONZE','SILVER','GOLD','PLATINUM'];
 
 const CHAPTER_PLAT_NEEDED: Record<number, number> = {
-  1:5, 2:5, 3:6, 4:7, 5:7, 6:8, 7:9, 8:10, 9:11, 10:12, 11:13, 12:15,
+  1:2, 2:2, 3:3, 4:3, 5:3, 6:4, 7:4, 8:5, 9:5, 10:5, 11:6, 12:7,
 };
 
 function Counter({ target, duration = 1400 }: { target: number; duration?: number }) {

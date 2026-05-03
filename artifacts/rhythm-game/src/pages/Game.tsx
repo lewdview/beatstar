@@ -76,7 +76,7 @@ export default function Game() {
   const jRef      = useRef<JudgmentDisplay[]>([]);
   const jCounter  = useRef(0);
   const songRef   = useRef<GameSong | null>(null);
-  const phaseRef  = useRef<'loading'|'buffering'|'countdown'|'playing'|'finished'>('loading');
+  const phaseRef  = useRef<'loading'|'buffering'|'countdown'|'playing'|'finished'|'continue'>('loading');
   const puRef     = useRef<PUState>({ active: null, endTime: 0, startTime: 0, multiplier: 1, color: '#fff', label: '', duration: 0, triggered: new Set() });
   const hitFxRef       = useRef<HitEffect[]>([]);
   const coverImgRef    = useRef<HTMLImageElement | null>(null);
@@ -88,14 +88,19 @@ export default function Game() {
   const laneGainsRef      = useRef<GainNode[]>([]);
   const laneSilenced      = useRef<boolean[]>([false, false, false]);
   const laneRestoreTimers = useRef<ReturnType<typeof setTimeout>[]>([] as ReturnType<typeof setTimeout>[]);
+  const livesRef          = useRef(3);
+  const rewindToRef       = useRef(0);
+  const drawRef           = useRef<(() => void) | null>(null);
 
-  const [phase, setPhase]               = useState<typeof phaseRef.current>('loading');
-  const [countdown, setCountdown]       = useState(3);
-  const [displayGs, setDisplayGs]       = useState<GameState>(gsRef.current);
-  const [displayJudge, setDisplayJudge] = useState<JudgmentDisplay[]>([]);
-  const [bufferPct, setBufferPct]       = useState(0);
-  const [loadMsg, setLoadMsg]           = useState('FETCHING TRANSMISSION...');
-  const [puDisplay, setPuDisplay]       = useState<{ label: string; color: string; multiplier: number; progress: number } | null>(null);
+  const [phase, setPhase]                     = useState<typeof phaseRef.current>('loading');
+  const [countdown, setCountdown]             = useState(3);
+  const [displayGs, setDisplayGs]             = useState<GameState>(gsRef.current);
+  const [displayJudge, setDisplayJudge]       = useState<JudgmentDisplay[]>([]);
+  const [bufferPct, setBufferPct]             = useState(0);
+  const [loadMsg, setLoadMsg]                 = useState('FETCHING TRANSMISSION...');
+  const [puDisplay, setPuDisplay]             = useState<{ label: string; color: string; multiplier: number; progress: number } | null>(null);
+  const [lives, setLives]                     = useState(3);
+  const [continueCountdown, setContinueCountdown] = useState(10);
 
   const syncDisplay = useCallback(() => {
     setDisplayGs({ ...gsRef.current });
@@ -220,6 +225,7 @@ export default function Game() {
     phaseRef.current = 'finished'; setPhase('finished');
     cancelAnimationFrame(rafRef.current);
     audioRef.current?.pause();
+    audioRef.current && (audioRef.current.currentTime = 0);
     const gs = gsRef.current;
     const medal = getMedal(gs.perfectPlus, gs.perfects, gs.goods, gs.misses);
     if (songRef.current) {
@@ -234,6 +240,43 @@ export default function Game() {
     }));
     setTimeout(() => setLocation(`/results/${songId}`), 800);
   }, [songId, setLocation]);
+
+  const doAbandon = useCallback(() => {
+    finishGame();
+  }, [finishGame]);
+
+  const doReturn = useCallback(() => {
+    if (livesRef.current <= 0) { finishGame(); return; }
+    livesRef.current--;
+    setLives(livesRef.current);
+    const audio = audioRef.current;
+    const rewindTo = rewindToRef.current;
+    // Reset notes that were missed in or after the rewind window so they can be hit again
+    notesRef.current.forEach(ns => {
+      if (ns.missed && ns.note.time >= rewindTo - 0.1) {
+        ns.missed = false;
+        gsRef.current.misses = Math.max(0, gsRef.current.misses - 1);
+      }
+    });
+    gsRef.current.combo = 0;
+    [0, 1, 2].forEach(restoreLane);
+    if (audio) { audio.currentTime = rewindTo; audio.play(); }
+    phaseRef.current = 'playing'; setPhase('playing');
+    rafRef.current = requestAnimationFrame(() => drawRef.current?.());
+  }, [finishGame, restoreLane]);
+
+  // Auto-abandon countdown while continue screen is visible
+  useEffect(() => {
+    if (phase !== 'continue') return;
+    setContinueCountdown(10);
+    let count = 10;
+    const id = setInterval(() => {
+      count--;
+      setContinueCountdown(count);
+      if (count <= 0) { clearInterval(id); finishGame(); }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [phase, finishGame]);
 
   // ═══════════════════════════════════════════════════════════════
   //  DRAW LOOP
@@ -487,12 +530,34 @@ export default function Game() {
         ns.missed = true; const gsx = gsRef.current; gsx.combo = 0; gsx.misses++;
         jRef.current = [...jRef.current.filter(x => Date.now() - x.ts < 600), { type: 'MISS', lane: note.lane, id: ++jCounter.current, ts: Date.now() }];
         muteLane(note.lane);
-        dirty = true; continue;
+        dirty = true;
+        if (phaseRef.current === 'playing') {
+          syncDisplay();
+          if (livesRef.current > 0) {
+            const audio = audioRef.current;
+            if (audio) { rewindToRef.current = Math.max(0, audio.currentTime - 2.5); audio.pause(); }
+            phaseRef.current = 'continue'; setPhase('continue'); setLives(livesRef.current);
+            return;
+          }
+          finishGame(); return;
+        }
+        continue;
       }
       if (note.type === 'hold' && !ns.holdActive && t > note.time + MISS_WINDOW) {
         ns.missed = true; const gsx = gsRef.current; gsx.combo = 0; gsx.misses++;
         muteLane(note.lane);
-        dirty = true; continue;
+        dirty = true;
+        if (phaseRef.current === 'playing') {
+          syncDisplay();
+          if (livesRef.current > 0) {
+            const audio = audioRef.current;
+            if (audio) { rewindToRef.current = Math.max(0, audio.currentTime - 2.5); audio.pause(); }
+            phaseRef.current = 'continue'; setPhase('continue'); setLives(livesRef.current);
+            return;
+          }
+          finishGame(); return;
+        }
+        continue;
       }
       if (noteY < -80) continue;
 
@@ -750,6 +815,24 @@ export default function Game() {
 
     if (dirty) syncDisplay();
 
+    // ── lives indicator ──────────────────────────────────────────
+    {
+      const dotSize = 11; const dotGap = 6;
+      const totalW  = 3 * dotSize + 2 * dotGap;
+      const startX  = W - totalW - 18;
+      const dotY    = hitY - 32;
+      for (let i = 0; i < 3; i++) {
+        const active = i < livesRef.current;
+        ctx.save();
+        ctx.globalAlpha = active ? 0.88 : 0.15;
+        ctx.fillStyle   = '#E53A00';
+        ctx.shadowBlur  = active ? 14 : 0;
+        ctx.shadowColor = '#E53A00';
+        ctx.fillRect(startX + i * (dotSize + dotGap), dotY - dotSize / 2, dotSize, dotSize);
+        ctx.restore();
+      }
+    }
+
     // ── end check ──
     const allDone = notesRef.current.every(ns => ns.hit || ns.missed);
     const lastT   = notesRef.current.length ? Math.max(...notesRef.current.map(ns => ns.note.time)) : 0;
@@ -757,6 +840,9 @@ export default function Game() {
 
     rafRef.current = requestAnimationFrame(draw);
   }, [getT, syncDisplay, finishGame, muteLane]);
+
+  // Keep drawRef current so doReturn can schedule the loop without a circular dep
+  useEffect(() => { drawRef.current = draw; }, [draw]);
 
   // ── keyboard ──
   useEffect(() => {
@@ -832,8 +918,9 @@ export default function Game() {
         img.src = song.coverArt;
       }
       notesRef.current = song.notes.map(n => ({ note: { ...n, lane: Math.min(n.lane, LANE_COUNT - 1) }, hit: false, missed: false, holdActive: false, holdProgress: 0 }));
-      gsRef.current = { score: 0, combo: 0, maxCombo: 0, perfectPlus: 0, perfects: 0, goods: 0, misses: 0, progress: 0 };
+      gsRef.current  = { score: 0, combo: 0, maxCombo: 0, perfectPlus: 0, perfects: 0, goods: 0, misses: 0, progress: 0 };
       puRef.current  = { active: null, endTime: 0, startTime: 0, multiplier: 1, color: '#fff', label: '', duration: 0, triggered: new Set() };
+      livesRef.current = 3; setLives(3);
 
       setLoadMsg('BUFFERING AUDIO...'); phaseRef.current = 'buffering'; setPhase('buffering');
       audio = new Audio(); audio.crossOrigin = 'anonymous'; audio.preload = 'auto'; audioRef.current = audio;
@@ -1001,6 +1088,59 @@ export default function Game() {
           <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(12,12,20,0.82)' }}>
             <div className="font-mono font-bold text-center" style={{ fontSize: 120, lineHeight: 1, background: 'linear-gradient(135deg, #E53A00, #A855F7, #48E5C2)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', filter: 'drop-shadow(0 0 30px rgba(168,85,247,0.5))' }}>
               {countdown > 0 ? countdown : 'GO!'}
+            </div>
+          </div>
+        )}
+
+        {/* Continue overlay */}
+        {phase === 'continue' && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-7"
+            style={{ background: 'rgba(8,8,14,0.96)', backdropFilter: 'blur(6px)' }}>
+
+            {/* Header */}
+            <div className="font-mono font-bold tracking-[0.35em]"
+              style={{ fontSize: 28, color: '#E53A00', textShadow: '0 0 40px rgba(229,58,0,0.9)' }}>
+              SIGNAL LOST
+            </div>
+
+            {/* Lives dots */}
+            <div className="flex flex-col items-center gap-2">
+              <div className="font-mono text-xs tracking-[0.25em]" style={{ color: 'rgba(255,255,255,0.28)' }}>
+                CONTINUES REMAINING
+              </div>
+              <div className="flex gap-3">
+                {[0, 1, 2].map(i => (
+                  <div key={i} style={{
+                    width: 16, height: 16,
+                    background: i < lives ? '#E53A00' : 'rgba(255,255,255,0.07)',
+                    boxShadow: i < lives ? '0 0 14px rgba(229,58,0,0.75)' : 'none',
+                  }} />
+                ))}
+              </div>
+            </div>
+
+            {/* Continue button */}
+            <button onClick={doReturn}
+              className="font-mono font-bold tracking-[0.3em] px-10 py-3"
+              style={{
+                background: 'rgba(229,58,0,0.12)', border: '2px solid #E53A00',
+                color: '#E53A00', textShadow: '0 0 20px rgba(229,58,0,0.7)',
+                boxShadow: '0 0 30px rgba(229,58,0,0.2)',
+                clipPath: 'polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%)',
+              }}>
+              ▶ CONTINUE
+            </button>
+
+            {/* Countdown + abandon */}
+            <div className="flex flex-col items-center gap-2">
+              <div className="font-mono text-xs" style={{ color: 'rgba(255,255,255,0.22)', letterSpacing: '0.2em' }}>
+                AUTO-ABANDON IN {continueCountdown}s
+              </div>
+              <button onClick={doAbandon}
+                className="font-mono text-xs tracking-[0.25em]"
+                style={{ color: 'rgba(255,255,255,0.22)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                ABANDON RUN
+              </button>
             </div>
           </div>
         )}
