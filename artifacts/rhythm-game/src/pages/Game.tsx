@@ -1974,7 +1974,7 @@ export default function Game() {
         {phase === "rewinding" && (
           <div
             className="absolute inset-0 overflow-hidden rewind-overlay"
-            style={{ background: "rgba(6,6,12,0.75)", pointerEvents: "none" }}
+            style={{ background: "rgba(6,6,12,0.15)", pointerEvents: "none" }}
           >
             {/* CRT scan lines */}
             <div
