@@ -1381,6 +1381,11 @@ export default function Game() {
       const rect = canvas.getBoundingClientRect();
       for (let i = 0; i < e.changedTouches.length; i++) {
         const touch = e.changedTouches[i];
+        // Only register hits in the button zone (bottom 30% of canvas — "touch in").
+        // Touching the track area above the buttons is ignored so accidental taps
+        // on falling notes don't fire. The lane is determined by X position only.
+        const relY = (touch.clientY - rect.top) / rect.height;
+        if (relY < HIT_RATIO) continue;
         const lane = Math.floor(
           ((touch.clientX - rect.left) / rect.width) * LANE_COUNT,
         );
@@ -1394,21 +1399,38 @@ export default function Game() {
     [hitLane],
   );
 
-  const onTouchEnd = useCallback(
-    (e: React.TouchEvent<HTMLCanvasElement>) => {
-      e.preventDefault();
-      for (let i = 0; i < e.changedTouches.length; i++) {
-        const touch = e.changedTouches[i];
-        for (let lane = 0; lane < LANE_COUNT; lane++) {
-          if (laneRef.current[lane].touchId === touch.identifier) {
-            laneRef.current[lane].pressed = false;
-            laneRef.current[lane].touchId = undefined;
-            releaseLane(lane);
-          }
+  const releaseTouchById = useCallback(
+    (identifier: number) => {
+      for (let lane = 0; lane < LANE_COUNT; lane++) {
+        if (laneRef.current[lane].touchId === identifier) {
+          laneRef.current[lane].pressed = false;
+          laneRef.current[lane].touchId = undefined;
+          releaseLane(lane);
         }
       }
     },
     [releaseLane],
+  );
+
+  const onTouchEnd = useCallback(
+    (e: React.TouchEvent<HTMLCanvasElement>) => {
+      e.preventDefault();
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        releaseTouchById(e.changedTouches[i].identifier);
+      }
+    },
+    [releaseTouchById],
+  );
+
+  // touchcancel fires when the OS interrupts (incoming call, notification, etc.)
+  // Treat it identically to touchend so hold notes don't get stuck.
+  const onTouchCancel = useCallback(
+    (e: React.TouchEvent<HTMLCanvasElement>) => {
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        releaseTouchById(e.changedTouches[i].identifier);
+      }
+    },
+    [releaseTouchById],
   );
 
   // ── canvas resize — useLayoutEffect so dimensions are set before first paint ──
@@ -1419,7 +1441,9 @@ export default function Game() {
     const sync = () => {
       const W = wrapper.clientWidth;
       const H = wrapper.clientHeight;
-      if (W > 0 && H > 0) {
+      // Only reassign when dimensions actually changed — setting canvas.width/height
+      // always clears the canvas and resets the 2D context, causing visible flicker.
+      if (W > 0 && H > 0 && (canvas.width !== W || canvas.height !== H)) {
         canvas.width  = W;
         canvas.height = H;
       }
@@ -1859,6 +1883,7 @@ export default function Game() {
           className="absolute inset-0"
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
+          onTouchCancel={onTouchCancel}
           data-testid="canvas-game"
         />
 
