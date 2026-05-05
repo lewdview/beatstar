@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
 import { useParams, useLocation } from "wouter";
 import { getSongById, saveHighScore, isSongTimeLocked } from "@/game/api";
 import { saveMedal, saveScoreHistory } from "@/game/progress";
@@ -202,6 +202,7 @@ export default function Game() {
   const [, setLocation] = useLocation();
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasWrapperRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const rafRef = useRef<number>(0);
   const notesRef = useRef<NoteState[]>([]);
@@ -1410,19 +1411,23 @@ export default function Game() {
     [releaseLane],
   );
 
-  // ── canvas resize ──
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const resize = () => {
-      const p = canvas.parentElement;
-      if (!p) return;
-      canvas.width = p.clientWidth;
-      canvas.height = p.clientHeight;
+  // ── canvas resize — useLayoutEffect so dimensions are set before first paint ──
+  useLayoutEffect(() => {
+    const canvas  = canvasRef.current;
+    const wrapper = canvasWrapperRef.current;
+    if (!canvas || !wrapper) return;
+    const sync = () => {
+      const W = wrapper.clientWidth;
+      const H = wrapper.clientHeight;
+      if (W > 0 && H > 0) {
+        canvas.width  = W;
+        canvas.height = H;
+      }
     };
-    resize();
-    window.addEventListener("resize", resize);
-    return () => window.removeEventListener("resize", resize);
+    sync();
+    const ro = new ResizeObserver(sync);
+    ro.observe(wrapper);
+    return () => ro.disconnect();
   }, []);
 
   // ── init ──
@@ -1675,7 +1680,7 @@ export default function Game() {
         }}
       />
       <div
-        className="relative flex flex-col overflow-hidden w-full h-full"
+        className="absolute inset-0 mx-auto flex flex-col overflow-hidden"
         style={{ maxWidth: 500 }}
       >
       {/* HUD */}
@@ -1848,10 +1853,10 @@ export default function Game() {
       </div>
 
       {/* Canvas */}
-      <div className="relative flex-1 overflow-hidden">
+      <div ref={canvasWrapperRef} className="relative flex-1 min-h-0 overflow-hidden">
         <canvas
           ref={canvasRef}
-          className="w-full h-full block"
+          className="absolute inset-0"
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
           data-testid="canvas-game"
