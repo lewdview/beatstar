@@ -1675,7 +1675,7 @@ export default function Game() {
         }}
       />
       <div
-        className="relative flex flex-col overflow-hidden w-full"
+        className="relative flex flex-col overflow-hidden w-full h-full"
         style={{ maxWidth: 500 }}
       >
       {/* HUD */}
