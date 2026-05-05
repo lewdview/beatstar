@@ -1381,11 +1381,7 @@ export default function Game() {
       const rect = canvas.getBoundingClientRect();
       for (let i = 0; i < e.changedTouches.length; i++) {
         const touch = e.changedTouches[i];
-        // Only register hits in the button zone (bottom 30% of canvas — "touch in").
-        // Touching the track area above the buttons is ignored so accidental taps
-        // on falling notes don't fire. The lane is determined by X position only.
-        const relY = (touch.clientY - rect.top) / rect.height;
-        if (relY < HIT_RATIO) continue;
+        // Lane is determined by horizontal thirds — the full canvas is tappable.
         const lane = Math.floor(
           ((touch.clientX - rect.left) / rect.width) * LANE_COUNT,
         );
