@@ -232,6 +232,7 @@ export default function Game() {
     | "finished"
     | "continue"
     | "rewinding"
+    | "audioError"
   >("loading");
   const puRef = useRef<PUState>({
     active: null,
@@ -1564,6 +1565,22 @@ export default function Game() {
       });
       if (cancelled) return;
 
+      // ── Audio unlock (mobile autoplay policy) ─────────────────────────────
+      // Browsers expire the "user gesture" freshness within ~1s. By the time
+      // the 3-second countdown finishes, calling audio.play() cold will throw
+      // NotAllowedError on iOS/Safari. Warm up the element NOW (still close
+      // to the navigation gesture) with a silent play→pause so the element is
+      // already "unlocked" when we call play() for real after the countdown.
+      try {
+        await audio!.play();
+        audio!.pause();
+        audio!.currentTime = 0;
+      } catch {
+        // Warm-up blocked; we'll try to play for real after countdown and
+        // surface a TAP TO START recovery screen if it fails again.
+      }
+      if (cancelled) return;
+
       phaseRef.current = "countdown";
       setPhase("countdown");
       let count = 3;
@@ -1615,13 +1632,34 @@ export default function Game() {
       }
 
       await audio.play();
+
+      // ── Canvas dimension safety net ────────────────────────────────────────
+      // useLayoutEffect sets canvas dims synchronously, but in rare cases the
+      // flex layout resolves after the effect fires (e.g. first cold load on
+      // mobile). Force-sync here, right before the draw loop starts, so the
+      // highway is never invisible on first launch.
+      {
+        const c = canvasRef.current;
+        const w = canvasWrapperRef.current;
+        if (c && w && w.clientWidth > 0 && w.clientHeight > 0) {
+          if (c.width !== w.clientWidth || c.height !== w.clientHeight) {
+            c.width  = w.clientWidth;
+            c.height = w.clientHeight;
+          }
+        }
+      }
+
       rafRef.current = requestAnimationFrame(draw);
     };
 
     init().catch(() => {
       if (!cancelled) {
-        const origin = sessionStorage.getItem(`game_origin_${songId}`) ?? '';
-        setLocation(origin === 'songs' ? '/songs' : origin ? `/${origin}` : '/campaign');
+        // audio.play() most commonly fails due to the browser's autoplay policy
+        // (gesture freshness expired). Instead of silently navigating away,
+        // surface a TAP TO START recovery screen — tapping is a fresh gesture
+        // that will successfully unlock audio.play().
+        phaseRef.current = "audioError";
+        setPhase("audioError");
       }
     });
     return () => {
@@ -2048,6 +2086,55 @@ export default function Game() {
                   }}
                 />
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Audio error recovery — tap to unlock audio.play() with a fresh gesture */}
+        {phase === "audioError" && (
+          <div
+            className="absolute inset-0 flex flex-col items-center justify-center gap-6"
+            style={{ background: "rgba(12,12,20,0.97)" }}
+            onClick={async () => {
+              const audio = audioRef.current;
+              if (!audio) return;
+              try {
+                audio.currentTime = 0;
+                await audio.play();
+                // Canvas safety net on recovery too
+                const c = canvasRef.current;
+                const w = canvasWrapperRef.current;
+                if (c && w && w.clientWidth > 0 && w.clientHeight > 0) {
+                  if (c.width !== w.clientWidth || c.height !== w.clientHeight) {
+                    c.width = w.clientWidth;
+                    c.height = w.clientHeight;
+                  }
+                }
+                phaseRef.current = "playing";
+                setPhase("playing");
+                rafRef.current = requestAnimationFrame(() => drawRef.current?.());
+              } catch {
+                // Still blocked — nothing more we can do without another gesture
+              }
+            }}
+          >
+            <div
+              className="font-mono font-bold tracking-[0.3em]"
+              style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", letterSpacing: "0.35em" }}
+            >
+              AUDIO BLOCKED
+            </div>
+            <div
+              className="font-mono font-bold tracking-[0.2em] text-center"
+              style={{ fontSize: 28, color: "#FF5400", textShadow: "0 0 40px rgba(255,84,0,0.7)" }}
+            >
+              TAP TO START
+            </div>
+            <div
+              className="font-mono text-center"
+              style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", letterSpacing: "0.2em", maxWidth: 220, lineHeight: 1.8 }}
+            >
+              YOUR BROWSER NEEDS A TAP<br />TO ALLOW AUDIO PLAYBACK
             </div>
           </div>
         )}
