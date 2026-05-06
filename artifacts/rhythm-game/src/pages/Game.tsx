@@ -4,11 +4,10 @@ import { getSongById, saveHighScore, isSongTimeLocked } from "@/game/api";
 import { saveMedal, saveScoreHistory } from "@/game/progress";
 import type { GameSong } from "@/game/api";
 import type { Note, JudgmentDisplay, GameState } from "@/game/types";
+import { loadOpts, keyLabel, type GameOpts } from "@/lib/options";
 
 // ── constants ────────────────────────────────────────────────────
 const LANE_COUNT = 3;
-const LANE_KEYS = ["a", "s", "d"];
-const LANE_COLORS = ["#FF5400", "#4A314D", "#ACE894"];
 
 // Approach time scales with difficulty: Level 1 = 2.5 s (easy), Level 10 = 1.35 s (brutal)
 function approachTime(diffLevel: number): number {
@@ -185,18 +184,7 @@ function useAnimatedCount(target: number) {
   return val;
 }
 
-// ── game options ──────────────────────────────────────────────────
-type GameOpts = { missSystem: boolean; hudMisses: boolean; comboDisplay: boolean; judgmentText: boolean; audioOffset: number };
-function loadOpts(): GameOpts {
-  const g = (k: string, def: boolean) => localStorage.getItem(k) !== (def ? 'false' : 'true') ? def : !def;
-  return {
-    missSystem:    g('opt_missSystem', true),
-    hudMisses:     g('opt_hudMisses', true),
-    comboDisplay:  g('opt_comboDisplay', true),
-    judgmentText:  g('opt_judgmentText', true),
-    audioOffset:   parseFloat(localStorage.getItem('opt_audioOffset') ?? '0') || 0,
-  };
-}
+// ── game options (shared with /options page via @/lib/options) ────
 
 export default function Game() {
   const { songId } = useParams<{ songId: string }>();
@@ -206,6 +194,8 @@ export default function Game() {
   const canvasWrapperRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioOffsetRef = useRef(0);
+  const laneColorsRef = useRef<[string, string, string]>(["#FF5400", "#4A314D", "#ACE894"]);
+  const laneKeysRef   = useRef<[string, string, string]>(["a", "s", "d"]);
   const rafRef = useRef<number>(0);
   const notesRef = useRef<NoteState[]>([]);
   const laneRef = useRef<LanePress[]>(
@@ -278,9 +268,11 @@ export default function Game() {
   const [opts, setOpts] = useState<GameOpts>(loadOpts);
   const optsRef = useRef(opts);
   useEffect(() => { optsRef.current = opts; }, [opts]);
-  // Keep audioOffsetRef current every render so getT() always sees the latest value
-  // without getT needing to be a useCallback dependency.
-  audioOffsetRef.current = opts.audioOffset;
+  // Keep mutable refs current every render so draw/handlers always see latest values
+  // without needing to be listed as useCallback dependencies.
+  audioOffsetRef.current  = opts.audioOffset;
+  laneColorsRef.current   = opts.laneColors;
+  laneKeysRef.current     = opts.laneKeys;
   const [showOptions, setShowOptions] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   useEffect(() => {
@@ -422,7 +414,7 @@ export default function Game() {
         const hitY = H * HIT_RATIO;
         const { x: lx, w: lw } = laneAt(lane, 1, W);
         const cx = lx + lw / 2;
-        const lc = LANE_COLORS[lane];
+        const lc = laneColorsRef.current[lane];
         const count = j === "PERFECT+" ? 18 : j === "PERFECT" ? 13 : 9;
         const particles: HitParticle[] = [];
         for (let i = 0; i < count; i++) {
@@ -759,7 +751,7 @@ export default function Game() {
     for (let i = 0; i < LANE_COUNT; i++) {
       const { x, w } = laneAt(i, 1, W);
       const pressed = laneRef.current[i].pressed;
-      const lc = LANE_COLORS[i];
+      const lc = laneColorsRef.current[i];
       const silenced = laneSilenced.current[i];
       const bx = x + 4;
       const bw = w - 8;
@@ -823,7 +815,7 @@ export default function Game() {
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(
-        LANE_KEYS[i].toUpperCase(),
+        keyLabel(laneKeysRef.current[i]),
         x + w / 2,
         hitY + (H - hitY) * 0.42 + (pressed ? 2 : 0),
       );
@@ -856,7 +848,7 @@ export default function Game() {
       if (ns.hit) continue;
       if (!isRewinding && ns.missed) continue;
       const { note } = ns;
-      const lc = LANE_COLORS[note.lane];
+      const lc = laneColorsRef.current[note.lane];
       const spawnT = note.time - AT;
       const prog = (t - spawnT) / AT;
       const noteY = prog * hitY;
@@ -1361,13 +1353,13 @@ export default function Game() {
   useEffect(() => {
     const onDown = (e: KeyboardEvent) => {
       if (e.repeat) return;
-      const lane = LANE_KEYS.indexOf(e.key.toLowerCase());
+      const lane = laneKeysRef.current.indexOf(e.key === " " ? " " : e.key.toLowerCase());
       if (lane < 0) return;
       laneRef.current[lane].pressed = true;
       hitLane(lane);
     };
     const onUp = (e: KeyboardEvent) => {
-      const lane = LANE_KEYS.indexOf(e.key.toLowerCase());
+      const lane = laneKeysRef.current.indexOf(e.key === " " ? " " : e.key.toLowerCase());
       if (lane < 0) return;
       laneRef.current[lane].pressed = false;
       releaseLane(lane);
@@ -1688,7 +1680,7 @@ export default function Game() {
     gs.combo < 10
       ? "#888"
       : gs.combo < 20
-        ? LANE_COLORS[2]
+        ? opts.laneColors[2]
         : gs.combo < 40
           ? "#E5B800"
           : gs.combo < 60
@@ -2081,7 +2073,7 @@ export default function Game() {
                   key={i}
                   className="w-1.5 h-1.5 rounded-full animate-pulse"
                   style={{
-                    background: LANE_COLORS[i],
+                    background: opts.laneColors[i],
                     animationDelay: `${i * 0.15}s`,
                   }}
                 />

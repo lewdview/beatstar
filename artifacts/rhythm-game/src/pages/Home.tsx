@@ -1,14 +1,15 @@
 import { useLocation } from "wouter";
 import { useEffect, useState } from "react";
 import { getTotalScore, getTotalPlatinums, getTotalCleared } from "@/game/progress";
-
-const LANE_COLORS = ['#FF5400', '#4A314D', '#ACE894'];
-const LANE_KEYS   = ['A', 'S', 'D'];
+import { loadOpts, keyLabel } from "@/lib/options";
 
 export default function Home() {
   const [, setLocation] = useLocation();
   const [blink, setBlink] = useState(true);
   const [stats, setStats] = useState({ score: 0, platinums: 0, cleared: 0 });
+  const liveOpts = loadOpts();
+  const LANE_COLORS = liveOpts.laneColors;
+  const LANE_KEYS   = liveOpts.laneKeys.map(k => keyLabel(k));
 
   useEffect(() => {
     const id = setInterval(() => setBlink(b => !b), 700);
@@ -105,6 +106,15 @@ export default function Home() {
             onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = 'rgba(255,255,255,0.55)'; el.style.borderColor = 'rgba(255,255,255,0.2)'; }}
             onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.color = 'rgba(255,255,255,0.25)'; el.style.borderColor = 'rgba(255,255,255,0.08)'; }}>
             ? HOW TO PLAY
+          </button>
+
+          <button
+            onClick={() => setLocation('/options')}
+            className="w-full py-2 font-mono text-xs tracking-[0.35em] transition-all duration-100"
+            style={{ border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.25)', background: 'transparent' }}
+            onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = '#FF5400'; el.style.borderColor = 'rgba(255,84,0,0.4)'; }}
+            onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.color = 'rgba(255,255,255,0.25)'; el.style.borderColor = 'rgba(255,255,255,0.08)'; }}>
+            ⚙ PLAYER CONFIG
           </button>
         </div>
 

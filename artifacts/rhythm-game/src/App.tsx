@@ -8,6 +8,7 @@ import SongDetail from "@/pages/SongDetail";
 import Game from "@/pages/Game";
 import Results from "@/pages/Results";
 import Tutorial from "@/pages/Tutorial";
+import Options from "@/pages/Options";
 
 const queryClient = new QueryClient();
 
@@ -22,6 +23,7 @@ function Router() {
       <Route path="/play/:songId" component={Game} />
       <Route path="/results/:songId" component={Results} />
       <Route path="/tutorial" component={Tutorial} />
+      <Route path="/options" component={Options} />
       <Route>
         <div className="min-h-screen flex items-center justify-center text-muted-foreground font-mono text-sm">
           404 — SIGNAL LOST

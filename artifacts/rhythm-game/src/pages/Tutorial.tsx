@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
+import { loadOpts, keyLabel } from "@/lib/options";
 
-const LANE_COLORS = ["#FF5400", "#4A314D", "#ACE894"] as const;
-const LANE_KEYS   = ["A", "S", "D"];
+// Read per render so Tutorial always reflects the current settings
+const LANE_COLORS = () => loadOpts().laneColors;
+const LANE_KEYS   = () => loadOpts().laneKeys.map(k => keyLabel(k)) as [string, string, string];
 const NOTE_FALL_MS = 1600;
 const HIT_WINDOW_MS = 350;
 
@@ -176,13 +178,12 @@ export default function Tutorial() {
   launchRef.current = launchNote;
 
   useEffect(() => {
-    if (isPractice) {
-      setNotePhase("idle");
-      setFeedback(null);
-      setAutoAdvanced(0);
-      const t = setTimeout(() => launchRef.current(0), 700);
-      return () => clearTimeout(t);
-    }
+    if (!isPractice) return;
+    setNotePhase("idle");
+    setFeedback(null);
+    setAutoAdvanced(0);
+    const t = setTimeout(() => launchRef.current(0), 700);
+    return () => clearTimeout(t);
   }, [step, isPractice]);
 
   useEffect(() => {
@@ -192,7 +193,7 @@ export default function Tutorial() {
         advance(); return;
       }
       if (isPractice && notePhase === "in-window") {
-        const keys = ["a", "s", "d"];
+        const keys = loadOpts().laneKeys;
         if (k === keys[pKey!]) {
           clear();
           setNotePhase("hit");
@@ -319,7 +320,7 @@ export default function Tutorial() {
 function WelcomeViz() {
   return (
     <div className="flex gap-3">
-      {LANE_COLORS.map((c, i) => (
+      {LANE_COLORS().map((c, i) => (
         <div key={i} style={{ width: 48, height: 80, border: `1px solid ${c}22`, position: "relative", overflow: "hidden" }}>
           <div style={{
             position: "absolute", left: "50%", transform: "translateX(-50%)",
@@ -343,12 +344,12 @@ function LanesViz() {
   }, []);
   return (
     <div className="flex gap-2">
-      {LANE_COLORS.map((c, i) => (
+      {LANE_COLORS().map((c, i) => (
         <div key={i} className="flex flex-col items-center gap-2" style={{ transition: "opacity 0.2s", opacity: lit === i ? 1 : 0.3 }}>
           <div style={{ width: 52, height: 70, border: `1px solid ${c}${lit === i ? "55" : "22"}`, background: `${c}${lit === i ? "12" : "06"}`, transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <div style={{ width: 34, height: 14, borderRadius: 3, background: lit === i ? c : `${c}44`, boxShadow: lit === i ? `0 0 16px ${c}` : "none", transition: "all 0.2s" }} />
           </div>
-          <div className="font-mono font-bold text-sm" style={{ color: lit === i ? c : "rgba(255,255,255,0.25)", transition: "color 0.2s" }}>{LANE_KEYS[i]}</div>
+          <div className="font-mono font-bold text-sm" style={{ color: lit === i ? c : "rgba(255,255,255,0.25)", transition: "color 0.2s" }}>{LANE_KEYS()[i]}</div>
           <div className="font-mono text-xs" style={{ color: "rgba(255,255,255,0.2)", fontSize: 9, letterSpacing: "0.15em" }}>
             {["LEFT", "MID", "RIGHT"][i]}
           </div>
@@ -365,7 +366,7 @@ interface PracticeVizProps {
   feedback: string | null;
 }
 function PracticeViz({ laneIdx, notePhase, noteKey, feedback }: PracticeVizProps) {
-  const c = LANE_COLORS[laneIdx];
+  const c = LANE_COLORS()[laneIdx];
   const animating = notePhase === "falling" || notePhase === "in-window";
   const hitLine = notePhase === "in-window";
   const isHit = notePhase === "hit";
@@ -373,7 +374,7 @@ function PracticeViz({ laneIdx, notePhase, noteKey, feedback }: PracticeVizProps
 
   return (
     <div className="flex gap-3 items-end">
-      {LANE_COLORS.map((lc, i) => {
+      {LANE_COLORS().map((lc, i) => {
         const active = i === laneIdx;
         return (
           <div key={i} style={{ width: 56, height: 160, position: "relative", border: `1px solid ${active ? lc + "30" : "rgba(255,255,255,0.06)"}`, overflow: "hidden", background: active ? `${lc}06` : "rgba(255,255,255,0.02)" }}>
@@ -417,7 +418,7 @@ function PracticeViz({ laneIdx, notePhase, noteKey, feedback }: PracticeVizProps
               color: active ? (isHit ? lc : isMiss ? "#FF5400" : hitLine ? "#fff" : `${lc}99`) : "rgba(255,255,255,0.15)",
               transition: "color 0.15s",
             }}>
-              {LANE_KEYS[i]}
+              {LANE_KEYS()[i]}
             </div>
           </div>
         );
@@ -524,7 +525,7 @@ function MissesViz() {
 function ReadyViz() {
   return (
     <div className="flex flex-col items-center gap-2">
-      {LANE_COLORS.map((c, i) => (
+      {LANE_COLORS().map((c, i) => (
         <div key={i} style={{ height: 2, background: c, opacity: 0.6, width: `${(3 - i) * 48}px`, boxShadow: `0 0 8px ${c}` }} />
       ))}
     </div>
