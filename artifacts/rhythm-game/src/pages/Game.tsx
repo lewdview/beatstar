@@ -186,7 +186,7 @@ function useAnimatedCount(target: number) {
 }
 
 // ── game options ──────────────────────────────────────────────────
-type GameOpts = { missSystem: boolean; hudMisses: boolean; comboDisplay: boolean; judgmentText: boolean };
+type GameOpts = { missSystem: boolean; hudMisses: boolean; comboDisplay: boolean; judgmentText: boolean; audioOffset: number };
 function loadOpts(): GameOpts {
   const g = (k: string, def: boolean) => localStorage.getItem(k) !== (def ? 'false' : 'true') ? def : !def;
   return {
@@ -194,6 +194,7 @@ function loadOpts(): GameOpts {
     hudMisses:     g('opt_hudMisses', true),
     comboDisplay:  g('opt_comboDisplay', true),
     judgmentText:  g('opt_judgmentText', true),
+    audioOffset:   parseFloat(localStorage.getItem('opt_audioOffset') ?? '0') || 0,
   };
 }
 
@@ -204,6 +205,7 @@ export default function Game() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const canvasWrapperRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioOffsetRef = useRef(0);
   const rafRef = useRef<number>(0);
   const notesRef = useRef<NoteState[]>([]);
   const laneRef = useRef<LanePress[]>(
@@ -275,6 +277,9 @@ export default function Game() {
   const [opts, setOpts] = useState<GameOpts>(loadOpts);
   const optsRef = useRef(opts);
   useEffect(() => { optsRef.current = opts; }, [opts]);
+  // Keep audioOffsetRef current every render so getT() always sees the latest value
+  // without getT needing to be a useCallback dependency.
+  audioOffsetRef.current = opts.audioOffset;
   const [showOptions, setShowOptions] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   useEffect(() => {
@@ -291,7 +296,9 @@ export default function Game() {
     setDisplayGs({ ...gsRef.current });
     setDisplayJudge([...jRef.current]);
   }, []);
-  const getT = useCallback(() => audioRef.current?.currentTime ?? 0, []);
+  // audioOffset (ms) compensates for speaker latency: subtract it so hits land in time
+  // with what the player hears rather than what the audio clock reports.
+  const getT = useCallback(() => (audioRef.current?.currentTime ?? 0) - audioOffsetRef.current / 1000, []);
 
   const calcScore = useCallback(
     (combo: number, j: "PERFECT+" | "PERFECT" | "GOOD") => {
@@ -1853,6 +1860,35 @@ export default function Game() {
                 </div>
               );
             })}
+
+            {/* Audio offset slider */}
+            <div className="px-5 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <div className="font-mono text-xs" style={{ color: "rgba(255,255,255,0.75)", letterSpacing: "0.15em" }}>AUDIO OFFSET</div>
+                  <div className="font-mono mt-0.5" style={{ fontSize: 9, color: "rgba(255,255,255,0.2)", letterSpacing: "0.1em" }}>Sync to your speaker delay</div>
+                </div>
+                <div className="font-mono text-xs font-bold" style={{ color: opts.audioOffset === 0 ? "#ACE894" : "#FF5400", letterSpacing: "0.1em", minWidth: 52, textAlign: "right" }}>
+                  {opts.audioOffset === 0 ? "SYNCED" : opts.audioOffset > 0 ? `+${opts.audioOffset}ms` : `${opts.audioOffset}ms`}
+                </div>
+              </div>
+              <input
+                type="range"
+                min={-150}
+                max={150}
+                step={5}
+                value={opts.audioOffset}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value);
+                  localStorage.setItem("opt_audioOffset", String(v));
+                  setOpts(o => ({ ...o, audioOffset: v }));
+                }}
+                style={{ width: "100%", accentColor: "#FF5400", cursor: "pointer" }}
+              />
+              <div className="flex justify-between font-mono" style={{ fontSize: 8, color: "rgba(255,255,255,0.18)", letterSpacing: "0.08em", marginTop: 2 }}>
+                <span>-150ms</span><span>0</span><span>+150ms</span>
+              </div>
+            </div>
           </div>
         </div>
       )}

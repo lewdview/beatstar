@@ -78,8 +78,23 @@ const STEPS: Step[] = [
     ],
   },
   {
-    id: "misses",
+    id: "sync",
     num: "06",
+    title: "SYNCING UP",
+    lines: [
+      "Every device has a tiny gap between",
+      "the music and your speakers.",
+      "",
+      "If hits feel early or late, open ⚙ Options",
+      "and adjust AUDIO OFFSET.",
+      "",
+      "Negative = you hear audio early.",
+      "Positive = you hear audio late.",
+    ],
+  },
+  {
+    id: "misses",
+    num: "07",
     title: "SIGNAL LOST",
     lines: [
       "Three misses in a row and the track",
@@ -94,7 +109,7 @@ const STEPS: Step[] = [
   },
   {
     id: "ready",
-    num: "07",
+    num: "08",
     title: "YOU'RE READY",
     lines: [
       "Campaign unlocks songs day by day.",
@@ -242,6 +257,7 @@ export default function Tutorial() {
           {isPractice && pKey !== undefined && (
             <PracticeViz laneIdx={pKey} notePhase={notePhase} noteKey={noteKey} feedback={feedback} />
           )}
+          {cur.id === "sync"    && <SyncViz />}
           {cur.id === "timing"  && <TimingViz />}
           {cur.id === "misses"  && <MissesViz />}
           {cur.id === "ready"   && <ReadyViz />}
@@ -410,6 +426,50 @@ function PracticeViz({ laneIdx, notePhase, noteKey, feedback }: PracticeVizProps
         @keyframes tutfall { from{top:-22px} to{top:calc(100% - 50px)} }
         @keyframes tutflash { from{opacity:1} to{opacity:0} }
       `}</style>
+    </div>
+  );
+}
+
+function SyncViz() {
+  const steps = [-2, -1, 0, 1, 2, 1, 0, -1];
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setIdx(i => (i + 1) % steps.length), 900);
+    return () => clearInterval(id);
+  }, []);
+  const offset = steps[idx];
+  const px = offset * 18;
+  const ms = offset * 50;
+  const synced = offset === 0;
+  const color = synced ? "#ACE894" : "#FF5400";
+  const label = synced ? "SYNCED" : ms > 0 ? `+${ms}ms` : `${ms}ms`;
+
+  return (
+    <div className="flex flex-col items-center gap-5 w-full max-w-xs">
+      <div style={{ position: "relative", width: "100%", height: 72 }}>
+        {/* centre reference line */}
+        <div style={{ position: "absolute", left: "50%", top: 8, bottom: 8, width: 1, background: "rgba(255,255,255,0.1)", transform: "translateX(-50%)" }} />
+
+        {/* BEAT pulse — fixed at centre */}
+        <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 14, height: 14, background: "#ACE894", boxShadow: "0 0 12px #ACE894", transition: "none" }} />
+        <div className="font-mono" style={{ position: "absolute", top: 6, left: "50%", transform: "translateX(-50%)", fontSize: 8, color: "#ACE894", letterSpacing: "0.2em", whiteSpace: "nowrap" }}>BEAT</div>
+
+        {/* TAP marker — shifts with offset */}
+        <div style={{ position: "absolute", top: "50%", left: `calc(50% + ${px}px)`, transform: "translate(-50%,-50%)", width: 14, height: 14, background: color, boxShadow: `0 0 12px ${color}`, transition: "left 0.45s ease, background 0.3s, box-shadow 0.3s" }} />
+        <div className="font-mono" style={{ position: "absolute", bottom: 6, left: `calc(50% + ${px}px)`, transform: "translateX(-50%)", fontSize: 8, color, letterSpacing: "0.2em", transition: "left 0.45s ease, color 0.3s", whiteSpace: "nowrap" }}>TAP</div>
+
+        {/* gap bracket */}
+        {!synced && (
+          <div style={{ position: "absolute", top: "50%", left: px > 0 ? "50%" : `calc(50% + ${px}px)`, width: Math.abs(px), height: 2, background: `${color}55`, transform: "translateY(-50%)", transition: "left 0.45s ease, width 0.45s ease" }} />
+        )}
+      </div>
+
+      <div className="font-mono font-bold" style={{ fontSize: 22, color, letterSpacing: "0.12em", transition: "color 0.3s", minWidth: 100, textAlign: "center" }}>
+        {label}
+      </div>
+      <div className="font-mono" style={{ fontSize: 9, color: "rgba(255,255,255,0.22)", letterSpacing: "0.25em" }}>
+        ADJUST IN ⚙ OPTIONS
+      </div>
     </div>
   );
 }
