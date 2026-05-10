@@ -2,8 +2,10 @@ export interface Note {
   id: number;
   time: number;
   lane: number;
-  type: 'tap' | 'hold';
+  type: 'tap' | 'hold' | 'swipe';
   holdDuration?: number;
+  targetLane?: number;
+  swipeDirection?: 'left' | 'right' | 'up' | 'down';
 }
 
 export interface Song {

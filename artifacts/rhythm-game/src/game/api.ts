@@ -168,6 +168,24 @@ export function generateNotesFromLyrics(words: LyricsWord[], bpm = 100): Note[] 
 
     const dur    = word.end - word.start;
     const isHold = dur > 0.55;
+    const isSlide = isHold && Math.random() > 0.6; // 40% of holds are slides
+    
+    let targetLane: number | undefined;
+    let swipeDirection: 'left' | 'right' | undefined;
+
+    if (isSlide) {
+      if (lane === 0) {
+        targetLane = 1;
+        swipeDirection = 'right';
+      } else if (lane === 2) {
+        targetLane = 1;
+        swipeDirection = 'left';
+      } else {
+        // center lane can go either way
+        targetLane = Math.random() > 0.5 ? 0 : 2;
+        swipeDirection = targetLane === 0 ? 'left' : 'right';
+      }
+    }
 
     notes.push({
       id: id++,
@@ -175,6 +193,8 @@ export function generateNotesFromLyrics(words: LyricsWord[], bpm = 100): Note[] 
       lane,
       type: isHold ? 'hold' : 'tap',
       holdDuration: isHold ? Math.min(dur * 0.7, 2.0) : undefined,
+      targetLane,
+      swipeDirection,
     });
   }
 

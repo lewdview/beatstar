@@ -97,6 +97,7 @@ interface NoteState {
   missed: boolean;
   holdActive: boolean;
   holdProgress: number;
+  currentLane: number; // For slide notes: tracking which lane the player is currently holding
 }
 interface LanePress {
   pressed: boolean;
@@ -364,8 +365,10 @@ export default function Game() {
               : null;
       if (!j) return;
 
-      if (ns.note.type === "hold") ns.holdActive = true;
-      else ns.hit = true;
+      if (ns.note.type === "hold") {
+        ns.holdActive = true;
+        ns.currentLane = lane;
+      } else ns.hit = true;
 
       const gs = gsRef.current;
       gs.score += calcScore(gs.combo, j);
@@ -422,12 +425,26 @@ export default function Game() {
       if (phaseRef.current !== "playing") return;
       const ns = notesRef.current.find(
         (n) =>
-          n.note.lane === lane &&
           n.note.type === "hold" &&
           n.holdActive &&
+          n.currentLane === lane &&
           !n.hit,
       );
       if (!ns) return;
+
+      // If it's a slide note, it must end in the targetLane
+      if (ns.note.targetLane !== undefined && ns.currentLane !== ns.note.targetLane) {
+        // Did not finish the slide
+        ns.holdActive = false;
+        ns.missed = true;
+        const gsx = gsRef.current;
+        gsx.combo = 0;
+        gsx.misses++;
+        muteLane(ns.note.lane);
+        syncDisplay();
+        return;
+      }
+
       ns.hit = true;
       ns.holdActive = false;
       if (ns.holdProgress > 0.6) {
@@ -439,12 +456,34 @@ export default function Game() {
         checkPowerUps(gs.combo);
         jRef.current = [
           ...jRef.current.filter((x) => Date.now() - x.ts < 600),
-          { type: "PERFECT+", lane, id: ++jCounter.current, ts: Date.now() },
+          { type: "PERFECT+", lane: ns.currentLane, id: ++jCounter.current, ts: Date.now() },
         ];
       }
       syncDisplay();
     },
-    [calcScore, checkPowerUps, syncDisplay],
+    [calcScore, checkPowerUps, syncDisplay, muteLane],
+  );
+
+  const moveHold = useCallback(
+    (fromLane: number, toLane: number) => {
+      if (phaseRef.current !== "playing") return;
+      const ns = notesRef.current.find(
+        (n) =>
+          n.note.type === "hold" &&
+          n.holdActive &&
+          n.currentLane === fromLane &&
+          !n.hit,
+      );
+      if (!ns) return;
+
+      // Move the interaction to the new lane if it's a slide note
+      if (ns.note.targetLane !== undefined && toLane === ns.note.targetLane) {
+        ns.currentLane = toLane;
+        // Optional: Play a "slide" sound or effect
+        audioManager.playSfx("fusion", 0.3); // Subtle feedback
+      }
+    },
+    [],
   );
 
   const finishGame = useCallback(() => {
@@ -930,18 +969,25 @@ export default function Game() {
       const r = noteH * 0.32;
 
       if (note.type === "tap") {
-        drawKey(ctx, noteX, noteY, noteW, noteH, r, lc, prog, false);
+        drawKey(ctx, noteX, noteY, noteW, noteH, r, lc, prog, false, note.swipeDirection);
       } else {
-        // Hold trail — ivory ribbon with colored stripe
+        // Hold/Slide trail — ivory ribbon with colored stripe
         const holdDur = note.holdDuration || 0.5;
         const headP = Math.max(0, prog - holdDur / AT);
         const headY = headP * hitY;
 
+        // Determine lanes for trail rendering
+        const startLane = note.lane;
+        const endLane = note.targetLane !== undefined ? note.targetLane : note.lane;
+
         if (ns.holdActive) {
           const top = lerp(headY, hitY, ns.holdProgress);
           if (noteY > top) {
-            const { x: ax, w: aw } = laneAt(note.lane, Math.min(prog, 1), W);
-            // Trail body (ivory semi-transparent)
+            // While active, the trail connects from the current player lane to the note tail
+            const currentP = Math.min(prog, 1);
+            const { x: ax, w: aw } = laneAt(ns.currentLane, currentP, W);
+            
+            // Trail body
             ctx.fillStyle = "rgba(245,240,228,0.18)";
             ctx.beginPath();
             ctx.roundRect(
@@ -952,7 +998,7 @@ export default function Game() {
               4,
             );
             ctx.fill();
-            // Colored stripe through the trail
+            // Colored stripe
             ctx.fillStyle = lc;
             ctx.globalAlpha = 0.55;
             ctx.shadowColor = lc;
@@ -971,15 +1017,19 @@ export default function Game() {
             ctx.shadowColor = "transparent";
           }
         } else if (headY < noteY) {
-          const { x: hx, w: hw } = laneAt(note.lane, headP, W);
+          // Inactive trail — diagonal if it's a slide
+          const { x: hx, w: hw } = laneAt(endLane, headP, W);
+          const { x: tx, w: tw } = laneAt(startLane, prog, W);
+
           ctx.fillStyle = "rgba(245,240,228,0.15)";
           ctx.beginPath();
           ctx.moveTo(hx + hw * 0.25, headY);
           ctx.lineTo(hx + hw * 0.75, headY);
-          ctx.lineTo(lx + lw * 0.75, noteY + noteH / 2);
-          ctx.lineTo(lx + lw * 0.25, noteY + noteH / 2);
+          ctx.lineTo(tx + tw * 0.75, noteY + noteH / 2);
+          ctx.lineTo(tx + tw * 0.25, noteY + noteH / 2);
           ctx.closePath();
           ctx.fill();
+          
           // Colored center ribbon
           ctx.fillStyle = lc;
           ctx.globalAlpha = 0.45;
@@ -988,15 +1038,15 @@ export default function Game() {
           ctx.beginPath();
           ctx.moveTo(hx + hw * 0.4, headY);
           ctx.lineTo(hx + hw * 0.6, headY);
-          ctx.lineTo(lx + lw * 0.6, noteY + noteH / 2);
-          ctx.lineTo(lx + lw * 0.4, noteY + noteH / 2);
+          ctx.lineTo(tx + tw * 0.6, noteY + noteH / 2);
+          ctx.lineTo(tx + tw * 0.4, noteY + noteH / 2);
           ctx.closePath();
           ctx.fill();
           ctx.globalAlpha = 1;
           ctx.shadowBlur = 0;
           ctx.shadowColor = "transparent";
         }
-        drawKey(ctx, noteX, noteY, noteW, noteH, r, lc, prog, true);
+        drawKey(ctx, noteX, noteY, noteW, noteH, r, lc, prog, true, note.swipeDirection);
       }
     }
 
@@ -1348,6 +1398,22 @@ export default function Game() {
   useEffect(() => {
     const onDown = (e: KeyboardEvent) => {
       if (e.repeat) return;
+      
+      // Check for arrow keys to handle slide movement
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        for (let i = 0; i < LANE_COUNT; i++) {
+          if (laneRef.current[i].pressed) {
+            const nextLane = e.key === "ArrowLeft" ? i - 1 : i + 1;
+            if (nextLane >= 0 && nextLane < LANE_COUNT) {
+              laneRef.current[i].pressed = false;
+              laneRef.current[nextLane].pressed = true;
+              moveHold(i, nextLane);
+            }
+          }
+        }
+        return;
+      }
+
       const lane = laneKeysRef.current.indexOf(e.key === " " ? " " : e.key.toLowerCase());
       if (lane < 0) return;
       laneRef.current[lane].pressed = true;
@@ -1365,7 +1431,7 @@ export default function Game() {
       window.removeEventListener("keydown", onDown);
       window.removeEventListener("keyup", onUp);
     };
-  }, [hitLane, releaseLane]);
+  }, [hitLane, releaseLane, moveHold]);
 
   // ── touch ──
   const onTouchStart = useCallback(
@@ -1388,6 +1454,35 @@ export default function Game() {
       }
     },
     [hitLane],
+  );
+
+  const onTouchMove = useCallback(
+    (e: React.TouchEvent<HTMLCanvasElement>) => {
+      e.preventDefault();
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        const newLane = Math.floor(
+          ((touch.clientX - rect.left) / rect.width) * LANE_COUNT,
+        );
+        if (newLane >= 0 && newLane < LANE_COUNT) {
+          // Find which lane this touch was previously in
+          for (let l = 0; l < LANE_COUNT; l++) {
+            if (laneRef.current[l].touchId === touch.identifier && l !== newLane) {
+              laneRef.current[l].pressed = false;
+              laneRef.current[l].touchId = undefined;
+              laneRef.current[newLane].pressed = true;
+              laneRef.current[newLane].touchId = touch.identifier;
+              moveHold(l, newLane);
+              break;
+            }
+          }
+        }
+      }
+    },
+    [moveHold],
   );
 
   const releaseTouchById = useCallback(
@@ -1958,6 +2053,7 @@ export default function Game() {
             ref={canvasRef}
             className="absolute inset-0"
             onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
             onTouchCancel={onTouchCancel}
             data-testid="canvas-game"
@@ -2323,6 +2419,7 @@ function drawKey(
   lc: string,
   prog: number,
   _isHold: boolean,
+  swipeDirection?: 'left' | 'right' | 'up' | 'down',
 ) {
   // ── Drop shadow ──
   ctx.shadowColor = "rgba(0,0,0,0.65)";
@@ -2400,6 +2497,31 @@ function drawKey(
     stripeH * 0.2,
   );
   ctx.fill();
+
+  // ── SWIPE ARROW ──
+  if (swipeDirection) {
+    ctx.save();
+    ctx.translate(noteX + noteW / 2, noteY);
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 3;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.shadowBlur = 8;
+    ctx.shadowColor = "#fff";
+    
+    const arrowSize = noteH * 0.35;
+    if (swipeDirection === 'left') ctx.rotate(Math.PI);
+    else if (swipeDirection === 'right') ctx.rotate(0);
+    else if (swipeDirection === 'up') ctx.rotate(-Math.PI / 2);
+    else if (swipeDirection === 'down') ctx.rotate(Math.PI / 2);
+
+    ctx.beginPath();
+    ctx.moveTo(-arrowSize / 2, -arrowSize / 2);
+    ctx.lineTo(arrowSize / 2, 0);
+    ctx.lineTo(-arrowSize / 2, arrowSize / 2);
+    ctx.stroke();
+    ctx.restore();
+  }
 
   ctx.globalAlpha = 1;
   ctx.shadowBlur = 0;
