@@ -57,7 +57,10 @@ function ScoreDisplay({ total }: { total: number }) {
         style={{
           fontSize: 'clamp(44px, 8vw, 72px)',
           letterSpacing: '0.03em',
-          color: '#F2F0E8',
+          background: 'linear-gradient(180deg, #F2F0E8 0%, #C8B88A 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          filter: 'drop-shadow(0 0 20px rgba(242,240,232,0.12))',
           transition: done ? 'color 0.3s' : 'none',
         }}>
         {str.split('').map((ch, i) => (
@@ -75,7 +78,7 @@ function ScoreDisplay({ total }: { total: number }) {
   );
 }
 
-// ── chapter card (brutalist) ─────────────────────────────────────
+// ── chapter card ─────────────────────────────────────────────────
 interface ChapterData {
   meta: typeof CHAPTERS[number];
   songs: GameSong[];
@@ -93,92 +96,95 @@ function ChapterCard({ data, onClick }: { data: ChapterData; onClick: () => void
   const platPct  = Math.min(100, total > 0 ? (platinums / meta.platNeeded) * 100 : 0);
 
   return (
-    <button onClick={onClick} className="brutal-chapter-card w-full text-left transition-all duration-75"
+    <button onClick={onClick} className="glass-panel w-full text-left transition-all duration-200 group"
       style={{
-        background: '#0e0e0e',
-        border: `2px solid rgba(255,255,255,0.1)`,
-        boxShadow: `4px 4px 0 rgba(255,255,255,0.05)`,
+        borderLeft: `3px solid ${cleared > 0 ? meta.dc : 'rgba(255,255,255,0.06)'}`,
         display: 'block',
+        '--breathe-color': `${meta.dc}50`,
+      } as React.CSSProperties}
+      onMouseEnter={e => {
+        const el = e.currentTarget as HTMLElement;
+        el.style.borderLeftColor = meta.dc;
+        el.style.boxShadow = `0 8px 32px rgba(0,0,0,0.5), 0 0 20px ${meta.dc}20, inset 0 1px 0 rgba(255,255,255,0.06)`;
+        el.style.transform = 'translateY(-2px)';
       }}
-      onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = meta.dc; el.style.boxShadow = `4px 4px 0 ${meta.dc}`; el.style.transform = 'translate(-1px,-1px)'; }}
-      onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = 'rgba(255,255,255,0.1)'; el.style.boxShadow = '4px 4px 0 rgba(255,255,255,0.05)'; el.style.transform = ''; }}
+      onMouseLeave={e => {
+        const el = e.currentTarget as HTMLElement;
+        el.style.borderLeftColor = cleared > 0 ? meta.dc : 'rgba(255,255,255,0.06)';
+        el.style.boxShadow = '';
+        el.style.transform = '';
+      }}
     >
-      <div className="flex">
-        {/* Thick left accent bar */}
-        <div style={{ width: 5, flexShrink: 0, background: cleared > 0 ? meta.dc : 'rgba(255,255,255,0.08)' }} />
-
-        <div className="flex-1 p-4">
-          {/* Top row */}
-          <div className="flex items-start justify-between gap-3 mb-3">
-            <div>
-              {/* Chapter ID + difficulty */}
-              <div className="flex items-center gap-2 mb-1">
-                <span className="font-mono font-bold text-xs" style={{ color: 'rgba(255,255,255,0.3)', letterSpacing: '0.3em' }}>
-                  CH {String(meta.month).padStart(2, '0')}
-                </span>
-                <span className="font-mono font-bold px-2 py-px text-xs"
-                  style={{ color: '#080808', background: meta.dc, letterSpacing: '0.15em' }}>
-                  {meta.diff}
-                </span>
-              </div>
-              <div className="font-mono font-bold text-xl" style={{ color: '#F2F0E8', letterSpacing: '0.02em' }}>
-                {meta.name}
-              </div>
-              <div className="font-mono text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.3)', letterSpacing: '0.25em' }}>
-                {meta.sub}
-              </div>
-            </div>
-
-            {/* Score column */}
-            <div className="text-right flex-shrink-0"
-              style={{ borderLeft: '2px solid rgba(255,255,255,0.07)', paddingLeft: 12 }}>
-              <div className="font-mono font-bold text-2xl" style={{ color: cleared > 0 ? meta.dc : 'rgba(255,255,255,0.15)', lineHeight: 1 }}>
-                {cleared}
-              </div>
-              <div className="font-mono text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>/{total}</div>
-              <div className="font-mono font-bold text-sm mt-1" style={{ color: '#E5B800' }}>✦{platinums}</div>
-            </div>
-          </div>
-
-          {/* Progress bars */}
-          <div className="space-y-2">
-            {/* Cleared bar */}
-            <div className="flex items-center gap-2">
-              <div className="font-mono" style={{ fontSize: 8, color: 'rgba(255,255,255,0.25)', width: 40, letterSpacing: '0.2em' }}>CLEAR</div>
-              <div className="flex-1 h-2" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                <div style={{ height: '100%', width: `${pct}%`, background: meta.dc, transition: 'width 1s ease' }} />
-              </div>
-              <div className="font-mono" style={{ fontSize: 8, color: meta.dc, width: 28, textAlign: 'right' }}>{Math.round(pct)}%</div>
-            </div>
-
-            {/* Platinum bar */}
-            <div className="flex items-center gap-2">
-              <div className="font-mono" style={{ fontSize: 8, color: 'rgba(255,255,255,0.25)', width: 40, letterSpacing: '0.2em' }}>BONUS</div>
-              <div className="flex-1 h-2" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                <div style={{ height: '100%', width: `${platPct}%`, background: bonusUnlocked ? '#E5B800' : 'rgba(229,184,0,0.45)', transition: 'width 1s ease' }} />
-              </div>
-              <div className="font-mono" style={{ fontSize: 8, color: bonusUnlocked ? '#E5B800' : 'rgba(255,255,255,0.2)', width: 28, textAlign: 'right' }}>
-                {bonusUnlocked ? '★' : `${platinums}/${meta.platNeeded}`}
-              </div>
-            </div>
-          </div>
-
-          {/* Bonus stamp */}
-          {bonusCount > 0 && (
-            <div className="mt-2 inline-block">
-              <span className="font-mono font-bold px-2 py-0.5"
-                style={{
-                  fontSize: 8,
-                  color: bonusUnlocked ? '#080808' : 'rgba(255,255,255,0.2)',
-                  background: bonusUnlocked ? '#E5B800' : 'transparent',
-                  border: `1px solid ${bonusUnlocked ? '#E5B800' : 'rgba(255,255,255,0.1)'}`,
-                  letterSpacing: '0.3em',
-                }}>
-                {bonusUnlocked ? `★ ${bonusCount} BONUS UNLOCKED` : `🔒 ${bonusCount} BONUS LOCKED`}
+      <div className="p-4">
+        {/* Top row */}
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div>
+            {/* Chapter ID + difficulty */}
+            <div className="flex items-center gap-2 mb-1">
+              <span className="font-mono font-bold text-xs" style={{ color: 'rgba(255,255,255,0.3)', letterSpacing: '0.3em' }}>
+                CH {String(meta.month).padStart(2, '0')}
+              </span>
+              <span className="pill-badge"
+                style={{ color: '#080808', background: meta.dc, boxShadow: `0 0 10px ${meta.dc}40` }}>
+                {meta.diff}
               </span>
             </div>
-          )}
+            <div className="font-mono font-bold text-xl" style={{ color: '#F2F0E8', letterSpacing: '0.02em' }}>
+              {meta.name}
+            </div>
+            <div className="font-mono text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.25)', letterSpacing: '0.25em' }}>
+              {meta.sub}
+            </div>
+          </div>
+
+          {/* Score column */}
+          <div className="text-right flex-shrink-0"
+            style={{ borderLeft: '1px solid rgba(255,255,255,0.06)', paddingLeft: 12 }}>
+            <div className="font-mono font-bold text-2xl" style={{ color: cleared > 0 ? meta.dc : 'rgba(255,255,255,0.15)', lineHeight: 1, textShadow: cleared > 0 ? `0 0 12px ${meta.dc}40` : 'none' }}>
+              {cleared}
+            </div>
+            <div className="font-mono text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>/{total}</div>
+            <div className="font-mono font-bold text-sm mt-1" style={{ color: '#E5B800', textShadow: '0 0 8px rgba(229,184,0,0.3)' }}>✦{platinums}</div>
+          </div>
         </div>
+
+        {/* Progress bars */}
+        <div className="space-y-2">
+          {/* Cleared bar */}
+          <div className="flex items-center gap-2">
+            <div className="font-mono" style={{ fontSize: 8, color: 'rgba(255,255,255,0.25)', width: 40, letterSpacing: '0.2em' }}>CLEAR</div>
+            <div className="progress-pill flex-1">
+              <div style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${meta.dc}80, ${meta.dc})`, boxShadow: `0 0 6px ${meta.dc}40` }} />
+            </div>
+            <div className="font-mono" style={{ fontSize: 8, color: meta.dc, width: 28, textAlign: 'right' }}>{Math.round(pct)}%</div>
+          </div>
+
+          {/* Platinum bar */}
+          <div className="flex items-center gap-2">
+            <div className="font-mono" style={{ fontSize: 8, color: 'rgba(255,255,255,0.25)', width: 40, letterSpacing: '0.2em' }}>BONUS</div>
+            <div className="progress-pill flex-1">
+              <div style={{ width: `${platPct}%`, background: bonusUnlocked ? 'linear-gradient(90deg, #E5B80080, #E5B800)' : 'rgba(229,184,0,0.35)' }} />
+            </div>
+            <div className="font-mono" style={{ fontSize: 8, color: bonusUnlocked ? '#E5B800' : 'rgba(255,255,255,0.2)', width: 28, textAlign: 'right' }}>
+              {bonusUnlocked ? '★' : `${platinums}/${meta.platNeeded}`}
+            </div>
+          </div>
+        </div>
+
+        {/* Bonus stamp */}
+        {bonusCount > 0 && (
+          <div className="mt-2 inline-block">
+            <span className="pill-badge"
+              style={{
+                color: bonusUnlocked ? '#080808' : 'rgba(255,255,255,0.2)',
+                background: bonusUnlocked ? '#E5B800' : 'transparent',
+                border: `1px solid ${bonusUnlocked ? '#E5B800' : 'rgba(255,255,255,0.1)'}`,
+                boxShadow: bonusUnlocked ? '0 0 10px rgba(229,184,0,0.3)' : 'none',
+              }}>
+              {bonusUnlocked ? `★ ${bonusCount} BONUS UNLOCKED` : `🔒 ${bonusCount} BONUS LOCKED`}
+            </span>
+          </div>
+        )}
       </div>
     </button>
   );
@@ -210,39 +216,34 @@ export default function Campaign() {
   const startedChapters = chapters.filter(c => c.cleared > 0).length;
 
   return (
-    <div className="min-h-screen w-full" style={{ background: '#080808' }}>
+    <div className="min-h-screen w-full" style={{ background: 'radial-gradient(ellipse 80% 50% at 50% 20%, #0e1028 0%, #080808 60%)' }}>
       {/* Top nav */}
       <div className="sticky top-0 z-20 flex items-center justify-between px-5 py-3"
-        style={{ background: '#080808', borderBottom: '2px solid rgba(255,255,255,0.08)' }}>
+        style={{ background: 'rgba(8,8,12,0.7)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <button onClick={() => setLocation('/')}
-          className="font-mono text-xs tracking-widest transition-all"
-          style={{ color: 'rgba(255,255,255,0.35)', border: '1px solid rgba(255,255,255,0.1)', padding: '4px 10px', boxShadow: '2px 2px 0 rgba(255,255,255,0.06)' }}
-          onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = '#F2F0E8'; el.style.borderColor = '#F2F0E8'; el.style.boxShadow = '2px 2px 0 #F2F0E8'; }}
-          onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.color = 'rgba(255,255,255,0.35)'; el.style.borderColor = 'rgba(255,255,255,0.1)'; el.style.boxShadow = '2px 2px 0 rgba(255,255,255,0.06)'; }}>
+          className="neon-btn-outline text-xs px-3 py-1.5 tracking-widest">
           ← HOME
         </button>
         <div className="font-mono font-bold text-xs tracking-[0.6em]" style={{ color: 'rgba(255,255,255,0.25)' }}>
           CAMPAIGN
         </div>
         <button onClick={() => setLocation('/songs')}
-          className="font-mono text-xs tracking-widest transition-all"
-          style={{ color: 'rgba(255,255,255,0.35)', border: '1px solid rgba(255,255,255,0.1)', padding: '4px 10px', boxShadow: '2px 2px 0 rgba(255,255,255,0.06)' }}
-          onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.color = '#ACE894'; el.style.borderColor = '#ACE894'; el.style.boxShadow = '2px 2px 0 #ACE894'; }}
-          onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.color = 'rgba(255,255,255,0.35)'; el.style.borderColor = 'rgba(255,255,255,0.1)'; el.style.boxShadow = '2px 2px 0 rgba(255,255,255,0.06)'; }}>
+          className="neon-btn-outline text-xs px-3 py-1.5 tracking-widest">
           FREE PLAY →
         </button>
       </div>
 
-      <div className="max-w-2xl mx-auto px-4 py-6">
+      <div className="max-w-2xl mx-auto px-4 py-6 slide-up">
         {/* ── Score panel ── */}
-        <div className="mb-6" style={{ border: '2px solid rgba(255,255,255,0.12)', boxShadow: '6px 6px 0 rgba(255,255,255,0.04)' }}>
+        <div className="mb-6 glass-panel overflow-hidden breathe-glow"
+          style={{ '--breathe-color': 'rgba(255,84,0,0.15)' } as React.CSSProperties}>
           {/* Panel header */}
-          <div className="px-5 py-2 flex items-center justify-between"
-            style={{ borderBottom: '2px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)' }}>
+          <div className="px-5 py-2.5 flex items-center justify-between"
+            style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
             <div className="font-mono font-bold text-xs tracking-[0.4em]" style={{ color: 'rgba(255,255,255,0.3)' }}>
               TOTAL TRANSMISSION SCORE
             </div>
-            <div className="font-mono text-xs" style={{ color: 'rgba(255,255,255,0.15)' }}>
+            <div className="font-mono text-xs" style={{ color: totals.score > 0 ? '#ACE894' : 'rgba(255,255,255,0.15)' }}>
               {totals.score > 0 ? '●' : '○'} LIVE
             </div>
           </div>
@@ -253,15 +254,15 @@ export default function Campaign() {
           </div>
 
           {/* Stats row */}
-          <div className="grid grid-cols-3" style={{ borderTop: '2px solid rgba(255,255,255,0.08)' }}>
+          <div className="grid grid-cols-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
             {[
               { label: 'PLATINUM',  value: totals.platinums,                     color: '#ACE894' },
               { label: 'CLEARED',   value: totals.cleared,                        color: '#4A314D' },
               { label: 'CHAPTERS',  value: `${startedChapters}/${CHAPTERS.length}`, color: '#FF5400' },
             ].map((s, i) => (
               <div key={s.label} className="py-3 px-4"
-                style={{ borderRight: i < 2 ? '2px solid rgba(255,255,255,0.08)' : 'none' }}>
-                <div className="font-mono font-bold text-xl" style={{ color: s.color }}>{s.value}</div>
+                style={{ borderRight: i < 2 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+                <div className="font-mono font-bold text-xl" style={{ color: s.color, textShadow: `0 0 10px ${s.color}30` }}>{s.value}</div>
                 <div className="font-mono" style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.3em' }}>{s.label}</div>
               </div>
             ))}
@@ -269,12 +270,12 @@ export default function Campaign() {
         </div>
 
         {/* ── Chapter list label ── */}
-        <div className="flex items-center gap-0 mb-3">
-          <div className="font-mono font-bold text-xs tracking-[0.5em] px-3 py-1.5"
-            style={{ color: '#080808', background: '#F2F0E8', display: 'inline-block' }}>
+        <div className="flex items-center gap-3 mb-3">
+          <div className="pill-badge px-4 py-1.5"
+            style={{ color: '#080808', background: '#F2F0E8', letterSpacing: '0.4em' }}>
             12 CHAPTERS
           </div>
-          <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.1)' }} />
+          <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(255,255,255,0.1), transparent)' }} />
         </div>
 
         {/* ── Chapter cards ── */}
@@ -285,7 +286,7 @@ export default function Campaign() {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
             {chapters.map((data, i) => (
               <div key={data.meta.month} className="chapter-card-in" style={{ animationDelay: `${i * 0.04}s` }}>
                 <ChapterCard data={data} onClick={() => setLocation(`/chapter/${data.meta.month}`)} />
@@ -295,12 +296,10 @@ export default function Campaign() {
         )}
 
         {/* Legend */}
-        <div className="mt-6 flex gap-0 overflow-hidden"
-          style={{ border: '2px solid rgba(255,255,255,0.06)' }}>
-          {[['EASY','#ACE894'],['MEDIUM','#4A314D'],['HARD','#E5B800'],['BRUTAL','#FF5400']].map(([diff, color], i) => (
-            <div key={diff} className="flex-1 text-center py-2"
-              style={{ borderRight: i < 3 ? '2px solid rgba(255,255,255,0.06)' : 'none' }}>
-              <div style={{ width: 8, height: 8, background: color as string, margin: '0 auto 4px' }} />
+        <div className="mt-6 flex gap-3 justify-center">
+          {[['EASY','#ACE894'],['MEDIUM','#4A314D'],['HARD','#E5B800'],['BRUTAL','#FF5400']].map(([diff, color]) => (
+            <div key={diff} className="flex items-center gap-1.5">
+              <div className="rounded-full" style={{ width: 8, height: 8, background: color as string, boxShadow: `0 0 6px ${color}40` }} />
               <div className="font-mono" style={{ fontSize: 8, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.2em' }}>{diff}</div>
             </div>
           ))}

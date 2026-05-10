@@ -5,6 +5,7 @@ import { saveMedal, saveScoreHistory } from "@/game/progress";
 import type { GameSong } from "@/game/api";
 import type { Note, JudgmentDisplay, GameState } from "@/game/types";
 import { loadOpts, keyLabel, type GameOpts } from "@/lib/options";
+import { audioManager } from "@/game/audio";
 
 // ── constants ────────────────────────────────────────────────────
 const LANE_COUNT = 3;
@@ -84,43 +85,9 @@ function getMedal(pp: number, p: number, g: number, m: number) {
           : "NONE";
 }
 
-// ── rewind sound (Web Audio synthesis) ──────────────────────────
-function playRewindSound(actx: AudioContext) {
-  const now = actx.currentTime;
-  // Tape-noise burst — bandpass-filtered white noise that sweeps down in frequency
-  const bufSize = Math.floor(actx.sampleRate * 0.95);
-  const buffer = actx.createBuffer(1, bufSize, actx.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < bufSize; i++) {
-    data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufSize, 0.4);
-  }
-  const noise = actx.createBufferSource();
-  noise.buffer = buffer;
-  const bpf = actx.createBiquadFilter();
-  bpf.type = "bandpass";
-  bpf.frequency.setValueAtTime(2800, now);
-  bpf.frequency.exponentialRampToValueAtTime(500, now + 0.95);
-  bpf.Q.value = 2.8;
-  const noiseGain = actx.createGain();
-  noiseGain.gain.setValueAtTime(0.6, now);
-  noiseGain.gain.linearRampToValueAtTime(0, now + 0.95);
-  noise.connect(bpf);
-  bpf.connect(noiseGain);
-  noiseGain.connect(actx.destination);
-  noise.start(now);
-  noise.stop(now + 0.95);
-  // Pitch swoosh — sawtooth sweeping downward like tape slowing
-  const osc = actx.createOscillator();
-  osc.type = "sawtooth";
-  osc.frequency.setValueAtTime(420, now);
-  osc.frequency.exponentialRampToValueAtTime(55, now + 0.7);
-  const oscGain = actx.createGain();
-  oscGain.gain.setValueAtTime(0.22, now);
-  oscGain.gain.linearRampToValueAtTime(0, now + 0.7);
-  osc.connect(oscGain);
-  oscGain.connect(actx.destination);
-  osc.start(now);
-  osc.stop(now + 0.7);
+// ── rewind sound (Sample based) ──────────────────────────
+function playRewindSound() {
+  audioManager.playSfx("rewind1", 0.8);
 }
 
 // ── interfaces ───────────────────────────────────────────────────
@@ -165,7 +132,7 @@ interface HitEffect {
 function useAnimatedCount(target: number) {
   const [val, setVal] = useState(0);
   const frameRef = useRef(0);
-  const baseRef  = useRef({ from: 0, to: 0, t0: 0 });
+  const baseRef = useRef({ from: 0, to: 0, t0: 0 });
   useEffect(() => {
     cancelAnimationFrame(frameRef.current);
     const from = baseRef.current.to ?? val;
@@ -195,7 +162,7 @@ export default function Game() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioOffsetRef = useRef(0);
   const laneColorsRef = useRef<[string, string, string]>(["#FF5400", "#4A314D", "#ACE894"]);
-  const laneKeysRef   = useRef<[string, string, string]>(["a", "s", "d"]);
+  const laneKeysRef = useRef<[string, string, string]>(["a", "s", "d"]);
   const rafRef = useRef<number>(0);
   const notesRef = useRef<NoteState[]>([]);
   const laneRef = useRef<LanePress[]>(
@@ -270,9 +237,9 @@ export default function Game() {
   useEffect(() => { optsRef.current = opts; }, [opts]);
   // Keep mutable refs current every render so draw/handlers always see latest values
   // without needing to be listed as useCallback dependencies.
-  audioOffsetRef.current  = opts.audioOffset;
-  laneColorsRef.current   = opts.laneColors;
-  laneKeysRef.current     = opts.laneKeys;
+  audioOffsetRef.current = opts.audioOffset;
+  laneColorsRef.current = opts.laneColors;
+  laneKeysRef.current = opts.laneKeys;
   const [showOptions, setShowOptions] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   useEffect(() => {
@@ -284,6 +251,13 @@ export default function Game() {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
     else document.exitFullscreen?.();
   };
+
+  useEffect(() => {
+    // Pre-load necessary sound effects for low-latency playback
+    audioManager.loadSfx("rewind1");
+    audioManager.loadSfx("gmeover");
+    audioManager.loadSfx("fusion");
+  }, []);
 
   const syncDisplay = useCallback(() => {
     setDisplayGs({ ...gsRef.current });
@@ -326,6 +300,7 @@ export default function Game() {
             multiplier: pw.multiplier,
             progress: 1,
           });
+          audioManager.playSfx("fusion", 0.7);
           break;
         }
       }
@@ -514,12 +489,11 @@ export default function Game() {
   }, [songId, setLocation]);
 
   const doReturn = useCallback(() => {
-    const actx = audioCtxRef.current;
-    if (actx) playRewindSound(actx);
+    playRewindSound();
 
-    const audio    = audioRef.current;
+    const audio = audioRef.current;
     const rewindTo = rewindToRef.current;
-    const fromT    = audio?.currentTime ?? (rewindTo + 2.5);
+    const fromT = audio?.currentTime ?? (rewindTo + 2.5);
 
     // Arm the backwards animation — draw loop reads this to compute fake time
     rewindAnimRef.current = { wallStart: performance.now(), fromT, toT: rewindTo };
@@ -590,6 +564,7 @@ export default function Game() {
     }
     const W = canvas.width;
     const H = canvas.height;
+    const pulse = 0.5 + 0.5 * Math.sin(t * 10); // 1.6Hz pulse for polish
     const AT = approachTime(song.difficultyLevel);
     const hitY = H * HIT_RATIO;
     const gs = gsRef.current;
@@ -804,6 +779,23 @@ export default function Game() {
         stripeH * 0.2,
       );
       ctx.fill();
+
+      // ── Inner radial glow (Beatstar style) ──
+      if (pressed || !silenced) {
+        ctx.save();
+        const rg = ctx.createRadialGradient(bx + bw / 2, hitY, 0, bx + bw / 2, hitY, bw * 0.8);
+        const rgAlpha = pressed ? 0.38 : 0.14 + pulse * 0.04;
+        const colorWithAlpha = lc + Math.round(rgAlpha * 255).toString(16).padStart(2, "0");
+        rg.addColorStop(0, colorWithAlpha);
+        rg.addColorStop(1, lc + "00");
+        ctx.fillStyle = rg;
+        ctx.globalAlpha = 1;
+        ctx.beginPath();
+        ctx.roundRect(bx, bTop, bw, btnH, 10);
+        ctx.fill();
+        ctx.restore();
+      }
+
       ctx.globalAlpha = 1;
       ctx.shadowBlur = 0;
       ctx.shadowColor = "transparent";
@@ -893,6 +885,7 @@ export default function Game() {
               }
               phaseRef.current = "continue";
               setPhase("continue");
+              audioManager.playSfx("gmeover", 0.7);
               return;
             }
           }
@@ -921,6 +914,7 @@ export default function Game() {
               }
               phaseRef.current = "continue";
               setPhase("continue");
+              audioManager.playSfx("gmeover", 0.7);
               return;
             }
           }
@@ -1145,12 +1139,13 @@ export default function Game() {
     ctx.stroke();
     ctx.shadowBlur = 0;
     ctx.shadowColor = "transparent";
-    // Subtle glow bloom below baseline
-    const baseGlow = ctx.createLinearGradient(0, hitY, 0, hitY + 20);
-    baseGlow.addColorStop(0, "rgba(255,255,255,0.08)");
+    // Subtle glow bloom below baseline — pulses with rhythm
+    const bloomH = 20 + pulse * 12;
+    const baseGlow = ctx.createLinearGradient(0, hitY, 0, hitY + bloomH);
+    baseGlow.addColorStop(0, `rgba(255,255,255,${0.08 + pulse * 0.06})`);
     baseGlow.addColorStop(1, "rgba(255,255,255,0.0)");
     ctx.fillStyle = baseGlow;
-    ctx.fillRect(hwBot.left - 16, hitY, hwBot.width + 32, 20);
+    ctx.fillRect(hwBot.left - 16, hitY, hwBot.width + 32, bloomH);
 
     // ── 7. MEDAL PROGRESS METER ─────────────────────────────────
     const MEDAL_STOPS = [
@@ -1431,7 +1426,7 @@ export default function Game() {
 
   // ── canvas resize — useLayoutEffect so dimensions are set before first paint ──
   useLayoutEffect(() => {
-    const canvas  = canvasRef.current;
+    const canvas = canvasRef.current;
     const wrapper = canvasWrapperRef.current;
     if (!canvas || !wrapper) return;
     const sync = () => {
@@ -1440,7 +1435,7 @@ export default function Game() {
       // Only reassign when dimensions actually changed — setting canvas.width/height
       // always clears the canvas and resets the 2D context, causing visible flicker.
       if (W > 0 && H > 0 && (canvas.width !== W || canvas.height !== H)) {
-        canvas.width  = W;
+        canvas.width = W;
         canvas.height = H;
       }
     };
@@ -1551,6 +1546,10 @@ export default function Game() {
       audio.src = song.audioUrl;
       audio.load();
       await new Promise<void>((resolve) => {
+        if (audio!.readyState >= 3) {
+          resolve();
+          return;
+        }
         audio!.addEventListener("canplay", () => resolve(), { once: true });
         audio!.addEventListener("error", () => resolve(), { once: true });
         setTimeout(resolve, 15000);
@@ -1623,8 +1622,6 @@ export default function Game() {
         // CORS or browser restriction — fall back to direct playback (no muting)
       }
 
-      await audio.play();
-
       // ── Canvas dimension safety net ────────────────────────────────────────
       // useLayoutEffect sets canvas dims synchronously, but in rare cases the
       // flex layout resolves after the effect fires (e.g. first cold load on
@@ -1635,13 +1632,15 @@ export default function Game() {
         const w = canvasWrapperRef.current;
         if (c && w && w.clientWidth > 0 && w.clientHeight > 0) {
           if (c.width !== w.clientWidth || c.height !== w.clientHeight) {
-            c.width  = w.clientWidth;
+            c.width = w.clientWidth;
             c.height = w.clientHeight;
           }
         }
       }
 
       rafRef.current = requestAnimationFrame(draw);
+
+      await audio.play();
     };
 
     init().catch(() => {
@@ -1740,550 +1739,572 @@ export default function Game() {
         className="absolute inset-0 mx-auto flex flex-col overflow-hidden"
         style={{ maxWidth: 500 }}
       >
-      {/* HUD */}
-      <div
-        className="flex items-center justify-between px-3 py-2 flex-shrink-0"
-        style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(12,12,20,0.92)" }}
-      >
-        {/* Left: QUIT + OPTIONS */}
-        <div className="flex items-center gap-3">
-          <button
-            data-testid="button-quit"
-            onClick={() => {
-              audioRef.current?.pause();
-              const origin = sessionStorage.getItem(`game_origin_${songId}`) ?? '';
-              setLocation(origin === 'songs' ? '/songs' : origin ? `/${origin}` : '/campaign');
-            }}
-            className="font-mono text-xs tracking-widest transition-colors"
-            style={{ color: "hsl(30 15% 30%)" }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#FF5400")}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "hsl(30 15% 30%)")}
-          >
-            ✕ QUIT
-          </button>
-          <button
-            onClick={() => setShowOptions(o => !o)}
-            className="font-mono text-xs tracking-widest transition-colors"
-            style={{ color: showOptions ? "#E5B800" : "hsl(30 15% 28%)", letterSpacing: '0.1em' }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#E5B800")}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = showOptions ? "#E5B800" : "hsl(30 15% 28%)")}
-          >
-            ⚙
-          </button>
-          <button
-            onClick={toggleFullscreen}
-            title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-            style={{ color: isFullscreen ? "#ACE894" : "hsl(30 15% 28%)", lineHeight: 1, padding: "2px 3px", transition: "color 0.15s" }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#ACE894")}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = isFullscreen ? "#ACE894" : "hsl(30 15% 28%)")}
-          >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-              {isFullscreen ? (
-                <>
-                  <path d="M4 0H0v4h1.5V1.5H4V0z" opacity=".35"/>
-                  <path d="M8 0h4v4h-1.5V1.5H8V0z" opacity=".35"/>
-                  <path d="M0 8h1.5v2.5H4V12H0V8z" opacity=".35"/>
-                  <path d="M12 8h-1.5v2.5H8V12h4V8z" opacity=".35"/>
-                  <rect x="3.5" y="3.5" width="5" height="5" rx="0.5"/>
-                </>
-              ) : (
-                <>
-                  <path d="M0 0h4v1.5H1.5V4H0V0z"/>
-                  <path d="M12 0H8v1.5h2.5V4H12V0z"/>
-                  <path d="M0 12h4v-1.5H1.5V8H0v4z"/>
-                  <path d="M12 12H8v-1.5h2.5V8H12v4z"/>
-                </>
-              )}
-            </svg>
-          </button>
-        </div>
+        {/* HUD */}
+        <div
+          className="flex items-center justify-between px-4 py-2.5 flex-shrink-0"
+          style={{
+            borderBottom: "1px solid rgba(255,255,255,0.06)",
+            background: "rgba(12,12,20,0.55)",
+            backdropFilter: "blur(20px) saturate(1.4)",
+            WebkitBackdropFilter: "blur(20px) saturate(1.4)",
+            borderRadius: "0 0 14px 14px",
+            boxShadow: "0 4px 28px rgba(0,0,0,0.5), inset 0 -1px 0 rgba(255,255,255,0.05)",
+          }}
+        >
+          {/* Left: QUIT + OPTIONS */}
+          <div className="flex items-center gap-3">
+            <button
+              data-testid="button-quit"
+              onClick={() => {
+                audioRef.current?.pause();
+                const origin = sessionStorage.getItem(`game_origin_${songId}`) ?? '';
+                setLocation(origin === 'songs' ? '/songs' : origin ? `/${origin}` : '/campaign');
+              }}
+              className="font-mono text-xs tracking-widest transition-colors"
+              style={{ color: "hsl(30 15% 30%)" }}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#FF5400")}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "hsl(30 15% 30%)")}
+            >
+              ✕ QUIT
+            </button>
+            <button
+              onClick={() => setShowOptions(o => !o)}
+              className="font-mono text-xs tracking-widest transition-colors"
+              style={{ color: showOptions ? "#E5B800" : "hsl(30 15% 28%)", letterSpacing: '0.1em' }}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#E5B800")}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = showOptions ? "#E5B800" : "hsl(30 15% 28%)")}
+            >
+              ⚙
+            </button>
+            <button
+              onClick={toggleFullscreen}
+              title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+              style={{ color: isFullscreen ? "#ACE894" : "hsl(30 15% 28%)", lineHeight: 1, padding: "2px 3px", transition: "color 0.15s" }}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#ACE894")}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = isFullscreen ? "#ACE894" : "hsl(30 15% 28%)")}
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                {isFullscreen ? (
+                  <>
+                    <path d="M4 0H0v4h1.5V1.5H4V0z" opacity=".35" />
+                    <path d="M8 0h4v4h-1.5V1.5H8V0z" opacity=".35" />
+                    <path d="M0 8h1.5v2.5H4V12H0V8z" opacity=".35" />
+                    <path d="M12 8h-1.5v2.5H8V12h4V8z" opacity=".35" />
+                    <rect x="3.5" y="3.5" width="5" height="5" rx="0.5" />
+                  </>
+                ) : (
+                  <>
+                    <path d="M0 0h4v1.5H1.5V4H0V0z" />
+                    <path d="M12 0H8v1.5h2.5V4H12V0z" />
+                    <path d="M0 12h4v-1.5H1.5V8H0v4z" />
+                    <path d="M12 12H8v-1.5h2.5V8H12v4z" />
+                  </>
+                )}
+              </svg>
+            </button>
+          </div>
 
-        {/* Center: COMBO */}
-        {opts.comboDisplay ? (
-          <div className="text-center">
-            <div className="font-mono" style={{ fontSize: 8, color: "hsl(30 15% 32%)", letterSpacing: "0.3em" }}>COMBO</div>
+          {/* Center: COMBO */}
+          {opts.comboDisplay ? (
+            <div className="text-center">
+              <div className="font-mono" style={{ fontSize: 8, color: "hsl(30 15% 32%)", letterSpacing: "0.3em" }}>COMBO</div>
+              <div
+                className={`font-mono font-bold leading-none${gs.combo >= 20 ? ' breathe-glow' : ''}`}
+                data-testid="text-combo"
+                style={{
+                  fontSize: 22,
+                  color: comboColor,
+                  textShadow: gs.combo >= 20 ? `0 0 16px ${comboColor}, 0 0 32px ${comboColor}60` : "none",
+                  '--breathe-color': `${comboColor}60`,
+                  transition: 'color 0.2s, text-shadow 0.2s',
+                } as React.CSSProperties}
+              >
+                {gs.combo > 0 ? gs.combo : "—"}
+              </div>
+            </div>
+          ) : <div />}
+
+          {/* Right: animated SCORE + miss pips */}
+          <div className="flex flex-col items-end gap-1">
+            <div className="font-mono" style={{ fontSize: 8, color: "hsl(30 15% 32%)", letterSpacing: "0.3em" }}>SCORE</div>
             <div
               className="font-mono font-bold leading-none"
-              data-testid="text-combo"
-              style={{ fontSize: 22, color: comboColor, textShadow: gs.combo >= 20 ? `0 0 12px ${comboColor}` : "none" }}
+              data-testid="text-score"
+              style={{ fontSize: 26, color: "#F2EDE5", letterSpacing: "0.03em", textShadow: "0 0 14px rgba(242,237,229,0.25)" }}
             >
-              {gs.combo > 0 ? gs.combo : "—"}
+              {animatedScore.toLocaleString()}
             </div>
-          </div>
-        ) : <div />}
-
-        {/* Right: animated SCORE + miss pips */}
-        <div className="flex flex-col items-end gap-1">
-          <div className="font-mono" style={{ fontSize: 8, color: "hsl(30 15% 32%)", letterSpacing: "0.3em" }}>SCORE</div>
-          <div
-            className="font-mono font-bold leading-none"
-            data-testid="text-score"
-            style={{ fontSize: 26, color: "#F2EDE5", letterSpacing: "0.03em" }}
-          >
-            {animatedScore.toLocaleString()}
-          </div>
-          {opts.hudMisses && (
-            <div className="flex gap-1.5">
-              {[0, 1, 2].map((i) => (
-                <div
-                  key={i}
-                  style={{
-                    width: 7, height: 7,
-                    background: i < missCount ? "#FF5400" : "rgba(255,255,255,0.1)",
-                    boxShadow: i < missCount ? "0 0 6px rgba(255,84,0,0.9)" : "none",
-                    transition: "background 0.15s, box-shadow 0.15s",
-                  }}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Options panel */}
-      {showOptions && (
-        <div
-          className="absolute top-0 left-0 right-0 bottom-0 z-40"
-          style={{ background: "rgba(0,0,0,0.55)" }}
-          onClick={() => setShowOptions(false)}
-        >
-          <div
-            className="absolute top-12 right-0 w-64"
-            style={{ background: "#0c0c14", borderLeft: "2px solid rgba(255,255,255,0.08)", borderBottom: "2px solid rgba(255,255,255,0.08)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-5 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-              <div className="font-mono text-xs tracking-[0.35em]" style={{ color: "rgba(255,255,255,0.3)" }}>OPTIONS</div>
-            </div>
-            {([
-              { key: "missSystem",   label: "MISS SYSTEM",    sub: "3 strikes trigger SIGNAL LOST" },
-              { key: "hudMisses",    label: "HUD MISSES",     sub: "Show miss pips in HUD" },
-              { key: "comboDisplay", label: "COMBO DISPLAY",  sub: "Show combo counter" },
-              { key: "judgmentText", label: "JUDGMENT TEXT",  sub: "Show PERFECT / GOOD popups" },
-            ] as const).map(({ key, label, sub }) => {
-              const on = opts[key];
-              return (
-                <div key={key} className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
-                  <div>
-                    <div className="font-mono text-xs" style={{ color: on ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.3)", letterSpacing: "0.15em" }}>{label}</div>
-                    <div className="font-mono mt-0.5" style={{ fontSize: 9, color: "rgba(255,255,255,0.2)", letterSpacing: "0.1em" }}>{sub}</div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      const nv = !on;
-                      localStorage.setItem(`opt_${key}`, String(nv));
-                      setOpts(o => ({ ...o, [key]: nv }));
-                    }}
-                    style={{
-                      width: 38, height: 20, position: "relative", flexShrink: 0,
-                      background: on ? "#FF5400" : "rgba(255,255,255,0.1)",
-                      border: on ? "1px solid #FF5400" : "1px solid rgba(255,255,255,0.15)",
-                      transition: "background 0.15s",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <div style={{
-                      width: 13, height: 13, background: "#fff", position: "absolute",
-                      top: 2.5, left: on ? 21 : 3, transition: "left 0.15s",
-                    }} />
-                  </button>
-                </div>
-              );
-            })}
-
-            {/* Audio offset slider */}
-            <div className="px-5 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <div className="font-mono text-xs" style={{ color: "rgba(255,255,255,0.75)", letterSpacing: "0.15em" }}>AUDIO OFFSET</div>
-                  <div className="font-mono mt-0.5" style={{ fontSize: 9, color: "rgba(255,255,255,0.2)", letterSpacing: "0.1em" }}>Sync to your speaker delay</div>
-                </div>
-                <div className="font-mono text-xs font-bold" style={{ color: opts.audioOffset === 0 ? "#ACE894" : "#FF5400", letterSpacing: "0.1em", minWidth: 52, textAlign: "right" }}>
-                  {opts.audioOffset === 0 ? "SYNCED" : opts.audioOffset > 0 ? `+${opts.audioOffset}ms` : `${opts.audioOffset}ms`}
-                </div>
-              </div>
-              <input
-                type="range"
-                min={-150}
-                max={150}
-                step={5}
-                value={opts.audioOffset}
-                onChange={(e) => {
-                  const v = parseInt(e.target.value);
-                  localStorage.setItem("opt_audioOffset", String(v));
-                  setOpts(o => ({ ...o, audioOffset: v }));
-                }}
-                style={{ width: "100%", accentColor: "#FF5400", cursor: "pointer" }}
-              />
-              <div className="flex justify-between font-mono" style={{ fontSize: 8, color: "rgba(255,255,255,0.18)", letterSpacing: "0.08em", marginTop: 2 }}>
-                <span>-150ms</span><span>0</span><span>+150ms</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Progress bar */}
-      <div
-        className="h-0.5 flex-shrink-0"
-        style={{ background: "rgba(255,255,255,0.04)" }}
-      >
-        <div
-          className="h-full"
-          style={{
-            width: `${(gs.progress || 0) * 100}%`,
-            background: "linear-gradient(90deg, #FF5400, #4A314D, #ACE894)",
-            transition: "width 0.2s linear",
-          }}
-        />
-      </div>
-
-      {/* Canvas */}
-      <div ref={canvasWrapperRef} className="relative flex-1 min-h-0 overflow-hidden">
-        <canvas
-          ref={canvasRef}
-          className="absolute inset-0"
-          onTouchStart={onTouchStart}
-          onTouchEnd={onTouchEnd}
-          onTouchCancel={onTouchCancel}
-          data-testid="canvas-game"
-        />
-
-        {/* Power-up banner */}
-        {puDisplay && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 pointer-events-none">
-            <div
-              className="font-mono font-bold text-base px-5 py-2 tracking-[0.3em]"
-              style={{
-                color: puColor,
-                border: `2px solid ${puColor}`,
-                background: `${puColor}18`,
-                textShadow: `0 0 20px ${puColor}`,
-                boxShadow: `0 0 30px ${puColor}40`,
-                clipPath:
-                  "polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)",
-              }}
-            >
-              {puDisplay.label} ×{puDisplay.multiplier}
-            </div>
-            <div
-              className="w-36 h-1"
-              style={{ background: "rgba(255,255,255,0.08)" }}
-            >
-              <div
-                className="h-full"
-                style={{
-                  width: `${puDisplay.progress * 100}%`,
-                  background: puColor,
-                }}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Judgment text */}
-        {opts.judgmentText && displayJudge.map((j) => {
-          if (Date.now() - j.ts > 600) return null;
-          const pct = (j.lane / LANE_COUNT + 1 / (LANE_COUNT * 2)) * 100;
-          const color =
-            j.type === "PERFECT+"
-              ? "#E5B800"
-              : j.type === "PERFECT"
-                ? "#ACE894"
-                : j.type === "GOOD"
-                  ? "#4A314D"
-                  : "#444";
-          return (
-            <div
-              key={j.id}
-              className="absolute font-mono font-bold pointer-events-none judgment-pop"
-              style={{
-                left: `${pct}%`,
-                top: "72%",
-                transform: "translateX(-50%)",
-                color,
-                textShadow: `0 0 18px ${color}`,
-                letterSpacing: "0.12em",
-                fontSize: j.type === "PERFECT+" ? 15 : 12,
-              }}
-            >
-              {j.type}
-            </div>
-          );
-        })}
-
-        {/* Loading overlay */}
-        {(phase === "loading" || phase === "buffering") && (
-          <div
-            className="absolute inset-0 flex flex-col items-center justify-center gap-5"
-            style={{ background: "rgba(12,12,20,0.97)" }}
-          >
-            <div
-              className="font-mono text-xs tracking-[0.3em]"
-              style={{ color: "#ACE894" }}
-            >
-              {loadMsg}
-            </div>
-            {song && (
-              <div className="text-center">
-                {song.coverArt && (
-                  <img
-                    src={song.coverArt}
-                    alt={song.title}
-                    className="w-24 h-24 object-cover mx-auto mb-3 opacity-60"
-                    style={{ border: "1px solid rgba(255,255,255,0.1)" }}
-                  />
-                )}
-                <div
-                  className="font-mono font-bold text-lg"
-                  style={{ color: "#F2EDE5" }}
-                >
-                  {song.title}
-                </div>
-                <div
-                  className="font-mono text-xs mt-1"
-                  style={{ color: "hsl(30 15% 45%)" }}
-                >
-                  DAY {song.day} · {song.bpm} BPM · {song.notes.length} NOTES
-                </div>
-              </div>
-            )}
-            {phase === "buffering" && bufferPct > 0 && (
-              <div className="w-48">
-                <div
-                  className="h-0.5 w-full mb-1"
-                  style={{ background: "rgba(255,255,255,0.08)" }}
-                >
-                  <div
-                    className="h-full"
-                    style={{ width: `${bufferPct}%`, background: "#FF5400" }}
-                  />
-                </div>
-                <div
-                  className="font-mono text-xs text-center"
-                  style={{ color: "hsl(30 15% 40%)" }}
-                >
-                  {bufferPct}%
-                </div>
-              </div>
-            )}
-            <div className="flex gap-1">
-              {[0, 1, 2].map((i) => (
-                <div
-                  key={i}
-                  className="w-1.5 h-1.5 rounded-full animate-pulse"
-                  style={{
-                    background: opts.laneColors[i],
-                    animationDelay: `${i * 0.15}s`,
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Audio error recovery — tap to unlock audio.play() with a fresh gesture */}
-        {phase === "audioError" && (
-          <div
-            className="absolute inset-0 flex flex-col items-center justify-center gap-6"
-            style={{ background: "rgba(12,12,20,0.97)" }}
-            onClick={async () => {
-              const audio = audioRef.current;
-              if (!audio) return;
-              try {
-                audio.currentTime = 0;
-                await audio.play();
-                // Canvas safety net on recovery too
-                const c = canvasRef.current;
-                const w = canvasWrapperRef.current;
-                if (c && w && w.clientWidth > 0 && w.clientHeight > 0) {
-                  if (c.width !== w.clientWidth || c.height !== w.clientHeight) {
-                    c.width = w.clientWidth;
-                    c.height = w.clientHeight;
-                  }
-                }
-                phaseRef.current = "playing";
-                setPhase("playing");
-                rafRef.current = requestAnimationFrame(() => drawRef.current?.());
-              } catch {
-                // Still blocked — nothing more we can do without another gesture
-              }
-            }}
-          >
-            <div
-              className="font-mono font-bold tracking-[0.3em]"
-              style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", letterSpacing: "0.35em" }}
-            >
-              AUDIO BLOCKED
-            </div>
-            <div
-              className="font-mono font-bold tracking-[0.2em] text-center"
-              style={{ fontSize: 28, color: "#FF5400", textShadow: "0 0 40px rgba(255,84,0,0.7)" }}
-            >
-              TAP TO START
-            </div>
-            <div
-              className="font-mono text-center"
-              style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", letterSpacing: "0.2em", maxWidth: 220, lineHeight: 1.8 }}
-            >
-              YOUR BROWSER NEEDS A TAP<br />TO ALLOW AUDIO PLAYBACK
-            </div>
-          </div>
-        )}
-
-        {/* Countdown */}
-        {phase === "countdown" && (
-          <div
-            className="absolute inset-0 flex items-center justify-center"
-            style={{ background: "rgba(12,12,20,0.82)" }}
-          >
-            <div
-              className="font-mono font-bold text-center"
-              style={{
-                fontSize: 120,
-                lineHeight: 1,
-                background:
-                  "linear-gradient(135deg, #FF5400, #4A314D, #ACE894)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                filter: "drop-shadow(0 0 30px rgba(74,49,77,0.5))",
-              }}
-            >
-              {countdown > 0 ? countdown : "GO!"}
-            </div>
-          </div>
-        )}
-
-        {/* Continue overlay */}
-        {phase === "continue" && (
-          <div
-            className="absolute inset-0 flex flex-col items-center justify-center gap-7"
-            style={{
-              background: "rgba(8,8,14,0.96)",
-              backdropFilter: "blur(6px)",
-            }}
-          >
-            {/* Header */}
-            <div
-              className="font-mono font-bold tracking-[0.35em]"
-              style={{
-                fontSize: 28,
-                color: "#FF5400",
-                textShadow: "0 0 40px rgba(255,84,0,0.9)",
-              }}
-            >
-              SIGNAL LOST
-            </div>
-
-            {/* Miss pips — all 3 lit = why we're here */}
-            <div className="flex flex-col items-center gap-2">
-              <div
-                className="font-mono text-xs tracking-[0.25em]"
-                style={{ color: "rgba(255,255,255,0.28)" }}
-              >
-                3 STRIKES
-              </div>
-              <div className="flex gap-3">
+            {opts.hudMisses && (
+              <div className="flex gap-1.5">
                 {[0, 1, 2].map((i) => (
                   <div
                     key={i}
                     style={{
-                      width: 16,
-                      height: 16,
-                      background: "#FF5400",
-                      boxShadow: "0 0 14px rgba(255,84,0,0.75)",
+                      width: 7, height: 7,
+                      background: i < missCount ? "#FF5400" : "rgba(255,255,255,0.1)",
+                      boxShadow: i < missCount ? "0 0 6px rgba(255,84,0,0.9)" : "none",
+                      transition: "background 0.15s, box-shadow 0.15s",
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Options panel */}
+        {showOptions && (
+          <div
+            className="absolute top-0 left-0 right-0 bottom-0 z-40"
+            style={{ background: "rgba(0,0,0,0.55)" }}
+            onClick={() => setShowOptions(false)}
+          >
+            <div
+              className="absolute top-12 right-0 w-64"
+              style={{ background: "#0c0c14", borderLeft: "2px solid rgba(255,255,255,0.08)", borderBottom: "2px solid rgba(255,255,255,0.08)" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-5 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                <div className="font-mono text-xs tracking-[0.35em]" style={{ color: "rgba(255,255,255,0.3)" }}>OPTIONS</div>
+              </div>
+              {([
+                { key: "missSystem", label: "MISS SYSTEM", sub: "3 strikes trigger SIGNAL LOST" },
+                { key: "hudMisses", label: "HUD MISSES", sub: "Show miss pips in HUD" },
+                { key: "comboDisplay", label: "COMBO DISPLAY", sub: "Show combo counter" },
+                { key: "judgmentText", label: "JUDGMENT TEXT", sub: "Show PERFECT / GOOD popups" },
+              ] as const).map(({ key, label, sub }) => {
+                const on = opts[key];
+                return (
+                  <div key={key} className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                    <div>
+                      <div className="font-mono text-xs" style={{ color: on ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.3)", letterSpacing: "0.15em" }}>{label}</div>
+                      <div className="font-mono mt-0.5" style={{ fontSize: 9, color: "rgba(255,255,255,0.2)", letterSpacing: "0.1em" }}>{sub}</div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const nv = !on;
+                        localStorage.setItem(`opt_${key}`, String(nv));
+                        setOpts(o => ({ ...o, [key]: nv }));
+                      }}
+                      style={{
+                        width: 38, height: 20, position: "relative", flexShrink: 0,
+                        background: on ? "#FF5400" : "rgba(255,255,255,0.1)",
+                        border: on ? "1px solid #FF5400" : "1px solid rgba(255,255,255,0.15)",
+                        transition: "background 0.15s",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <div style={{
+                        width: 13, height: 13, background: "#fff", position: "absolute",
+                        top: 2.5, left: on ? 21 : 3, transition: "left 0.15s",
+                      }} />
+                    </button>
+                  </div>
+                );
+              })}
+
+              {/* Audio offset slider */}
+              <div className="px-5 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <div className="font-mono text-xs" style={{ color: "rgba(255,255,255,0.75)", letterSpacing: "0.15em" }}>AUDIO OFFSET</div>
+                    <div className="font-mono mt-0.5" style={{ fontSize: 9, color: "rgba(255,255,255,0.2)", letterSpacing: "0.1em" }}>Sync to your speaker delay</div>
+                  </div>
+                  <div className="font-mono text-xs font-bold" style={{ color: opts.audioOffset === 0 ? "#ACE894" : "#FF5400", letterSpacing: "0.1em", minWidth: 52, textAlign: "right" }}>
+                    {opts.audioOffset === 0 ? "SYNCED" : opts.audioOffset > 0 ? `+${opts.audioOffset}ms` : `${opts.audioOffset}ms`}
+                  </div>
+                </div>
+                <input
+                  type="range"
+                  min={-150}
+                  max={150}
+                  step={5}
+                  value={opts.audioOffset}
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value);
+                    localStorage.setItem("opt_audioOffset", String(v));
+                    setOpts(o => ({ ...o, audioOffset: v }));
+                  }}
+                  style={{ width: "100%", accentColor: "#FF5400", cursor: "pointer" }}
+                />
+                <div className="flex justify-between font-mono" style={{ fontSize: 8, color: "rgba(255,255,255,0.18)", letterSpacing: "0.08em", marginTop: 2 }}>
+                  <span>-150ms</span><span>0</span><span>+150ms</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Progress bar — rounded pill with glow */}
+        <div
+          className="flex-shrink-0 mx-2 my-1"
+          style={{ height: 4, borderRadius: 999, background: "rgba(255,255,255,0.06)", overflow: "hidden" }}
+        >
+          <div
+            style={{
+              height: "100%",
+              borderRadius: 999,
+              width: `${(gs.progress || 0) * 100}%`,
+              background: "linear-gradient(90deg, #FF5400, #4A314D, #ACE894)",
+              boxShadow: "0 0 8px rgba(255,84,0,0.3), 0 0 16px rgba(172,232,148,0.15)",
+              transition: "width 0.2s linear",
+            }}
+          />
+        </div>
+
+        {/* Canvas */}
+        <div ref={canvasWrapperRef} className="relative flex-1 min-h-0 overflow-hidden">
+          <canvas
+            ref={canvasRef}
+            className="absolute inset-0"
+            onTouchStart={onTouchStart}
+            onTouchEnd={onTouchEnd}
+            onTouchCancel={onTouchCancel}
+            data-testid="canvas-game"
+          />
+
+          {/* Power-up banner */}
+          {puDisplay && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 pointer-events-none">
+              <div
+                className="font-mono font-bold text-base px-5 py-2 tracking-[0.3em]"
+                style={{
+                  color: puColor,
+                  border: `2px solid ${puColor}`,
+                  background: `${puColor}18`,
+                  textShadow: `0 0 20px ${puColor}`,
+                  boxShadow: `0 0 30px ${puColor}40`,
+                  clipPath:
+                    "polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)",
+                }}
+              >
+                {puDisplay.label} ×{puDisplay.multiplier}
+              </div>
+              <div
+                className="w-36 h-1"
+                style={{ background: "rgba(255,255,255,0.08)" }}
+              >
+                <div
+                  className="h-full"
+                  style={{
+                    width: `${puDisplay.progress * 100}%`,
+                    background: puColor,
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Judgment text */}
+          {opts.judgmentText && displayJudge.map((j) => {
+            if (Date.now() - j.ts > 600) return null;
+            const pct = (j.lane / LANE_COUNT + 1 / (LANE_COUNT * 2)) * 100;
+            const color =
+              j.type === "PERFECT+"
+                ? "#E5B800"
+                : j.type === "PERFECT"
+                  ? "#ACE894"
+                  : j.type === "GOOD"
+                    ? "#4A314D"
+                    : "#444";
+            return (
+              <div
+                key={j.id}
+                className="absolute font-mono font-bold pointer-events-none judgment-pop"
+                style={{
+                  left: `${pct}%`,
+                  top: "72%",
+                  transform: "translateX(-50%)",
+                  color,
+                  textShadow: `0 0 18px ${color}`,
+                  letterSpacing: "0.12em",
+                  fontSize: j.type === "PERFECT+" ? 15 : 12,
+                }}
+              >
+                {j.type}
+              </div>
+            );
+          })}
+
+          {/* Loading overlay */}
+          {(phase === "loading" || phase === "buffering") && (
+            <div
+              className="absolute inset-0 flex flex-col items-center justify-center gap-5"
+              style={{ background: "rgba(12,12,20,0.92)", backdropFilter: "blur(12px)" }}
+            >
+              <div
+                className="font-mono text-xs tracking-[0.3em]"
+                style={{ color: "#ACE894", textShadow: "0 0 10px rgba(172,232,148,0.3)" }}
+              >
+                {loadMsg}
+              </div>
+              {song && (
+                <div className="glass-panel text-center p-6" style={{ borderRadius: 16 }}>
+                  {song.coverArt && (
+                    <img
+                      src={song.coverArt}
+                      alt={song.title}
+                      className="w-24 h-24 object-cover mx-auto mb-3 opacity-70"
+                      style={{ borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 4px 20px rgba(0,0,0,0.4)" }}
+                    />
+                  )}
+                  <div
+                    className="font-mono font-bold text-lg"
+                    style={{ color: "#F2EDE5" }}
+                  >
+                    {song.title}
+                  </div>
+                  <div
+                    className="font-mono text-xs mt-1"
+                    style={{ color: "rgba(255,255,255,0.35)" }}
+                  >
+                    DAY {song.day} · {song.bpm} BPM · {song.notes.length} NOTES
+                  </div>
+                </div>
+              )}
+              {phase === "buffering" && bufferPct > 0 && (
+                <div className="w-48">
+                  <div
+                    style={{ height: 4, borderRadius: 999, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}
+                  >
+                    <div
+                      style={{ height: "100%", borderRadius: 999, width: `${bufferPct}%`, background: "linear-gradient(90deg, #FF5400, #FF7A33)", boxShadow: "0 0 8px rgba(255,84,0,0.3)" }}
+                    />
+                  </div>
+                  <div
+                    className="font-mono text-xs text-center mt-1"
+                    style={{ color: "rgba(255,255,255,0.3)" }}
+                  >
+                    {bufferPct}%
+                  </div>
+                </div>
+              )}
+              <div className="flex gap-1.5">
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="rounded-full animate-pulse"
+                    style={{
+                      width: 6, height: 6,
+                      background: opts.laneColors[i],
+                      boxShadow: `0 0 8px ${opts.laneColors[i]}60`,
+                      animationDelay: `${i * 0.15}s`,
                     }}
                   />
                 ))}
               </div>
             </div>
+          )}
 
-            {/* Continue button */}
-            <button
-              onClick={doReturn}
-              className="font-mono font-bold tracking-[0.3em] px-10 py-3"
-              style={{
-                background: "rgba(255,84,0,0.12)",
-                border: "2px solid #FF5400",
-                color: "#FF5400",
-                textShadow: "0 0 20px rgba(255,84,0,0.7)",
-                boxShadow: "0 0 30px rgba(255,84,0,0.2)",
-                clipPath:
-                  "polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%)",
+          {/* Audio error recovery — tap to unlock audio.play() with a fresh gesture */}
+          {phase === "audioError" && (
+            <div
+              className="absolute inset-0 flex flex-col items-center justify-center gap-6"
+              style={{ background: "rgba(12,12,20,0.97)" }}
+              onClick={async () => {
+                const audio = audioRef.current;
+                if (!audio) return;
+                try {
+                  audio.currentTime = 0;
+                  // Canvas safety net on recovery too
+                  const c = canvasRef.current;
+                  const w = canvasWrapperRef.current;
+                  if (c && w && w.clientWidth > 0 && w.clientHeight > 0) {
+                    if (c.width !== w.clientWidth || c.height !== w.clientHeight) {
+                      c.width = w.clientWidth;
+                      c.height = w.clientHeight;
+                    }
+                  }
+                  phaseRef.current = "playing";
+                  setPhase("playing");
+                  rafRef.current = requestAnimationFrame(() => drawRef.current?.());
+                  
+                  await audio.play();
+                } catch {
+                  phaseRef.current = "audioError";
+                  setPhase("audioError");
+                  cancelAnimationFrame(rafRef.current);
+                }
               }}
             >
-              ▶ CONTINUE
-            </button>
-
-            {/* Countdown + abandon */}
-            <div className="flex flex-col items-center gap-2">
               <div
-                className="font-mono text-xs"
-                style={{
-                  color: "rgba(255,255,255,0.22)",
-                  letterSpacing: "0.2em",
-                }}
+                className="font-mono font-bold tracking-[0.3em]"
+                style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", letterSpacing: "0.35em" }}
               >
-                AUTO-ABANDON IN {continueCountdown}s
+                AUDIO BLOCKED
               </div>
-              <button
-                onClick={doAbandon}
-                className="font-mono text-xs tracking-[0.25em]"
-                style={{
-                  color: "rgba(255,255,255,0.22)",
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                }}
+              <div
+                className="font-mono font-bold tracking-[0.2em] text-center"
+                style={{ fontSize: 28, color: "#FF5400", textShadow: "0 0 40px rgba(255,84,0,0.7)" }}
               >
-                ABANDON RUN
-              </button>
+                TAP TO START
+              </div>
+              <div
+                className="font-mono text-center"
+                style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", letterSpacing: "0.2em", maxWidth: 220, lineHeight: 1.8 }}
+              >
+                YOUR BROWSER NEEDS A TAP<br />TO ALLOW AUDIO PLAYBACK
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Rewinding overlay — VHS tape rewind visual */}
-        {phase === "rewinding" && (
-          <div
-            className="absolute inset-0 overflow-hidden rewind-overlay"
-            style={{ background: "rgba(6,6,12,0.15)", pointerEvents: "none" }}
-          >
-            {/* CRT scan lines */}
+          {/* Countdown */}
+          {phase === "countdown" && (
             <div
-              className="absolute inset-0 pointer-events-none"
+              className="absolute inset-0 flex items-center justify-center"
               style={{
-                background:
-                  "repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.28) 3px,rgba(0,0,0,0.28) 6px)",
+                background: "radial-gradient(ellipse 60% 50% at 50% 50%, rgba(14,16,40,0.85) 0%, rgba(12,12,20,0.95) 70%)",
+                backdropFilter: "blur(6px)",
               }}
-            />
-            {/* Glitch bands */}
-            <div className="absolute inset-0 rewind-glitch pointer-events-none" />
-            {/* Center text */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 pointer-events-none">
+            >
               <div
-                className="font-mono font-bold rewind-flicker"
+                className="font-mono font-bold text-center"
                 style={{
-                  fontSize: 34,
-                  color: "#ACE894",
-                  textShadow: "0 0 40px rgba(172,232,148,0.9)",
-                  letterSpacing: "0.28em",
+                  fontSize: 120,
+                  lineHeight: 1,
+                  background:
+                    "linear-gradient(135deg, #FF5400, #4A314D, #ACE894)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  filter: "drop-shadow(0 0 40px rgba(74,49,77,0.6))",
+                  animation: "slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both",
                 }}
               >
-                ◀◀ REWINDING
-              </div>
-              <div
-                className="font-mono text-xs"
-                style={{
-                  color: "rgba(172,232,148,0.4)",
-                  letterSpacing: "0.2em",
-                }}
-              >
-                BACKING UP 2.5 SECONDS
+                {countdown > 0 ? countdown : "GO!"}
               </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+
+          {/* Continue overlay */}
+          {phase === "continue" && (
+            <div
+              className="absolute inset-0 flex flex-col items-center justify-center gap-7"
+              style={{
+                background: "rgba(8,8,14,0.96)",
+                backdropFilter: "blur(6px)",
+              }}
+            >
+              {/* Header */}
+              <div
+                className="font-mono font-bold tracking-[0.35em]"
+                style={{
+                  fontSize: 28,
+                  color: "#FF5400",
+                  textShadow: "0 0 40px rgba(255,84,0,0.9)",
+                }}
+              >
+                SIGNAL LOST
+              </div>
+
+              {/* Miss pips — all 3 lit = why we're here */}
+              <div className="flex flex-col items-center gap-2">
+                <div
+                  className="font-mono text-xs tracking-[0.25em]"
+                  style={{ color: "rgba(255,255,255,0.28)" }}
+                >
+                  3 STRIKES
+                </div>
+                <div className="flex gap-3">
+                  {[0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      style={{
+                        width: 16,
+                        height: 16,
+                        background: "#FF5400",
+                        boxShadow: "0 0 14px rgba(255,84,0,0.75)",
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Continue button */}
+              <button
+                onClick={doReturn}
+                className="font-mono font-bold tracking-[0.3em] px-10 py-3"
+                style={{
+                  background: "rgba(255,84,0,0.12)",
+                  border: "2px solid #FF5400",
+                  color: "#FF5400",
+                  textShadow: "0 0 20px rgba(255,84,0,0.7)",
+                  boxShadow: "0 0 30px rgba(255,84,0,0.2)",
+                  clipPath:
+                    "polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%)",
+                }}
+              >
+                ▶ CONTINUE
+              </button>
+
+              {/* Countdown + abandon */}
+              <div className="flex flex-col items-center gap-2">
+                <div
+                  className="font-mono text-xs"
+                  style={{
+                    color: "rgba(255,255,255,0.22)",
+                    letterSpacing: "0.2em",
+                  }}
+                >
+                  AUTO-ABANDON IN {continueCountdown}s
+                </div>
+                <button
+                  onClick={doAbandon}
+                  className="font-mono text-xs tracking-[0.25em]"
+                  style={{
+                    color: "rgba(255,255,255,0.22)",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  ABANDON RUN
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Rewinding overlay — VHS tape rewind visual */}
+          {phase === "rewinding" && (
+            <div
+              className="absolute inset-0 overflow-hidden rewind-overlay"
+              style={{ background: "rgba(6,6,12,0.15)", pointerEvents: "none" }}
+            >
+              {/* CRT scan lines */}
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background:
+                    "repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.28) 3px,rgba(0,0,0,0.28) 6px)",
+                }}
+              />
+              {/* Glitch bands */}
+              <div className="absolute inset-0 rewind-glitch pointer-events-none" />
+              {/* Center text */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 pointer-events-none">
+                <div
+                  className="font-mono font-bold rewind-flicker"
+                  style={{
+                    fontSize: 34,
+                    color: "#ACE894",
+                    textShadow: "0 0 40px rgba(172,232,148,0.9)",
+                    letterSpacing: "0.28em",
+                  }}
+                >
+                  ◀◀ REWINDING
+                </div>
+                <div
+                  className="font-mono text-xs"
+                  style={{
+                    color: "rgba(172,232,148,0.4)",
+                    letterSpacing: "0.2em",
+                  }}
+                >
+                  BACKING UP 2.5 SECONDS
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -2349,9 +2370,9 @@ function drawKey(
   const stripeH = Math.max(6, noteH * 0.26);
   const stripeY = noteY - stripeH / 2;
 
-  // Outer glow
+  // Outer glow (intensified for neon pop)
   ctx.shadowColor = lc;
-  ctx.shadowBlur = lerp(14, 30, prog);
+  ctx.shadowBlur = lerp(20, 42, prog);
   ctx.fillStyle = lc;
   ctx.globalAlpha = 0.9;
   ctx.beginPath();

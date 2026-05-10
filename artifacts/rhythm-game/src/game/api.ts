@@ -1,4 +1,5 @@
 import type { Note } from './types';
+import { supabase } from '@/lib/supabase';
 
 const RELEASE_DATA_URL = 'https://th3scr1b3.art/release-data.json';
 
@@ -42,14 +43,37 @@ export async function loadCatalog(): Promise<GameSong[]> {
   if (catalogCache) return catalogCache;
   if (loadingPromise) return loadingPromise;
 
-  loadingPromise = fetch(RELEASE_DATA_URL)
-    .then((r) => r.json())
-    .then((data) => {
+  loadingPromise = (async () => {
+    try {
+      // 1. Try Supabase first if configured
+      if (supabase) {
+        const { data, error } = await supabase
+          .from('releases')
+          .select('*')
+          .eq('status', 'released')
+          .order('day', { ascending: true });
+
+        if (!error && data && data.length > 0) {
+          console.log('Fetched catalog from Supabase');
+          catalogCache = data.map(buildGameSong);
+          return catalogCache;
+        }
+        if (error) console.error('Supabase fetch error:', error);
+      }
+
+      // 2. Fallback to static JSON
+      const r = await fetch(RELEASE_DATA_URL);
+      const data = await r.json();
+      console.log('Fetched catalog from Static JSON fallback');
       catalogCache = (data.releases as any[])
         .filter((r) => r.storedAudioUrl)
         .map(buildGameSong);
       return catalogCache;
-    });
+    } catch (err) {
+      console.error('Failed to load catalog:', err);
+      return [];
+    }
+  })();
 
   return loadingPromise;
 }

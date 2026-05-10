@@ -9,6 +9,7 @@ import Game from "@/pages/Game";
 import Results from "@/pages/Results";
 import Tutorial from "@/pages/Tutorial";
 import Options from "@/pages/Options";
+import BackgroundMusic from "@/components/audio/BackgroundMusic";
 
 const queryClient = new QueryClient();
 
@@ -37,7 +38,10 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <div className="scanlines" />
+      <div className="vignette" />
+      <div className="noise-overlay" />
       <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+        <BackgroundMusic />
         <Router />
       </WouterRouter>
     </QueryClientProvider>
