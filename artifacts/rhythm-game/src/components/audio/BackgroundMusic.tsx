@@ -17,7 +17,7 @@ import { audioManager } from "@/game/audio";
 export default function BackgroundMusic() {
   const [location] = useLocation();
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const startedRef = useRef(false);
+  const [started, setStarted] = useState(false);
   const fadeIntervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   const isSilentRoute = location.startsWith("/play/") || location.startsWith("/results/");
@@ -39,22 +39,21 @@ export default function BackgroundMusic() {
 
   // Start bg music on first user interaction
   const startOnInteraction = useCallback(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
+    setStarted((prev) => {
+      if (prev) return prev;
+      
+      const audio = audioRef.current;
+      if (audio) {
+        audio.preload = "auto";
+        audio.load();
+        audio.volume = 0;
+        audio.play().catch(() => {});
+      }
 
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    audio.preload = "auto";
-    audio.load();
-    audio.volume = 0;
-    audio.play().catch(() => {
-      // Will try again on next interaction
-      startedRef.current = false;
+      // Preload all SFX on first interaction
+      audioManager.preloadAll();
+      return true;
     });
-
-    // Also preload all SFX on first interaction
-    audioManager.preloadAll();
   }, []);
 
   useEffect(() => {
@@ -69,7 +68,7 @@ export default function BackgroundMusic() {
   // Fade in/out based on route
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio || !startedRef.current) return;
+    if (!audio || !started) return;
 
     clearInterval(fadeIntervalRef.current);
 
@@ -88,7 +87,10 @@ export default function BackgroundMusic() {
       // Resume → fade in
       if (audio.paused) {
         audio.volume = 0;
-        audio.play().catch(() => {});
+        const p = audio.play();
+        if (p !== undefined) {
+          p.catch(() => {});
+        }
       }
       fadeIntervalRef.current = setInterval(() => {
         if (audio.volume < 0.35) {
@@ -101,7 +103,7 @@ export default function BackgroundMusic() {
     }
 
     return () => clearInterval(fadeIntervalRef.current);
-  }, [isSilentRoute]);
+  }, [isSilentRoute, started]);
 
   return null;
 }

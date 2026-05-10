@@ -147,13 +147,30 @@ export default function Results() {
     const ambientAudio = new Audio(`/audio/sfx/${encodeURIComponent(pick)}.wav`);
     ambientAudio.loop = true;
     ambientAudio.volume = 0;
-    ambientAudio.play().catch(() => {});
+    
+    let mounted = true;
+    const playPromise = ambientAudio.play();
+    if (playPromise !== undefined) {
+      playPromise.then(() => {
+        if (!mounted) {
+          ambientAudio.pause();
+          ambientAudio.src = '';
+        }
+      }).catch(() => {});
+    }
+
     // Fade in gently
     const fadeIn = setInterval(() => {
       if (ambientAudio.volume < 0.14) ambientAudio.volume += 0.02;
       else { ambientAudio.volume = 0.15; clearInterval(fadeIn); }
     }, 60);
-    return () => { clearInterval(fadeIn); ambientAudio.pause(); ambientAudio.src = ''; };
+    
+    return () => { 
+      mounted = false;
+      clearInterval(fadeIn); 
+      ambientAudio.pause(); 
+      ambientAudio.src = ''; 
+    };
   }, [songId, setLocation]);
 
   // Compute accuracy for ring progress
