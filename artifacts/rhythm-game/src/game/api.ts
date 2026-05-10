@@ -65,9 +65,7 @@ export async function loadCatalog(): Promise<GameSong[]> {
       const r = await fetch(RELEASE_DATA_URL);
       const data = await r.json();
       console.log('Fetched catalog from Static JSON fallback');
-      catalogCache = (data.releases as any[])
-        .filter((r) => r.storedAudioUrl)
-        .map(buildGameSong);
+      catalogCache = (data.releases as any[]).map(buildGameSong);
       return catalogCache;
     } catch (err) {
       console.error('Failed to load catalog:', err);
