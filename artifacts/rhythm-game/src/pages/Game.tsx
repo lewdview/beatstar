@@ -98,10 +98,12 @@ interface NoteState {
   holdActive: boolean;
   holdProgress: number;
   currentLane: number; // For slide notes: tracking which lane the player is currently holding
+  originLane: number;  // The lane that started this hold interaction
 }
 interface LanePress {
   pressed: boolean;
   touchId?: number;
+  isArrow?: string | null;
 }
 interface PUState {
   active: PUType | null;
@@ -166,9 +168,11 @@ export default function Game() {
   const laneKeysRef = useRef<[string, string, string]>(["a", "s", "d"]);
   const rafRef = useRef<number>(0);
   const notesRef = useRef<NoteState[]>([]);
-  const laneRef = useRef<LanePress[]>(
-    Array.from({ length: 3 }, () => ({ pressed: false })),
-  );
+  const laneRef = useRef<LanePress[]>([
+    { pressed: false, isArrow: null },
+    { pressed: false, isArrow: null },
+    { pressed: false, isArrow: null },
+  ]);
   const gsRef = useRef<GameState>({
     score: 0,
     combo: 0,
@@ -368,6 +372,7 @@ export default function Game() {
       if (ns.note.type === "hold") {
         ns.holdActive = true;
         ns.currentLane = lane;
+        ns.originLane = lane;
       } else ns.hit = true;
 
       const gs = gsRef.current;
@@ -427,7 +432,7 @@ export default function Game() {
         (n) =>
           n.note.type === "hold" &&
           n.holdActive &&
-          n.currentLane === lane &&
+          (n.originLane === lane || n.currentLane === lane) &&
           !n.hit,
       );
       if (!ns) return;
@@ -1405,8 +1410,11 @@ export default function Game() {
           if (laneRef.current[i].pressed) {
             const nextLane = e.key === "ArrowLeft" ? i - 1 : i + 1;
             if (nextLane >= 0 && nextLane < LANE_COUNT) {
+              // Mark the new lane as pressed and associate it with the arrow key
               laneRef.current[i].pressed = false;
               laneRef.current[nextLane].pressed = true;
+              // We store that this lane was "pressed" by an arrow so onUp can handle it
+              laneRef.current[nextLane].isArrow = e.key;
               moveHold(i, nextLane);
             }
           }
@@ -1417,9 +1425,21 @@ export default function Game() {
       const lane = laneKeysRef.current.indexOf(e.key === " " ? " " : e.key.toLowerCase());
       if (lane < 0) return;
       laneRef.current[lane].pressed = true;
+      laneRef.current[lane].isArrow = null;
       hitLane(lane);
     };
     const onUp = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        for (let i = 0; i < LANE_COUNT; i++) {
+          if (laneRef.current[i].isArrow === e.key) {
+            laneRef.current[i].pressed = false;
+            laneRef.current[i].isArrow = null;
+            releaseLane(i);
+          }
+        }
+        return;
+      }
+
       const lane = laneKeysRef.current.indexOf(e.key === " " ? " " : e.key.toLowerCase());
       if (lane < 0) return;
       laneRef.current[lane].pressed = false;
@@ -1597,6 +1617,7 @@ export default function Game() {
         holdActive: false,
         holdProgress: 0,
         currentLane: Math.min(n.lane, LANE_COUNT - 1),
+        originLane: Math.min(n.lane, LANE_COUNT - 1),
       }));
       gsRef.current = {
         score: 0,
