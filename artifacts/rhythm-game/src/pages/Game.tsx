@@ -1596,6 +1596,7 @@ export default function Game() {
         missed: false,
         holdActive: false,
         holdProgress: 0,
+        currentLane: Math.min(n.lane, LANE_COUNT - 1),
       }));
       gsRef.current = {
         score: 0,
