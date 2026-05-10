@@ -1,4 +1,5 @@
 {
+  "outputDirectory": "artifacts/rhythm-game/dist",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
