@@ -43,7 +43,7 @@ export async function loadCatalog(): Promise<GameSong[]> {
   if (catalogCache) return catalogCache;
   if (loadingPromise) return loadingPromise;
 
-  loadingPromise = (async () => {
+  const promise = (async (): Promise<GameSong[]> => {
     try {
       // 1. Try Supabase first if configured
       if (supabase) {
@@ -75,7 +75,8 @@ export async function loadCatalog(): Promise<GameSong[]> {
     }
   })();
 
-  return loadingPromise;
+  loadingPromise = promise;
+  return promise;
 }
 
 export async function getSongById(id: string): Promise<GameSong | null> {
