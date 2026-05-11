@@ -1,5 +1,6 @@
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Analytics } from "@vercel/analytics/react";
 import Home from "@/pages/Home";
 import SongSelect from "@/pages/SongSelect";
 import Campaign from "@/pages/Campaign";
@@ -44,6 +45,7 @@ function App() {
         <BackgroundMusic />
         <Router />
       </WouterRouter>
+      <Analytics />
     </QueryClientProvider>
   );
 }
