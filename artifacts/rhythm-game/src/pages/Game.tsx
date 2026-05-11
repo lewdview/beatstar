@@ -507,39 +507,27 @@ export default function Game() {
     cancelAnimationFrame(rafRef.current);
     audioRef.current?.pause();
     audioRef.current && (audioRef.current.currentTime = 0);
-    
     const gs = gsRef.current;
     const medal = getMedal(gs.perfectPlus, gs.perfects, gs.goods, gs.misses);
-    
-    // Save progress with error handling
-    try {
-      if (songRef.current) {
-        saveHighScore(songRef.current.id, gs.score);
-        saveMedal(songRef.current.id, medal);
-        saveScoreHistory(songRef.current.id, gs.score);
-      }
-      
-      sessionStorage.setItem(
-        `result_${songId}`,
-        JSON.stringify({
-          score: gs.score,
-          maxCombo: gs.maxCombo,
-          perfectPlus: gs.perfectPlus,
-          perfects: gs.perfects,
-          goods: gs.goods,
-          misses: gs.misses,
-          medal,
-          total: gs.perfectPlus + gs.perfects + gs.goods + gs.misses,
-        }),
-      );
-    } catch (err) {
-      console.error("Failed to save game results:", err);
+    if (songRef.current) {
+      saveHighScore(songRef.current.id, gs.score);
+      saveMedal(songRef.current.id, medal);
+      saveScoreHistory(songRef.current.id, gs.score);
     }
-
-    // Shorter delay for a snappier transition to results
-    setTimeout(() => {
-      setLocation(`/results/${songId}`);
-    }, 300);
+    sessionStorage.setItem(
+      `result_${songId}`,
+      JSON.stringify({
+        score: gs.score,
+        maxCombo: gs.maxCombo,
+        perfectPlus: gs.perfectPlus,
+        perfects: gs.perfects,
+        goods: gs.goods,
+        misses: gs.misses,
+        medal: getMedal(gs.perfectPlus, gs.perfects, gs.goods, gs.misses),
+        total: gs.perfectPlus + gs.perfects + gs.goods + gs.misses,
+      }),
+    );
+    setTimeout(() => setLocation(`/results/${songId}`), 800);
   }, [songId, setLocation]);
 
   const doAbandon = useCallback(() => {
@@ -1012,7 +1000,7 @@ export default function Game() {
             // While active, the trail connects from the current player lane to the note tail
             const currentP = Math.min(prog, 1);
             const { x: ax, w: aw } = laneAt(ns.currentLane, currentP, W);
-            
+
             // Trail body
             ctx.fillStyle = "rgba(245,240,228,0.18)";
             ctx.beginPath();
@@ -1055,7 +1043,7 @@ export default function Game() {
           ctx.lineTo(tx + tw * 0.25, noteY + noteH / 2);
           ctx.closePath();
           ctx.fill();
-          
+
           // Colored center ribbon
           ctx.fillStyle = lc;
           ctx.globalAlpha = 0.45;
@@ -1427,7 +1415,7 @@ export default function Game() {
       if (e.repeat) return;
       const key = e.key;
       keysDownRef.current.add(key);
-      
+
       // ── Diagonal detection from arrow keys ──
       const isUp = keysDownRef.current.has("ArrowUp");
       const isDown = keysDownRef.current.has("ArrowDown");
@@ -1460,9 +1448,9 @@ export default function Game() {
         // Beatstar usually has swipes on specific lanes.
         // We'll look for a swipe note in any lane at this time.
         const t = getT();
-        const cand = notesRef.current.find(n => 
-          !n.hit && !n.missed && n.note.type === 'swipe' && 
-          n.note.swipeDirection === swipeDir && 
+        const cand = notesRef.current.find(n =>
+          !n.hit && !n.missed && n.note.type === 'swipe' &&
+          n.note.swipeDirection === swipeDir &&
           Math.abs(n.note.time - t) < MISS_WINDOW
         );
         if (cand) {
@@ -1577,9 +1565,9 @@ export default function Game() {
             // Actually, for multiple swipes it's tricky.
             // Let's see if there's a swipe note to hit
             const t = getT();
-            const cand = notesRef.current.find(n => 
-              !n.hit && !n.missed && n.note.type === 'swipe' && 
-              n.note.swipeDirection === swipeDir && 
+            const cand = notesRef.current.find(n =>
+              !n.hit && !n.missed && n.note.type === 'swipe' &&
+              n.note.swipeDirection === swipeDir &&
               n.note.lane === start.lane &&
               Math.abs(n.note.time - t) < MISS_WINDOW
             );
@@ -1717,14 +1705,14 @@ export default function Game() {
       notesRef.current = song.notes.map((n) => {
         let note = { ...n, lane: Math.min(n.lane, LANE_COUNT - 1) };
         const diff = songRef.current?.difficultyLevel ?? 5;
-        
+
         // Difficulty rules:
         // Swipe mechanics only effect difficulty normal or higher (Level 4+)
         if (diff < 4 && note.type === 'swipe') {
           note.type = 'tap';
           note.swipeDirection = undefined;
         }
-        
+
         // Lane change hold (slide) only show up in difficulty hard and berserk (Level 7+)
         if (diff < 7 && note.type === 'hold' && note.targetLane !== undefined) {
           note.targetLane = undefined;
@@ -2358,7 +2346,7 @@ export default function Game() {
                   phaseRef.current = "playing";
                   setPhase("playing");
                   rafRef.current = requestAnimationFrame(() => drawRef.current?.());
-                  
+
                   await audio.play();
                 } catch {
                   phaseRef.current = "audioError";
@@ -2592,13 +2580,15 @@ function drawKey(
   if (swipeDirection) {
     const w = noteW / 2;
     const h = noteH / 2;
-    // An elegant chevron/arrow shape pointing right
-    ctx.moveTo(-w, -h);
-    ctx.lineTo(w * 0.2, -h);
-    ctx.lineTo(w, 0);
-    ctx.lineTo(w * 0.2, h);
-    ctx.lineTo(-w, h);
-    ctx.lineTo(-w * 0.35, 0);
+    const br = 8; // body corner radius
+    // Rounded chevron pointing right
+    ctx.moveTo(-w + br, -h);
+    ctx.arcTo(w * 0.2, -h, w, 0, br);
+    ctx.arcTo(w, 0, w * 0.2, h, br);
+    ctx.arcTo(w * 0.2, h, -w, h, br);
+    ctx.arcTo(-w, h, -w * 0.35, 0, br);
+    ctx.arcTo(-w * 0.35, 0, -w, -h, br);
+    ctx.arcTo(-w, -h, -w + br, -h, br);
     ctx.closePath();
   } else {
     ctx.roundRect(-noteW / 2, -noteH / 2, noteW, noteH, r);
@@ -2631,18 +2621,19 @@ function drawKey(
   ctx.shadowBlur = lerp(20, 42, prog);
   ctx.fillStyle = lc;
   ctx.globalAlpha = 0.9;
-  
+
   ctx.beginPath();
   if (swipeDirection) {
     const sw = noteW / 2 - 4;
     const sh = stripeH / 2;
-    // Inner chevron stripe
-    ctx.moveTo(-sw, -sh);
-    ctx.lineTo(sw * 0.2, -sh);
-    ctx.lineTo(sw, 0);
-    ctx.lineTo(sw * 0.2, sh);
-    ctx.lineTo(-sw, sh);
-    ctx.lineTo(-sw * 0.35, 0);
+    const sr = 4; // stripe radius
+    ctx.moveTo(-sw + sr, -sh);
+    ctx.arcTo(sw * 0.2, -sh, sw, 0, sr);
+    ctx.arcTo(sw, 0, sw * 0.2, sh, sr);
+    ctx.arcTo(sw * 0.2, sh, -sw, sh, sr);
+    ctx.arcTo(-sw, sh, -sw * 0.35, 0, sr);
+    ctx.arcTo(-sw * 0.35, 0, -sw, -sh, sr);
+    ctx.arcTo(-sw, -sh, -sw + sr, -sh, sr);
     ctx.closePath();
   } else {
     ctx.roundRect(-noteW / 2 + 2, -stripeH / 2, noteW - 4, stripeH, stripeH * 0.35);
@@ -2657,17 +2648,19 @@ function drawKey(
   coreGrad.addColorStop(1, "rgba(255,255,255,0.2)");
   ctx.fillStyle = coreGrad;
   ctx.globalAlpha = 0.75;
-  
+
   ctx.beginPath();
   if (swipeDirection) {
     const cw = noteW / 2 - 10;
     const ch = coreH / 2;
-    ctx.moveTo(-cw, -ch);
-    ctx.lineTo(cw * 0.2, -ch);
-    ctx.lineTo(cw, 0);
-    ctx.lineTo(cw * 0.2, ch);
-    ctx.lineTo(-cw, ch);
-    ctx.lineTo(-cw * 0.35, 0);
+    const cr = 2; // core radius
+    ctx.moveTo(-cw + cr, -ch);
+    ctx.arcTo(cw * 0.2, -ch, cw, 0, cr);
+    ctx.arcTo(cw, 0, cw * 0.2, ch, cr);
+    ctx.arcTo(cw * 0.2, ch, -cw, ch, cr);
+    ctx.arcTo(-cw, ch, -cw * 0.35, 0, cr);
+    ctx.arcTo(-cw * 0.35, 0, -cw, -ch, cr);
+    ctx.arcTo(-cw, -ch, -cw + cr, -ch, cr);
     ctx.closePath();
   } else {
     ctx.roundRect(-noteW / 2 + 5, -coreH / 2, noteW - 10, coreH, stripeH * 0.2);
