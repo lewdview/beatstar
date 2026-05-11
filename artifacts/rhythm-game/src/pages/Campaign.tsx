@@ -49,31 +49,35 @@ function ScoreDisplay({ total }: { total: number }) {
   const str = value.toLocaleString();
 
   return (
-    <div className="relative">
+    <div className="relative flex flex-col items-center">
       {/* Scan line while counting */}
-      {!done && <div className="score-scanline" style={{ position: 'absolute', left: 0, right: 0 }} />}
+      {!done && <div className="score-scanline" style={{ position: 'absolute', left: -20, right: -20, zIndex: 10 }} />}
 
-      <div className="font-mono font-bold tabular-nums text-center"
+      <div className="font-mono font-bold tabular-nums text-center whitespace-nowrap"
         style={{
-          fontSize: 'clamp(44px, 8vw, 72px)',
-          letterSpacing: '0.03em',
+          fontSize: 'clamp(44px, 10vw, 84px)',
+          lineHeight: 1,
+          letterSpacing: '-0.02em',
           background: 'linear-gradient(180deg, #F2F0E8 0%, #C8B88A 100%)',
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent',
-          filter: 'drop-shadow(0 0 20px rgba(242,240,232,0.12))',
-          transition: done ? 'color 0.3s' : 'none',
+          filter: 'drop-shadow(0 0 30px rgba(242,240,232,0.15))',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
         }}>
         {str.split('').map((ch, i) => (
           <span key={i} className="inline-block"
             style={{
+              minWidth: ch === ',' ? '0.2em' : '0.55em',
               color: ch === ',' ? 'rgba(255,255,255,0.2)' : '#F2F0E8',
-              animation: done && ch !== ',' ? `digitLand 0.35s ${i * 0.035}s cubic-bezier(0.34,1.56,0.64,1) both` : 'none',
+              animation: done && ch !== ',' ? `digitLand 0.4s ${i * 0.03}s cubic-bezier(0.34,1.56,0.64,1) both` : 'none',
             }}>
             {ch}
           </span>
         ))}
       </div>
-      {done && total > 0 && <div className="absolute inset-0 score-flash pointer-events-none" />}
+      {done && total > 0 && <div className="absolute inset-0 score-flash pointer-events-none" style={{ filter: 'blur(20px)' }} />}
     </div>
   );
 }
