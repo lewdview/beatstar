@@ -2553,117 +2553,116 @@ function drawKey(
   _isHold: boolean,
   swipeDirection?: Note['swipeDirection'],
 ) {
-  // ── Drop shadow ──
+  const centerX = noteX + noteW / 2;
+  const centerY = noteY;
+
+  ctx.save();
+  ctx.translate(centerX, centerY);
+
+  // ── Rotations ──
+  const rotations: Record<string, number> = {
+    'right': 0,
+    'down-right': Math.PI / 4,
+    'down': Math.PI / 2,
+    'down-left': 3 * Math.PI / 4,
+    'left': Math.PI,
+    'up-left': -3 * Math.PI / 4,
+    'up': -Math.PI / 2,
+    'up-right': -Math.PI / 4,
+  };
+
+  if (swipeDirection) {
+    ctx.rotate(rotations[swipeDirection] || 0);
+  }
+
+  // ── 1. Define Key Body Path ──
+  ctx.beginPath();
+  if (swipeDirection) {
+    const w = noteW / 2;
+    const h = noteH / 2;
+    // An elegant chevron/arrow shape pointing right
+    ctx.moveTo(-w, -h);
+    ctx.lineTo(w * 0.2, -h);
+    ctx.lineTo(w, 0);
+    ctx.lineTo(w * 0.2, h);
+    ctx.lineTo(-w, h);
+    ctx.lineTo(-w * 0.35, 0);
+    ctx.closePath();
+  } else {
+    ctx.roundRect(-noteW / 2, -noteH / 2, noteW, noteH, r);
+  }
+
+  // ── 2. Render Ivory Body ──
   ctx.shadowColor = "rgba(0,0,0,0.65)";
   ctx.shadowBlur = lerp(4, 14, prog);
   ctx.shadowOffsetY = lerp(2, 5, prog);
 
-  // ── Ivory body ──
-  const bodyGrad = ctx.createLinearGradient(
-    noteX,
-    noteY - noteH / 2,
-    noteX,
-    noteY + noteH / 2,
-  );
+  const bodyGrad = ctx.createLinearGradient(0, -noteH / 2, 0, noteH / 2);
   bodyGrad.addColorStop(0, "rgba(255, 252, 243, 0.98)");
   bodyGrad.addColorStop(0.22, "rgba(252, 248, 238, 0.97)");
   bodyGrad.addColorStop(0.75, "rgba(242, 236, 220, 0.97)");
   bodyGrad.addColorStop(1, "rgba(228, 220, 204, 0.96)");
   ctx.fillStyle = bodyGrad;
-  ctx.beginPath();
-  ctx.roundRect(noteX, noteY - noteH / 2, noteW, noteH, r);
   ctx.fill();
 
-  // ── Subtle edge border ──
+  // ── 3. Subtle edge border ──
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
   ctx.shadowOffsetY = 0;
   ctx.strokeStyle = "rgba(160, 150, 132, 0.45)";
   ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.roundRect(noteX, noteY - noteH / 2, noteW, noteH, r);
   ctx.stroke();
 
-  // ── Top highlight (3D key bevel) ──
-  ctx.fillStyle = "rgba(255,255,255,0.65)";
-  ctx.beginPath();
-  ctx.roundRect(noteX + 3, noteY - noteH / 2 + 2, noteW - 6, noteH * 0.18, [
-    r,
-    r,
-    0,
-    0,
-  ]);
-  ctx.fill();
-
-  // ── COLORED CENTER STRIPE ── (this is the PERFECT+ target line)
+  // ── 4. COLORED CENTER STRIPE ──
   const stripeH = Math.max(6, noteH * 0.26);
-  const stripeY = noteY - stripeH / 2;
-
-  // Outer glow (intensified for neon pop)
   ctx.shadowColor = lc;
   ctx.shadowBlur = lerp(20, 42, prog);
   ctx.fillStyle = lc;
   ctx.globalAlpha = 0.9;
+  
   ctx.beginPath();
-  ctx.roundRect(noteX + 2, stripeY, noteW - 4, stripeH, stripeH * 0.35);
+  if (swipeDirection) {
+    const sw = noteW / 2 - 4;
+    const sh = stripeH / 2;
+    // Inner chevron stripe
+    ctx.moveTo(-sw, -sh);
+    ctx.lineTo(sw * 0.2, -sh);
+    ctx.lineTo(sw, 0);
+    ctx.lineTo(sw * 0.2, sh);
+    ctx.lineTo(-sw, sh);
+    ctx.lineTo(-sw * 0.35, 0);
+    ctx.closePath();
+  } else {
+    ctx.roundRect(-noteW / 2 + 2, -stripeH / 2, noteW - 4, stripeH, stripeH * 0.35);
+  }
   ctx.fill();
 
-  // Bright inner core of stripe
-  const coreGrad = ctx.createLinearGradient(
-    noteX,
-    stripeY,
-    noteX,
-    stripeY + stripeH,
-  );
+  // ── 5. Bright inner core of stripe ──
+  const coreH = stripeH * 0.48;
+  const coreGrad = ctx.createLinearGradient(0, -coreH / 2, 0, coreH / 2);
   coreGrad.addColorStop(0, "rgba(255,255,255,0.5)");
   coreGrad.addColorStop(0.4, "rgba(255,255,255,0.85)");
   coreGrad.addColorStop(1, "rgba(255,255,255,0.2)");
   ctx.fillStyle = coreGrad;
   ctx.globalAlpha = 0.75;
+  
   ctx.beginPath();
-  ctx.roundRect(
-    noteX + 5,
-    stripeY + stripeH * 0.08,
-    noteW - 10,
-    stripeH * 0.48,
-    stripeH * 0.2,
-  );
+  if (swipeDirection) {
+    const cw = noteW / 2 - 10;
+    const ch = coreH / 2;
+    ctx.moveTo(-cw, -ch);
+    ctx.lineTo(cw * 0.2, -ch);
+    ctx.lineTo(cw, 0);
+    ctx.lineTo(cw * 0.2, ch);
+    ctx.lineTo(-cw, ch);
+    ctx.lineTo(-cw * 0.35, 0);
+    ctx.closePath();
+  } else {
+    ctx.roundRect(-noteW / 2 + 5, -coreH / 2, noteW - 10, coreH, stripeH * 0.2);
+  }
   ctx.fill();
 
-  // ── SWIPE ARROW ──
-  if (swipeDirection) {
-    ctx.save();
-    ctx.translate(noteX + noteW / 2, noteY);
-    ctx.strokeStyle = "#fff";
-    ctx.lineWidth = 3;
-    ctx.lineJoin = "round";
-    ctx.lineCap = "round";
-    ctx.shadowBlur = 8;
-    ctx.shadowColor = "#fff";
-    
-    const arrowSize = noteH * 0.4;
-    
-    const rotations: Record<string, number> = {
-      'right': 0,
-      'down-right': Math.PI / 4,
-      'down': Math.PI / 2,
-      'down-left': 3 * Math.PI / 4,
-      'left': Math.PI,
-      'up-left': -3 * Math.PI / 4,
-      'up': -Math.PI / 2,
-      'up-right': -Math.PI / 4,
-    };
-    
-    ctx.rotate(rotations[swipeDirection] || 0);
-
-    ctx.beginPath();
-    ctx.moveTo(-arrowSize / 2, -arrowSize / 2.5);
-    ctx.lineTo(arrowSize / 2, 0);
-    ctx.lineTo(-arrowSize / 2, arrowSize / 2.5);
-    ctx.stroke();
-    ctx.restore();
-  }
-
+  ctx.restore();
   ctx.globalAlpha = 1;
   ctx.shadowBlur = 0;
   ctx.shadowColor = "transparent";
