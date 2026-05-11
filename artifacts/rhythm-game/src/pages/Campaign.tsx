@@ -27,7 +27,16 @@ function useCountUp(target: number, duration = 2200, delay = 400) {
   const [value, setValue] = useState(0);
   const [done, setDone]   = useState(false);
   useEffect(() => {
-    if (!target) { setDone(true); return; }
+    if (!target) {
+      setValue(0);
+      setDone(true);
+      return;
+    }
+    
+    // Reset state for new count-up
+    setValue(0);
+    setDone(false);
+
     const t0 = setTimeout(() => {
       const start = Date.now();
       const tick  = () => {
@@ -55,7 +64,7 @@ function ScoreDisplay({ total }: { total: number }) {
 
       <div className="font-mono font-bold tabular-nums text-center whitespace-nowrap"
         style={{
-          fontSize: 'clamp(44px, 10vw, 84px)',
+          fontSize: 'clamp(32px, 12vw, 72px)',
           lineHeight: 1,
           letterSpacing: '-0.02em',
           background: 'linear-gradient(180deg, #F2F0E8 0%, #C8B88A 100%)',
@@ -239,7 +248,7 @@ export default function Campaign() {
 
       <div className="max-w-2xl mx-auto px-4 py-6 slide-up">
         {/* ── Score panel ── */}
-        <div className="mb-6 glass-panel overflow-hidden breathe-glow"
+        <div className="mb-6 glass-panel breathe-glow"
           style={{ '--breathe-color': 'rgba(255,84,0,0.15)' } as React.CSSProperties}>
           {/* Panel header */}
           <div className="px-5 py-2.5 flex items-center justify-between"
