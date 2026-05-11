@@ -62,25 +62,23 @@ function ScoreDisplay({ total }: { total: number }) {
       {/* Scan line while counting */}
       {!done && <div className="score-scanline" style={{ position: 'absolute', left: -20, right: -20, zIndex: 10 }} />}
 
-      <div className="font-mono font-bold tabular-nums text-center whitespace-nowrap"
+      <div className="font-mono font-bold tabular-nums text-center whitespace-nowrap flex items-center justify-center"
         style={{
           fontSize: 'clamp(32px, 12vw, 72px)',
           lineHeight: 1,
           letterSpacing: '-0.02em',
-          background: 'linear-gradient(180deg, #F2F0E8 0%, #C8B88A 100%)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          filter: 'drop-shadow(0 0 30px rgba(242,240,232,0.15))',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
+          filter: 'drop-shadow(0 0 30px rgba(242,232,232,0.15))',
         }}>
         {str.split('').map((ch, i) => (
           <span key={i} className="inline-block"
             style={{
               minWidth: ch === ',' ? '0.2em' : '0.55em',
+              background: ch === ',' ? 'none' : 'linear-gradient(180deg, #F2F0E8 0%, #C8B88A 100%)',
+              WebkitBackgroundClip: ch === ',' ? 'none' : 'text',
+              WebkitTextFillColor: ch === ',' ? 'initial' : 'transparent',
               color: ch === ',' ? 'rgba(255,255,255,0.2)' : '#F2F0E8',
               animation: done && ch !== ',' ? `digitLand 0.4s ${i * 0.03}s cubic-bezier(0.34,1.56,0.64,1) both` : 'none',
+              opacity: done || ch === ',' ? 1 : 0, // ensure visible even if animation hasn't started
             }}>
             {ch}
           </span>
