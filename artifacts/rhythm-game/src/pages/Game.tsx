@@ -982,7 +982,7 @@ export default function Game() {
       const noteW = lw - 14;
       const r = noteH * 0.32;
 
-      if (note.type === "tap") {
+      if (note.type === "tap" || note.type === "swipe") {
         drawKey(ctx, noteX, noteY, noteW, noteH, r, lc, prog, false, note.swipeDirection);
       } else {
         // Hold/Slide trail — ivory ribbon with colored stripe
