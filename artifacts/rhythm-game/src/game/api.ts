@@ -168,12 +168,16 @@ export function generateNotesFromLyrics(words: LyricsWord[], bpm = 100): Note[] 
 
     const dur    = word.end - word.start;
     const isHold = dur > 0.55;
-    const isSlide = isHold && Math.random() > 0.6; // 40% of holds are slides
-    
-    let targetLane: number | undefined;
-    let swipeDirection: 'left' | 'right' | undefined;
+    const isSwipe = !isHold && Math.random() > 0.7; // 30% of taps become swipes
+    const isSlide = isHold && Math.random() > 0.5; // 50% of holds are slides
 
-    if (isSlide) {
+    let targetLane: number | undefined;
+    let swipeDirection: Note['swipeDirection'];
+
+    if (isSwipe) {
+      const dirs: Note['swipeDirection'][] = ['up', 'down', 'left', 'right', 'up-left', 'up-right', 'down-left', 'down-right'];
+      swipeDirection = dirs[Math.floor(Math.random() * dirs.length)];
+    } else if (isSlide) {
       if (lane === 0) {
         targetLane = 1;
         swipeDirection = 'right';
@@ -181,7 +185,6 @@ export function generateNotesFromLyrics(words: LyricsWord[], bpm = 100): Note[] 
         targetLane = 1;
         swipeDirection = 'left';
       } else {
-        // center lane can go either way
         targetLane = Math.random() > 0.5 ? 0 : 2;
         swipeDirection = targetLane === 0 ? 'left' : 'right';
       }
@@ -191,7 +194,7 @@ export function generateNotesFromLyrics(words: LyricsWord[], bpm = 100): Note[] 
       id: id++,
       time: snapped,
       lane,
-      type: isHold ? 'hold' : 'tap',
+      type: isSwipe ? 'swipe' : (isHold ? 'hold' : 'tap'),
       holdDuration: isHold ? Math.min(dur * 0.7, 2.0) : undefined,
       targetLane,
       swipeDirection,

@@ -346,7 +346,7 @@ export default function Game() {
   }, []);
 
   const hitLane = useCallback(
-    (lane: number) => {
+    (lane: number, direction?: Note['swipeDirection']) => {
       if (phaseRef.current !== "playing") return;
       restoreLane(lane);
       const t = getT();
@@ -359,6 +359,15 @@ export default function Game() {
       );
       const diff = Math.abs(ns.note.time - t);
       if (diff > MISS_WINDOW) return;
+
+      // Swipe check
+      if (ns.note.type === "swipe") {
+        if (!direction || ns.note.swipeDirection !== direction) return;
+      } else if (direction) {
+        // If it's not a swipe note, but we got a swipe input, we still allow it as a tap
+        // unless it's specifically a hold note start.
+      }
+
       const j: "PERFECT+" | "PERFECT" | "GOOD" | null =
         diff <= PERFECT_PLUS_WINDOW
           ? "PERFECT+"
@@ -1400,35 +1409,80 @@ export default function Game() {
   }, [draw]);
 
   // ── keyboard ──
+  const keysDownRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     const onDown = (e: KeyboardEvent) => {
       if (e.repeat) return;
+      const key = e.key;
+      keysDownRef.current.add(key);
       
-      // Check for arrow keys to handle slide movement
-      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-        for (let i = 0; i < LANE_COUNT; i++) {
-          if (laneRef.current[i].pressed) {
-            const nextLane = e.key === "ArrowLeft" ? i - 1 : i + 1;
-            if (nextLane >= 0 && nextLane < LANE_COUNT) {
-              // Mark the new lane as pressed and associate it with the arrow key
-              laneRef.current[i].pressed = false;
-              laneRef.current[nextLane].pressed = true;
-              // We store that this lane was "pressed" by an arrow so onUp can handle it
-              laneRef.current[nextLane].isArrow = e.key;
-              moveHold(i, nextLane);
+      // ── Diagonal detection from arrow keys ──
+      const isUp = keysDownRef.current.has("ArrowUp");
+      const isDown = keysDownRef.current.has("ArrowDown");
+      const isLeft = keysDownRef.current.has("ArrowLeft");
+      const isRight = keysDownRef.current.has("ArrowRight");
+
+      let swipeDir: Note['swipeDirection'] | undefined;
+      if (isUp && isLeft) swipeDir = 'up-left';
+      else if (isUp && isRight) swipeDir = 'up-right';
+      else if (isDown && isLeft) swipeDir = 'down-left';
+      else if (isDown && isRight) swipeDir = 'down-right';
+      else if (isUp) swipeDir = 'up';
+      else if (isDown) swipeDir = 'down';
+      else if (isLeft) swipeDir = 'left';
+      else if (isRight) swipeDir = 'right';
+
+      // ── Numpad detection ──
+      if (key === "7") swipeDir = 'up-left';
+      else if (key === "9") swipeDir = 'up-right';
+      else if (key === "1") swipeDir = 'down-left';
+      else if (key === "3") swipeDir = 'down-right';
+      else if (key === "8") swipeDir = 'up';
+      else if (key === "2") swipeDir = 'down';
+      else if (key === "4") swipeDir = 'left';
+      else if (key === "6") swipeDir = 'right';
+
+      if (swipeDir) {
+        // For keyboard swipes, we apply it to the currently pressed lane
+        // or all lanes if no lane key is held? 
+        // Beatstar usually has swipes on specific lanes.
+        // We'll look for a swipe note in any lane at this time.
+        const t = getT();
+        const cand = notesRef.current.find(n => 
+          !n.hit && !n.missed && n.note.type === 'swipe' && 
+          n.note.swipeDirection === swipeDir && 
+          Math.abs(n.note.time - t) < MISS_WINDOW
+        );
+        if (cand) {
+          hitLane(cand.note.lane, swipeDir);
+          return;
+        }
+
+        // If it's an arrow-only press (left/right) and we are holding a slide, move it
+        if (key === "ArrowLeft" || key === "ArrowRight") {
+          for (let i = 0; i < LANE_COUNT; i++) {
+            if (laneRef.current[i].pressed) {
+              const nextLane = key === "ArrowLeft" ? i - 1 : i + 1;
+              if (nextLane >= 0 && nextLane < LANE_COUNT) {
+                laneRef.current[i].pressed = false;
+                laneRef.current[nextLane].pressed = true;
+                laneRef.current[nextLane].isArrow = key;
+                moveHold(i, nextLane);
+              }
             }
           }
+          return;
         }
-        return;
       }
 
-      const lane = laneKeysRef.current.indexOf(e.key === " " ? " " : e.key.toLowerCase());
+      const lane = laneKeysRef.current.indexOf(key === " " ? " " : key.toLowerCase());
       if (lane < 0) return;
       laneRef.current[lane].pressed = true;
       laneRef.current[lane].isArrow = null;
       hitLane(lane);
     };
     const onUp = (e: KeyboardEvent) => {
+      keysDownRef.current.delete(e.key);
       if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
         for (let i = 0; i < LANE_COUNT; i++) {
           if (laneRef.current[i].isArrow === e.key) {
@@ -1451,9 +1505,10 @@ export default function Game() {
       window.removeEventListener("keydown", onDown);
       window.removeEventListener("keyup", onUp);
     };
-  }, [hitLane, releaseLane, moveHold]);
+  }, [hitLane, releaseLane, moveHold, getT]);
 
   // ── touch ──
+  const touchStartPos = useRef<Record<number, { x: number, y: number, lane: number }>>({});
   const onTouchStart = useCallback(
     (e: React.TouchEvent<HTMLCanvasElement>) => {
       e.preventDefault();
@@ -1462,13 +1517,13 @@ export default function Game() {
       const rect = canvas.getBoundingClientRect();
       for (let i = 0; i < e.changedTouches.length; i++) {
         const touch = e.changedTouches[i];
-        // Lane is determined by horizontal thirds — the full canvas is tappable.
         const lane = Math.floor(
           ((touch.clientX - rect.left) / rect.width) * LANE_COUNT,
         );
         if (lane >= 0 && lane < LANE_COUNT) {
           laneRef.current[lane].pressed = true;
           laneRef.current[lane].touchId = touch.identifier;
+          touchStartPos.current[touch.identifier] = { x: touch.clientX, y: touch.clientY, lane };
           hitLane(lane);
         }
       }
@@ -1487,14 +1542,52 @@ export default function Game() {
         const newLane = Math.floor(
           ((touch.clientX - rect.left) / rect.width) * LANE_COUNT,
         );
+
+        // Swipe detection while moving
+        const start = touchStartPos.current[touch.identifier];
+        if (start) {
+          const dx = touch.clientX - start.x;
+          const dy = touch.clientY - start.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist > 30) {
+            // Determine 8-way direction
+            const angle = Math.atan2(dy, dx); // -PI to PI
+            const dirs: Note['swipeDirection'][] = [
+              'right', 'down-right', 'down', 'down-left', 'left', 'up-left', 'up', 'up-right'
+            ];
+            // Normalize angle to 0..2PI and map to 8 buckets
+            let normAngle = angle;
+            if (normAngle < 0) normAngle += Math.PI * 2;
+            const bucket = Math.round(normAngle / (Math.PI / 4)) % 8;
+            const swipeDir = dirs[bucket];
+
+            // Only trigger if we haven't already swiped for this touch?
+            // Actually, for multiple swipes it's tricky.
+            // Let's see if there's a swipe note to hit
+            const t = getT();
+            const cand = notesRef.current.find(n => 
+              !n.hit && !n.missed && n.note.type === 'swipe' && 
+              n.note.swipeDirection === swipeDir && 
+              n.note.lane === start.lane &&
+              Math.abs(n.note.time - t) < MISS_WINDOW
+            );
+            if (cand) {
+              hitLane(start.lane, swipeDir);
+              // Reset start pos so we don't double-trigger
+              start.x = touch.clientX;
+              start.y = touch.clientY;
+            }
+          }
+        }
+
         if (newLane >= 0 && newLane < LANE_COUNT) {
-          // Find which lane this touch was previously in
           for (let l = 0; l < LANE_COUNT; l++) {
             if (laneRef.current[l].touchId === touch.identifier && l !== newLane) {
               laneRef.current[l].pressed = false;
               laneRef.current[l].touchId = undefined;
               laneRef.current[newLane].pressed = true;
               laneRef.current[newLane].touchId = touch.identifier;
+              if (start) start.lane = newLane;
               moveHold(l, newLane);
               break;
             }
@@ -1502,11 +1595,12 @@ export default function Game() {
         }
       }
     },
-    [moveHold],
+    [moveHold, getT, hitLane],
   );
 
   const releaseTouchById = useCallback(
     (identifier: number) => {
+      delete touchStartPos.current[identifier];
       for (let lane = 0; lane < LANE_COUNT; lane++) {
         if (laneRef.current[lane].touchId === identifier) {
           laneRef.current[lane].pressed = false;
@@ -1528,8 +1622,6 @@ export default function Game() {
     [releaseTouchById],
   );
 
-  // touchcancel fires when the OS interrupts (incoming call, notification, etc.)
-  // Treat it identically to touchend so hold notes don't get stuck.
   const onTouchCancel = useCallback(
     (e: React.TouchEvent<HTMLCanvasElement>) => {
       for (let i = 0; i < e.changedTouches.length; i++) {
@@ -1610,15 +1702,33 @@ export default function Game() {
         };
         img.src = song.coverArt;
       }
-      notesRef.current = song.notes.map((n) => ({
-        note: { ...n, lane: Math.min(n.lane, LANE_COUNT - 1) },
-        hit: false,
-        missed: false,
-        holdActive: false,
-        holdProgress: 0,
-        currentLane: Math.min(n.lane, LANE_COUNT - 1),
-        originLane: Math.min(n.lane, LANE_COUNT - 1),
-      }));
+      notesRef.current = song.notes.map((n) => {
+        let note = { ...n, lane: Math.min(n.lane, LANE_COUNT - 1) };
+        const diff = songRef.current?.difficultyLevel ?? 5;
+        
+        // Difficulty rules:
+        // Swipe mechanics only effect difficulty normal or higher (Level 4+)
+        if (diff < 4 && note.type === 'swipe') {
+          note.type = 'tap';
+          note.swipeDirection = undefined;
+        }
+        
+        // Lane change hold (slide) only show up in difficulty hard and berserk (Level 7+)
+        if (diff < 7 && note.type === 'hold' && note.targetLane !== undefined) {
+          note.targetLane = undefined;
+          note.swipeDirection = undefined;
+        }
+
+        return {
+          note,
+          hit: false,
+          missed: false,
+          holdActive: false,
+          holdProgress: 0,
+          currentLane: note.lane,
+          originLane: note.lane,
+        };
+      });
       gsRef.current = {
         score: 0,
         combo: 0,
@@ -2531,16 +2641,25 @@ function drawKey(
     ctx.shadowBlur = 8;
     ctx.shadowColor = "#fff";
     
-    const arrowSize = noteH * 0.35;
-    if (swipeDirection === 'left') ctx.rotate(Math.PI);
-    else if (swipeDirection === 'right') ctx.rotate(0);
-    else if (swipeDirection === 'up') ctx.rotate(-Math.PI / 2);
-    else if (swipeDirection === 'down') ctx.rotate(Math.PI / 2);
+    const arrowSize = noteH * 0.4;
+    
+    const rotations: Record<string, number> = {
+      'right': 0,
+      'down-right': Math.PI / 4,
+      'down': Math.PI / 2,
+      'down-left': 3 * Math.PI / 4,
+      'left': Math.PI,
+      'up-left': -3 * Math.PI / 4,
+      'up': -Math.PI / 2,
+      'up-right': -Math.PI / 4,
+    };
+    
+    ctx.rotate(rotations[swipeDirection] || 0);
 
     ctx.beginPath();
-    ctx.moveTo(-arrowSize / 2, -arrowSize / 2);
+    ctx.moveTo(-arrowSize / 2, -arrowSize / 2.5);
     ctx.lineTo(arrowSize / 2, 0);
-    ctx.lineTo(-arrowSize / 2, arrowSize / 2);
+    ctx.lineTo(-arrowSize / 2, arrowSize / 2.5);
     ctx.stroke();
     ctx.restore();
   }

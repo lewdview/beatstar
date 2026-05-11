@@ -5,7 +5,7 @@ export interface Note {
   type: 'tap' | 'hold' | 'swipe';
   holdDuration?: number;
   targetLane?: number;
-  swipeDirection?: 'left' | 'right' | 'up' | 'down';
+  swipeDirection?: 'left' | 'right' | 'up' | 'down' | 'up-left' | 'up-right' | 'down-left' | 'down-right';
 }
 
 export interface Song {
