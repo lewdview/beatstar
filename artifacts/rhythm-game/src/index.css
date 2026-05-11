@@ -148,11 +148,14 @@
     -webkit-user-select: text;
     user-select: text;
   }
-  body {
+  html, body {
     @apply font-sans antialiased bg-background text-foreground;
     background: linear-gradient(165deg, #0a0c18 0%, #080808 40%, #0c0a10 100%);
     overscroll-behavior: none;
     min-height: 100dvh;
+    width: 100%;
+    position: relative;
+    overflow-x: hidden;
   }
 }
 

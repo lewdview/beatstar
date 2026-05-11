@@ -73,16 +73,10 @@ export default function BackgroundMusic() {
     clearInterval(fadeIntervalRef.current);
 
     if (isSilentRoute) {
-      // Fade out → pause
-      fadeIntervalRef.current = setInterval(() => {
-        if (audio.volume > 0.05) {
-          audio.volume = Math.max(0, audio.volume - 0.04);
-        } else {
-          audio.volume = 0;
-          audio.pause();
-          clearInterval(fadeIntervalRef.current);
-        }
-      }, 40);
+      // Immediate stop on silent routes to prevent leaking on iOS
+      audio.pause();
+      audio.volume = 0;
+      clearInterval(fadeIntervalRef.current);
     } else {
       // Resume → fade in
       if (audio.paused) {
