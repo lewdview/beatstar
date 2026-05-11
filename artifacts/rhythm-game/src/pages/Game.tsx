@@ -2551,7 +2551,7 @@ function drawKey(
   lc: string,
   prog: number,
   _isHold: boolean,
-  swipeDirection?: 'left' | 'right' | 'up' | 'down',
+  swipeDirection?: Note['swipeDirection'],
 ) {
   // ── Drop shadow ──
   ctx.shadowColor = "rgba(0,0,0,0.65)";
