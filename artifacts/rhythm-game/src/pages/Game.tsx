@@ -507,27 +507,39 @@ export default function Game() {
     cancelAnimationFrame(rafRef.current);
     audioRef.current?.pause();
     audioRef.current && (audioRef.current.currentTime = 0);
+    
     const gs = gsRef.current;
     const medal = getMedal(gs.perfectPlus, gs.perfects, gs.goods, gs.misses);
-    if (songRef.current) {
-      saveHighScore(songRef.current.id, gs.score);
-      saveMedal(songRef.current.id, medal);
-      saveScoreHistory(songRef.current.id, gs.score);
+    
+    // Save progress with error handling
+    try {
+      if (songRef.current) {
+        saveHighScore(songRef.current.id, gs.score);
+        saveMedal(songRef.current.id, medal);
+        saveScoreHistory(songRef.current.id, gs.score);
+      }
+      
+      sessionStorage.setItem(
+        `result_${songId}`,
+        JSON.stringify({
+          score: gs.score,
+          maxCombo: gs.maxCombo,
+          perfectPlus: gs.perfectPlus,
+          perfects: gs.perfects,
+          goods: gs.goods,
+          misses: gs.misses,
+          medal,
+          total: gs.perfectPlus + gs.perfects + gs.goods + gs.misses,
+        }),
+      );
+    } catch (err) {
+      console.error("Failed to save game results:", err);
     }
-    sessionStorage.setItem(
-      `result_${songId}`,
-      JSON.stringify({
-        score: gs.score,
-        maxCombo: gs.maxCombo,
-        perfectPlus: gs.perfectPlus,
-        perfects: gs.perfects,
-        goods: gs.goods,
-        misses: gs.misses,
-        medal: getMedal(gs.perfectPlus, gs.perfects, gs.goods, gs.misses),
-        total: gs.perfectPlus + gs.perfects + gs.goods + gs.misses,
-      }),
-    );
-    setTimeout(() => setLocation(`/results/${songId}`), 800);
+
+    // Shorter delay for a snappier transition to results
+    setTimeout(() => {
+      setLocation(`/results/${songId}`);
+    }, 300);
   }, [songId, setLocation]);
 
   const doAbandon = useCallback(() => {
