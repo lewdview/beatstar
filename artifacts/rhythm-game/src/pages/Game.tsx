@@ -270,6 +270,9 @@ export default function Game() {
   }, []);
   // audioOffset (ms) compensates for speaker latency: subtract it so hits land in time
   // with what the player hears rather than what the audio clock reports.
+  const [paused, setPaused] = useState(false);
+  const pausedRef = useRef(false);
+
   const getT = useCallback(() => (audioRef.current?.currentTime ?? 0) - audioOffsetRef.current / 1000, []);
 
   const calcScore = useCallback(
@@ -612,7 +615,7 @@ export default function Game() {
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     const phase = phaseRef.current;
-    if (!canvas || (phase !== "playing" && phase !== "rewinding")) return;
+    if (!canvas || (phase !== "playing" && phase !== "rewinding") || pausedRef.current) return;
     const ctx = canvas.getContext("2d");
     if (!ctx || !songRef.current) return;
     const song = songRef.current;
@@ -1684,6 +1687,10 @@ export default function Game() {
         setLocation(originRoute);
         return;
       }
+      
+      // Reset pause state on new song load
+      pausedRef.current = false;
+      setPaused(false);
       if (isSongTimeLocked(song)) {
         setLocation(originRoute);
         return;
@@ -1926,11 +1933,91 @@ export default function Game() {
             : "#ACE894";
   const animatedScore = useAnimatedCount(gs.score);
 
+  const doPause = useCallback(() => {
+    if (phaseRef.current !== 'playing' || pausedRef.current) return;
+    pausedRef.current = true;
+    setPaused(true);
+    audioRef.current?.pause();
+    audioManager.playSfx('back', 0.5);
+  }, []);
+
+  const doResume = useCallback(() => {
+    if (!pausedRef.current) return;
+    pausedRef.current = false;
+    setPaused(false);
+    audioManager.playSfx('reveal', 0.6);
+    if (phaseRef.current === 'playing') {
+      audioRef.current?.play().catch(() => {});
+      // Restart the loop
+      rafRef.current = requestAnimationFrame(() => drawRef.current?.());
+    }
+  }, []);
+
+  // Auto-pause on blur
+  useEffect(() => {
+    const onBlur = () => { if (phaseRef.current === 'playing') doPause(); };
+    window.addEventListener('blur', onBlur);
+    return () => window.removeEventListener('blur', onBlur);
+  }, [doPause]);
+
+  // Handle manual keyboard pause (Escape)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
+        if (pausedRef.current) doResume();
+        else doPause();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [doPause, doResume]);
+
   return (
     <div
       className="fixed inset-0 flex justify-center overflow-hidden"
       style={{ background: "#0c0c14" }}
     >
+      {/* ── PAUSE BUTTON (Bottom Right) ── */}
+      {phase === "playing" && !paused && (
+        <button
+          onClick={doPause}
+          className="absolute bottom-6 right-6 z-50 w-12 h-12 flex items-center justify-center rounded-full glass-panel border-2 border-white/20 hover:scale-110 active:scale-95 transition-all group"
+          title="Pause (Esc)"
+        >
+          <div className="flex gap-1">
+            <div className="w-1.5 h-4 bg-white/80 group-hover:bg-white rounded-full transition-colors" />
+            <div className="w-1.5 h-4 bg-white/80 group-hover:bg-white rounded-full transition-colors" />
+          </div>
+        </button>
+      )}
+
+      {/* ── PAUSE OVERLAY ── */}
+      {paused && (
+        <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="glass-panel p-8 max-w-sm w-full mx-4 text-center border-t-2 border-white/20 shadow-2xl">
+            <div className="font-mono font-bold text-xs tracking-[0.5em] text-white/30 mb-6 uppercase">
+              TRANSMISSION SUSPENDED
+            </div>
+            <h2 className="font-mono font-bold text-4xl text-white mb-8 tracking-tighter">PAUSED</h2>
+            
+            <div className="flex flex-col gap-4">
+              <button
+                onClick={doResume}
+                className="w-full py-4 font-mono font-bold text-sm tracking-[0.3em] bg-[#F2F0E8] text-[#080808] rounded-lg hover:scale-[1.02] active:scale-95 transition-all shadow-lg"
+              >
+                RESUME TRANSMISSION
+              </button>
+              
+              <button
+                onClick={doAbandon}
+                className="w-full py-4 font-mono font-bold text-xs tracking-[0.2em] bg-white/5 text-white/60 border border-white/10 rounded-lg hover:bg-white/10 hover:text-white transition-all"
+              >
+                ABORT MISSION
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Blurred cover art — fills the full viewport edge to edge */}
       {song?.coverArt && (
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
