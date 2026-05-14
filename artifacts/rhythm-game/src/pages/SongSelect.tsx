@@ -164,7 +164,7 @@ export default function SongSelect() {
   const visible = filtered.slice(0, showCount);
 
   return (
-    <div className="min-h-screen w-full flex flex-col" style={{ background: 'radial-gradient(ellipse 70% 50% at 50% 10%, #0e1028 0%, #080808 50%)' }}>
+    <div className="min-h-dvh w-full flex flex-col" style={{ background: 'radial-gradient(ellipse 70% 50% at 50% 10%, #0e1028 0%, #080808 50%)' }}>
       {/* Header */}
       <header
         className="flex items-center justify-between px-4 py-3 flex-shrink-0"
@@ -188,9 +188,9 @@ export default function SongSelect() {
         </div>
       </header>
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-visible lg:overflow-hidden">
         {/* Left: Song list */}
-        <div className="flex flex-col w-full lg:w-1/2 overflow-hidden border-r" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+        <div className="flex flex-col w-full lg:w-1/2 lg:overflow-hidden border-r" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
           {/* Search + filters */}
           <div className="flex-shrink-0 p-4 space-y-3 border-b" style={{ borderColor: 'rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.01)' }}>
             <div className="relative group">

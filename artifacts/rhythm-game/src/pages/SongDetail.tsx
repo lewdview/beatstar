@@ -74,7 +74,12 @@ export default function SongDetail() {
       .then(s => {
         if (!s) { setLocation(backRoute); return; }
         setSong(s);
-        setDiffOverride(s.difficultyLevel);
+        const savedOverride = sessionStorage.getItem(`diff_override_${songId}`);
+        if (savedOverride) {
+          setDiffOverride(parseInt(savedOverride, 10));
+        } else {
+          setDiffOverride(s.difficultyLevel);
+        }
         setHistory(getScoreHistory(songId));
         setLoading(false);
       })

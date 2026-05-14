@@ -4,20 +4,8 @@ import { loadCatalog, isSongTimeLocked } from "@/game/api";
 import type { GameSong } from "@/game/api";
 import { getMedalForSong, getChapterPlatinums, getHighScore } from "@/game/progress";
 
-const CHAPTERS = [
-  { month: 1,  name: 'JANUARY',   sub: 'GATEWAY SIGNAL',   diff: 'EASY',   dc: '#ACE894', platNeeded: 2  },
-  { month: 2,  name: 'FEBRUARY',  sub: 'EMERGENCE',         diff: 'EASY',   dc: '#ACE894', platNeeded: 2  },
-  { month: 3,  name: 'MARCH',     sub: 'STATIC RISE',       diff: 'EASY',   dc: '#ACE894', platNeeded: 3  },
-  { month: 4,  name: 'APRIL',     sub: 'FREQUENCY',         diff: 'MEDIUM', dc: '#4A314D', platNeeded: 3  },
-  { month: 5,  name: 'MAY',       sub: 'SIGNAL SURGE',      diff: 'MEDIUM', dc: '#4A314D', platNeeded: 3  },
-  { month: 6,  name: 'JUNE',      sub: 'INTERFERENCE',      diff: 'MEDIUM', dc: '#4A314D', platNeeded: 4  },
-  { month: 7,  name: 'JULY',      sub: 'WAVELENGTH',        diff: 'HARD',   dc: '#E5B800', platNeeded: 4  },
-  { month: 8,  name: 'AUGUST',    sub: 'RESONANCE',         diff: 'HARD',   dc: '#E5B800', platNeeded: 5  },
-  { month: 9,  name: 'SEPTEMBER', sub: 'DISTORTION',        diff: 'HARD',   dc: '#E5B800', platNeeded: 5  },
-  { month: 10, name: 'OCTOBER',   sub: 'THRESHOLD',         diff: 'BRUTAL', dc: '#FF5400', platNeeded: 5  },
-  { month: 11, name: 'NOVEMBER',  sub: 'FRACTURE',          diff: 'BRUTAL', dc: '#FF5400', platNeeded: 6  },
-  { month: 12, name: 'DECEMBER',  sub: 'TRANSMISSION END',  diff: 'BRUTAL', dc: '#FF5400', platNeeded: 7  },
-];
+import { CHAPTERS, calculateCampaignDifficulty } from "@/game/campaign";
+
 
 const MEDAL_COLOR: Record<string, string> = {
   PLATINUM: '#ACE894', GOLD: '#E5B800', SILVER: '#A0AABB', BRONZE: '#C97A3A', NONE: '#333', '': '#1a1a1a',
@@ -27,9 +15,10 @@ const MEDAL_ABBR: Record<string, string> = {
 };
 
 // ── Stage row ────────────────────────────────────────────────────
-function StageRow({ song, stageNum, isBonus, locked, lockReason, dc, from }: {
+function StageRow({ song, stageNum, isBonus, locked, lockReason, dc, from, difficultyLevel }: {
   song: GameSong; stageNum: number; isBonus: boolean;
   locked: boolean; lockReason?: 'time' | 'bonus'; dc: string; from: string;
+  difficultyLevel: number;
 }) {
   const [, setLocation] = useLocation();
   const medal    = getMedalForSong(song.id);
@@ -45,6 +34,7 @@ function StageRow({ song, stageNum, isBonus, locked, lockReason, dc, from }: {
 
   const goToDetail = () => {
     if (locked) return;
+    sessionStorage.setItem(`diff_override_${song.id}`, String(difficultyLevel));
     setLocation(`/song/${song.id}?from=${from}`);
   };
 
@@ -52,7 +42,7 @@ function StageRow({ song, stageNum, isBonus, locked, lockReason, dc, from }: {
     e.stopPropagation();
     if (locked) return;
     sessionStorage.setItem(`game_origin_${song.id}`, from);
-    sessionStorage.setItem(`diff_override_${song.id}`, String(song.difficultyLevel));
+    sessionStorage.setItem(`diff_override_${song.id}`, String(difficultyLevel));
     setLocation(`/play/${song.id}`);
   };
 
@@ -94,8 +84,8 @@ function StageRow({ song, stageNum, isBonus, locked, lockReason, dc, from }: {
         <div className="flex items-center gap-2.5">
           <span className="font-mono" style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.15em' }}>DAY {song.day}</span>
           {!timeLock && <>
+            <span className="font-mono font-bold" style={{ fontSize: 9, color: difficultyLevel >= 9 ? '#FF5400' : difficultyLevel >= 7 ? '#E5B800' : 'rgba(255,255,255,0.3)', letterSpacing: '0.15em' }}>LVL {difficultyLevel}</span>
             <span className="font-mono" style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.15em' }}>{song.bpm}BPM</span>
-            <span className="font-mono" style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.15em' }}>{song.notes.length}N</span>
           </>}
         </div>
       </div>
@@ -180,7 +170,7 @@ export default function Chapter() {
   const bonusUnlocked = platinums >= meta.platNeeded;
 
   return (
-    <div className="min-h-screen w-full" style={{ background: '#080808' }}>
+    <div className="min-h-dvh w-full" style={{ background: '#080808' }}>
       {/* Top nav */}
       <div className="sticky top-0 z-20 flex items-center justify-between px-5 py-3"
         style={{ background: '#080808', borderBottom: '2px solid rgba(255,255,255,0.08)' }}>
@@ -244,8 +234,10 @@ export default function Chapter() {
 
           {regularSongs.map((song, i) => {
             const timeLocked = isSongTimeLocked(song);
+            const difficultyLevel = calculateCampaignDifficulty(monthNum, i, regularSongs.length, false);
             return <StageRow key={song.id} song={song} stageNum={i + 1} isBonus={false}
-              locked={timeLocked} lockReason={timeLocked ? 'time' : undefined} dc={meta.dc} from={`chapter/${monthNum}`} />;
+              locked={timeLocked} lockReason={timeLocked ? 'time' : undefined} dc={meta.dc} from={`chapter/${monthNum}`}
+              difficultyLevel={difficultyLevel} />;
           })}
 
           {/* Bonus section */}
@@ -267,8 +259,10 @@ export default function Chapter() {
                 const timeLocked = isSongTimeLocked(song);
                 const bonusLocked = !bonusUnlocked;
                 const isLocked = timeLocked || bonusLocked;
+                const difficultyLevel = calculateCampaignDifficulty(monthNum, i, bonusSongs.length, true);
                 return <StageRow key={song.id} song={song} stageNum={regularSongs.length + i + 1} isBonus
-                  locked={isLocked} lockReason={timeLocked ? 'time' : bonusLocked ? 'bonus' : undefined} dc="#E5B800" from={`chapter/${monthNum}`} />;
+                  locked={isLocked} lockReason={timeLocked ? 'time' : bonusLocked ? 'bonus' : undefined} dc="#E5B800" from={`chapter/${monthNum}`}
+                  difficultyLevel={difficultyLevel} />;
               })}
             </>
           )}

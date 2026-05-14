@@ -7,20 +7,8 @@ import {
   getChapterPlatinums, getChapterCleared, getMedalForSong,
 } from "@/game/progress";
 
-const CHAPTERS = [
-  { month: 1,  name: 'JANUARY',   sub: 'GATEWAY SIGNAL',   diff: 'EASY',   dc: '#ACE894', platNeeded: 2  },
-  { month: 2,  name: 'FEBRUARY',  sub: 'EMERGENCE',         diff: 'EASY',   dc: '#ACE894', platNeeded: 2  },
-  { month: 3,  name: 'MARCH',     sub: 'STATIC RISE',       diff: 'EASY',   dc: '#ACE894', platNeeded: 3  },
-  { month: 4,  name: 'APRIL',     sub: 'FREQUENCY',         diff: 'MEDIUM', dc: '#4A314D', platNeeded: 3  },
-  { month: 5,  name: 'MAY',       sub: 'SIGNAL SURGE',      diff: 'MEDIUM', dc: '#4A314D', platNeeded: 3  },
-  { month: 6,  name: 'JUNE',      sub: 'INTERFERENCE',      diff: 'MEDIUM', dc: '#4A314D', platNeeded: 4  },
-  { month: 7,  name: 'JULY',      sub: 'WAVELENGTH',        diff: 'HARD',   dc: '#E5B800', platNeeded: 4  },
-  { month: 8,  name: 'AUGUST',    sub: 'RESONANCE',         diff: 'HARD',   dc: '#E5B800', platNeeded: 5  },
-  { month: 9,  name: 'SEPTEMBER', sub: 'DISTORTION',        diff: 'HARD',   dc: '#E5B800', platNeeded: 5  },
-  { month: 10, name: 'OCTOBER',   sub: 'THRESHOLD',         diff: 'BRUTAL', dc: '#FF5400', platNeeded: 5  },
-  { month: 11, name: 'NOVEMBER',  sub: 'FRACTURE',          diff: 'BRUTAL', dc: '#FF5400', platNeeded: 6  },
-  { month: 12, name: 'DECEMBER',  sub: 'TRANSMISSION END',  diff: 'BRUTAL', dc: '#FF5400', platNeeded: 7  },
-];
+import { CHAPTERS } from "@/game/campaign";
+
 
 // ── animated score counter ───────────────────────────────────────
 function useCountUp(target: number, duration = 2200, delay = 400) {
@@ -227,7 +215,7 @@ export default function Campaign() {
   const startedChapters = chapters.filter(c => c.cleared > 0).length;
 
   return (
-    <div className="min-h-screen w-full" style={{ background: 'radial-gradient(ellipse 80% 50% at 50% 20%, #0e1028 0%, #080808 60%)' }}>
+    <div className="min-h-dvh w-full" style={{ background: 'radial-gradient(ellipse 80% 50% at 50% 20%, #0e1028 0%, #080808 60%)' }}>
       {/* Top nav */}
       <div className="sticky top-0 z-20 flex items-center justify-between px-5 py-3"
         style={{ background: 'rgba(8,8,12,0.7)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
