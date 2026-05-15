@@ -93,7 +93,7 @@ function buildGameSong(r: any): GameSong {
       ? generateNotesFromLyrics(lyricsWords, bpm)
       : generateNotesFromBPM(bpm, duration);
 
-  const difficultyLevel = calcDifficulty(bpm, valence, notes.length);
+  const difficultyLevel = calcDifficulty(bpm, valence, notes.length, duration);
 
   return {
     id: r.id,
@@ -116,10 +116,21 @@ function buildGameSong(r: any): GameSong {
   };
 }
 
-function calcDifficulty(bpm: number, valence: number, noteCount: number): number {
-  const bpmScore = Math.min(10, Math.max(1, Math.round((bpm - 60) / 15)));
-  const densityScore = Math.min(10, Math.max(1, Math.round(noteCount / 20)));
-  return Math.round((bpmScore + densityScore) / 2);
+function calcDifficulty(bpm: number, valence: number, noteCount: number, duration = 180): number {
+  // BPM scoring: sigmoid-like curve centered at 120 BPM
+  // <80 → 1-2, 100-120 → 3-5, 140-160 → 6-8, 180+ → 9-10
+  const bpmNorm = (bpm - 80) / 100; // 0 at 80, 1 at 180
+  const bpmScore = Math.min(10, Math.max(1, Math.round(1 + 9 * Math.max(0, Math.min(1, bpmNorm)))));
+
+  // Note density: notes per second, normalized (0.5 nps=easy, 3+ nps=brutal)
+  const nps = noteCount / Math.max(30, duration);
+  const densityScore = Math.min(10, Math.max(1, Math.round(nps * 3.5)));
+
+  // Valence as intensity modifier: dark/intense songs (low valence) feel harder
+  const valenceBoost = valence < 0.35 ? 1 : valence > 0.7 ? -1 : 0;
+
+  const raw = (bpmScore * 0.4 + densityScore * 0.5) + valenceBoost;
+  return Math.max(1, Math.min(10, Math.round(raw)));
 }
 
 /** Snap a timestamp to the nearest 16th-note grid at the given BPM. */
@@ -129,8 +140,7 @@ function snapToBeat(time: number, bpm: number, subdivision = 16): number {
 }
 
 /**
- * Five musical phrase patterns. Each is an 8-slot lane sequence (0=A, 1=S, 2=D).
- * A new pattern is picked whenever a phrase boundary (silence > 0.65 s) is detected.
+ * Musical phrase patterns. Each is an 8-slot lane sequence (0=left, 1=center, 2=right).
  */
 const PHRASE_PATTERNS: number[][] = [
   [0, 1, 2, 1, 0, 2, 1, 0],  // ascending bounce
@@ -138,6 +148,11 @@ const PHRASE_PATTERNS: number[][] = [
   [0, 2, 1, 0, 2, 1, 0, 2],  // outer ping-pong
   [1, 0, 2, 1, 0, 2, 1, 0],  // center-out alternating
   [0, 2, 0, 1, 2, 1, 2, 0],  // irregular cross
+  [1, 1, 0, 2, 1, 1, 2, 0],  // stutter step (center-heavy)
+  [0, 0, 1, 2, 2, 1, 0, 2],  // gallop (repeated starts)
+  [0, 1, 0, 2, 1, 2, 0, 1],  // triplet feel
+  [2, 0, 2, 0, 1, 1, 2, 0],  // wide bounce
+  [1, 0, 1, 2, 1, 0, 1, 2],  // rapid center
 ];
 
 /** Unified pattern step to support mixed note types in a single template */
@@ -148,24 +163,77 @@ interface PatternStep {
   dir?: Note['swipeDirection'];
 }
 
-/** Mixed patterns incorporating swipes with regular taps for better spacing */
+/** Dual note step — two notes at the same time */
+interface DualStep {
+  a: PatternStep;
+  b: PatternStep;
+}
+
+/** Mixed patterns incorporating swipes with regular taps */
 const SWIPE_MIXED_PATTERNS: PatternStep[][] = [
-  // Tap -> Swipe -> Tap -> Swipe (Diagonal outward)
   [{ type: 'tap', lane: 1 }, { type: 'swipe', lane: 0, dir: 'up-left' }, { type: 'tap', lane: 1 }, { type: 'swipe', lane: 2, dir: 'up-right' }],
-  // Center swipe focus
   [{ type: 'swipe', lane: 1, dir: 'up' }, { type: 'tap', lane: 0 }, { type: 'tap', lane: 2 }, { type: 'swipe', lane: 1, dir: 'down' }],
-  // Double side swipes
   [{ type: 'swipe', lane: 0, dir: 'left' }, { type: 'swipe', lane: 2, dir: 'right' }, { type: 'tap', lane: 1 }, { type: 'tap', lane: 1 }],
+  [{ type: 'tap', lane: 0 }, { type: 'swipe', lane: 1, dir: 'right' }, { type: 'swipe', lane: 2, dir: 'up-right' }, { type: 'tap', lane: 2 }],
+  [{ type: 'swipe', lane: 0, dir: 'up' }, { type: 'tap', lane: 1 }, { type: 'swipe', lane: 2, dir: 'down' }, { type: 'tap', lane: 1 }],
 ];
 
 /** Mixed patterns incorporating lane-change slides with rhythmic taps */
 const SLIDE_MIXED_PATTERNS: PatternStep[][] = [
-  // Slide -> Transition Tap
   [{ type: 'slide', lane: 0, target: 1, dir: 'right' }, { type: 'tap', lane: 1 }, { type: 'slide', lane: 1, target: 2, dir: 'right' }, { type: 'tap', lane: 2 }],
-  // Outer slides with center bridge
   [{ type: 'slide', lane: 0, target: 2, dir: 'right' }, { type: 'tap', lane: 1 }, { type: 'slide', lane: 2, target: 0, dir: 'left' }, { type: 'tap', lane: 1 }],
-  // Bounce slides
   [{ type: 'tap', lane: 1 }, { type: 'slide', lane: 1, target: 0, dir: 'left' }, { type: 'tap', lane: 0 }, { type: 'slide', lane: 0, target: 1, dir: 'right' }],
+  [{ type: 'tap', lane: 0 }, { type: 'slide', lane: 1, target: 2, dir: 'right' }, { type: 'tap', lane: 2 }, { type: 'slide', lane: 2, target: 1, dir: 'left' }],
+];
+
+/** Dual TAP patterns — two notes fired at the same time */
+const DUAL_TAP_PATTERNS: DualStep[][] = [
+  // Outer pair -> single -> outer pair -> single
+  [
+    { a: { type: 'tap', lane: 0 }, b: { type: 'tap', lane: 2 } },
+    { a: { type: 'tap', lane: 1 }, b: { type: 'tap', lane: 1 } },
+    { a: { type: 'tap', lane: 0 }, b: { type: 'tap', lane: 2 } },
+    { a: { type: 'tap', lane: 1 }, b: { type: 'tap', lane: 1 } },
+  ],
+  // Left pair -> right pair -> both outer
+  [
+    { a: { type: 'tap', lane: 0 }, b: { type: 'tap', lane: 1 } },
+    { a: { type: 'tap', lane: 2 }, b: { type: 'tap', lane: 2 } },
+    { a: { type: 'tap', lane: 1 }, b: { type: 'tap', lane: 2 } },
+    { a: { type: 'tap', lane: 0 }, b: { type: 'tap', lane: 2 } },
+  ],
+  // Alternating pairs
+  [
+    { a: { type: 'tap', lane: 0 }, b: { type: 'tap', lane: 1 } },
+    { a: { type: 'tap', lane: 1 }, b: { type: 'tap', lane: 2 } },
+    { a: { type: 'tap', lane: 0 }, b: { type: 'tap', lane: 2 } },
+    { a: { type: 'tap', lane: 0 }, b: { type: 'tap', lane: 1 } },
+  ],
+];
+
+/** Dual HOLD patterns — hold one lane while tapping another */
+const DUAL_HOLD_PATTERNS: DualStep[][] = [
+  // Hold left + tap right, then hold right + tap left
+  [
+    { a: { type: 'hold', lane: 0 }, b: { type: 'tap', lane: 2 } },
+    { a: { type: 'tap', lane: 1 }, b: { type: 'tap', lane: 1 } },
+    { a: { type: 'hold', lane: 2 }, b: { type: 'tap', lane: 0 } },
+    { a: { type: 'tap', lane: 1 }, b: { type: 'tap', lane: 1 } },
+  ],
+  // Dual hold outer lanes
+  [
+    { a: { type: 'hold', lane: 0 }, b: { type: 'hold', lane: 2 } },
+    { a: { type: 'tap', lane: 1 }, b: { type: 'tap', lane: 1 } },
+    { a: { type: 'tap', lane: 0 }, b: { type: 'tap', lane: 2 } },
+    { a: { type: 'tap', lane: 1 }, b: { type: 'tap', lane: 1 } },
+  ],
+  // Hold center + tap sides
+  [
+    { a: { type: 'hold', lane: 1 }, b: { type: 'tap', lane: 0 } },
+    { a: { type: 'tap', lane: 2 }, b: { type: 'tap', lane: 2 } },
+    { a: { type: 'hold', lane: 1 }, b: { type: 'tap', lane: 2 } },
+    { a: { type: 'tap', lane: 0 }, b: { type: 'tap', lane: 0 } },
+  ],
 ];
 
 export function generateNotesFromLyrics(words: LyricsWord[], bpm = 100): Note[] {
@@ -174,15 +242,14 @@ export function generateNotesFromLyrics(words: LyricsWord[], bpm = 100): Note[] 
   let patternIdx = 0;
   let noteInPattern = 0;
   let lastSnapped = -1;
-  const MIN_GAP = 0.15; // slightly wider gap for better readability
+  const MIN_GAP = 0.15;
   let phraseCount = 0;
 
-  let phraseType: 'tap' | 'swipe' | 'slide' = 'tap';
+  let phraseType: 'tap' | 'swipe' | 'slide' | 'dual' | 'dual_hold' = 'tap';
 
   for (const word of words) {
     if (word.start < 1.0) continue;
 
-    // Snap to nearest 16th note so tapping aligns with the beat grid
     const snapped = snapToBeat(word.start, bpm, 16);
     if (snapped - lastSnapped < MIN_GAP) continue;
 
@@ -196,14 +263,63 @@ export function generateNotesFromLyrics(words: LyricsWord[], bpm = 100): Note[] 
       if (phraseCount < 3) {
         phraseType = 'tap';
       } else {
-        // Cyclical variety: tap → tap → swipe → tap → slide → tap → swipe ...
-        const cycle = (phraseCount - 2) % 5;
-        if (cycle === 1) phraseType = 'swipe';
-        else if (cycle === 3) phraseType = 'slide';
+        // Cyclical variety with all phrase types
+        const cycle = (phraseCount - 2) % 8;
+        if (cycle === 1) phraseType = 'dual';
+        else if (cycle === 2) phraseType = 'swipe';
+        else if (cycle === 4) phraseType = 'slide';
+        else if (cycle === 5) phraseType = 'dual_hold';
+        else if (cycle === 7) phraseType = 'swipe';
         else phraseType = 'tap';
       }
     }
 
+    const dur = word.end - word.start;
+
+    // ── Dual note phrases ──
+    if (phraseType === 'dual') {
+      const p = DUAL_TAP_PATTERNS[patternIdx % DUAL_TAP_PATTERNS.length];
+      const step = p[noteInPattern % p.length];
+      noteInPattern++;
+      lastSnapped = snapped;
+      notes.push({
+        id: id++, time: snapped, lane: step.a.lane,
+        type: step.a.type === 'slide' ? 'hold' : step.a.type,
+        holdDuration: step.a.type === 'hold' ? Math.max(0.5, dur) : undefined,
+      });
+      if (step.b.lane !== step.a.lane) {
+        notes.push({
+          id: id++, time: snapped, lane: step.b.lane,
+          type: step.b.type === 'slide' ? 'hold' : step.b.type,
+          holdDuration: step.b.type === 'hold' ? Math.max(0.5, dur) : undefined,
+        });
+      }
+      continue;
+    }
+
+    if (phraseType === 'dual_hold') {
+      const p = DUAL_HOLD_PATTERNS[patternIdx % DUAL_HOLD_PATTERNS.length];
+      const step = p[noteInPattern % p.length];
+      noteInPattern++;
+      lastSnapped = snapped;
+      const isHoldA = step.a.type === 'hold';
+      notes.push({
+        id: id++, time: snapped, lane: step.a.lane,
+        type: step.a.type === 'slide' ? 'hold' : step.a.type,
+        holdDuration: isHoldA ? Math.max(0.5, Math.min(dur * 0.8, 1.5)) : undefined,
+      });
+      if (step.b.lane !== step.a.lane) {
+        const isHoldB = step.b.type === 'hold';
+        notes.push({
+          id: id++, time: snapped, lane: step.b.lane,
+          type: step.b.type === 'slide' ? 'hold' : step.b.type,
+          holdDuration: isHoldB ? Math.max(0.5, Math.min(dur * 0.8, 1.5)) : undefined,
+        });
+      }
+      continue;
+    }
+
+    // ── Single note phrases ──
     let lane: number;
     let type: Note['type'] = 'tap';
     let targetLane: number | undefined;
@@ -216,7 +332,7 @@ export function generateNotesFromLyrics(words: LyricsWord[], bpm = 100): Note[] 
       lane = entry.lane;
       type = entry.type === 'slide' ? 'hold' : entry.type;
       swipeDirection = entry.dir;
-      if (type === 'hold') holdDuration = Math.max(0.5, word.end - word.start);
+      if (type === 'hold') holdDuration = Math.max(0.5, dur);
     } else if (phraseType === 'slide') {
       const p = SLIDE_MIXED_PATTERNS[patternIdx % SLIDE_MIXED_PATTERNS.length];
       const entry = p[noteInPattern % p.length];
@@ -224,12 +340,10 @@ export function generateNotesFromLyrics(words: LyricsWord[], bpm = 100): Note[] 
       targetLane = entry.target;
       swipeDirection = entry.dir;
       type = entry.type === 'slide' ? 'hold' : entry.type;
-      // Slide holds need longer duration for the player to react to lane change
-      if (type === 'hold') holdDuration = Math.max(0.6, Math.min(word.end - word.start, 2.0));
+      if (type === 'hold') holdDuration = Math.max(0.6, Math.min(dur, 2.0));
     } else {
       const p = PHRASE_PATTERNS[patternIdx % PHRASE_PATTERNS.length];
       lane = p[noteInPattern % p.length];
-      const dur = word.end - word.start;
       if (dur > 0.6) {
         type = 'hold';
         holdDuration = Math.min(dur * 0.8, 2.0);

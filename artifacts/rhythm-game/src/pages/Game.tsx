@@ -15,10 +15,24 @@ function approachTime(diffLevel: number): number {
   return Math.max(1.35, 2.5 - (diffLevel - 1) * 0.128);
 }
 const HIT_RATIO = 0.7;
-const PERFECT_PLUS_WINDOW = 0.03;
-const PERFECT_WINDOW = 0.065;
-const GOOD_WINDOW = 0.13;
-const MISS_WINDOW = 0.25;
+
+// Hit windows scale with difficulty — easier = more forgiving
+function perfectPlusWindow(diff: number): number {
+  // Level 1: 0.055s, Level 5: 0.035s, Level 10: 0.022s
+  return Math.max(0.022, 0.055 - (diff - 1) * 0.0037);
+}
+function perfectWindow(diff: number): number {
+  // Level 1: 0.10s, Level 5: 0.07s, Level 10: 0.045s
+  return Math.max(0.045, 0.10 - (diff - 1) * 0.0061);
+}
+function goodWindow(diff: number): number {
+  // Level 1: 0.18s, Level 5: 0.13s, Level 10: 0.09s
+  return Math.max(0.09, 0.18 - (diff - 1) * 0.01);
+}
+function missWindow(diff: number): number {
+  // Level 1: 0.35s, Level 5: 0.25s, Level 10: 0.18s
+  return Math.max(0.18, 0.35 - (diff - 1) * 0.019);
+}
 
 // Perspective highway geometry
 const HW_TOP = 0.54;
@@ -361,7 +375,8 @@ export default function Game() {
         Math.abs(c.note.time - t) < Math.abs(b.note.time - t) ? c : b,
       );
       const diff = Math.abs(ns.note.time - t);
-      if (diff > MISS_WINDOW) return;
+      const dl = songRef.current?.difficultyLevel ?? 5;
+      if (diff > missWindow(dl)) return;
 
       // Swipe check
       if (ns.note.type === "swipe") {
@@ -372,11 +387,11 @@ export default function Game() {
       }
 
       const j: "PERFECT+" | "PERFECT" | "GOOD" | null =
-        diff <= PERFECT_PLUS_WINDOW
+        diff <= perfectPlusWindow(dl)
           ? "PERFECT+"
-          : diff <= PERFECT_WINDOW
+          : diff <= perfectWindow(dl)
             ? "PERFECT"
-            : diff <= GOOD_WINDOW
+            : diff <= goodWindow(dl)
               ? "GOOD"
               : null;
       if (!j) return;
@@ -969,10 +984,11 @@ export default function Game() {
 
       // Miss detection — skip entirely during rewind (notes travel backwards; no new misses)
       if (!isRewinding && phaseRef.current === "playing") {
+        const MW = missWindow(songRef.current?.difficultyLevel ?? 5);
         const isMissed =
-          (note.type === "tap" && !ns.holdActive && t > note.time + MISS_WINDOW) ||
-          (note.type === "swipe" && t > note.time + MISS_WINDOW) ||
-          (note.type === "hold" && !ns.holdActive && t > note.time + MISS_WINDOW);
+          (note.type === "tap" && !ns.holdActive && t > note.time + MW) ||
+          (note.type === "swipe" && t > note.time + MW) ||
+          (note.type === "hold" && !ns.holdActive && t > note.time + MW);
 
         if (isMissed) {
           ns.missed = true;
@@ -1595,7 +1611,7 @@ export default function Game() {
         const cand = notesRef.current.find(n =>
           !n.hit && !n.missed && n.note.type === 'swipe' &&
           n.note.swipeDirection === swipeDir &&
-          Math.abs(n.note.time - t) < MISS_WINDOW
+          Math.abs(n.note.time - t) < missWindow(songRef.current?.difficultyLevel ?? 5)
         );
         if (cand) {
           hitLane(cand.note.lane, swipeDir);
@@ -1735,7 +1751,7 @@ export default function Game() {
               !n.hit && !n.missed && n.note.type === 'swipe' &&
               n.note.swipeDirection === swipeDir &&
               n.note.lane === start.lane &&
-              Math.abs(n.note.time - t) < MISS_WINDOW
+              Math.abs(n.note.time - t) < missWindow(songRef.current?.difficultyLevel ?? 5)
             );
             if (cand) {
               hitLane(start.lane, swipeDir);
@@ -1872,21 +1888,37 @@ export default function Game() {
         };
         img.src = song.coverArt;
       }
-      notesRef.current = song.notes.map((n) => {
+      notesRef.current = song.notes.map((n, idx) => {
         let note = { ...n, lane: Math.min(n.lane, LANE_COUNT - 1) };
         const diff = songRef.current?.difficultyLevel ?? 5;
 
-        // Difficulty rules:
-        // Swipe mechanics only effect difficulty normal or higher (Level 4+)
+        // ── Mechanic gating by difficulty ──
+
+        // Swipe notes only at Normal+ (Level 4+)
         if (diff < 4 && note.type === 'swipe') {
           note.type = 'tap';
           note.swipeDirection = undefined;
         }
 
-        // Lane change hold (slide) only show up in difficulty hard and berserk (Level 7+)
+        // Lane-change holds (slides) only at Hard+ (Level 7+)
         if (diff < 7 && note.type === 'hold' && note.targetLane !== undefined) {
           note.targetLane = undefined;
           note.swipeDirection = undefined;
+        }
+
+        // Dual notes (same time, different lane) only at Level 5+
+        // For lower difficulties, drop the second note of a dual pair
+        if (diff < 5 && idx > 0) {
+          const prev = song.notes[idx - 1];
+          if (prev && Math.abs(prev.time - note.time) < 0.01 && prev.lane !== note.lane) {
+            // This is the second note of a dual — skip it at low difficulty
+            return null;
+          }
+        }
+
+        // Shorten holds at easy difficulties so they're less punishing
+        if (diff <= 3 && note.type === 'hold' && note.holdDuration) {
+          note.holdDuration = Math.min(note.holdDuration, 0.8);
         }
 
         return {
@@ -1898,7 +1930,15 @@ export default function Game() {
           currentLane: note.lane,
           originLane: note.lane,
         };
-      });
+      }).filter((ns): ns is NonNullable<typeof ns> => ns !== null);
+
+      // ── Note thinning for easy difficulties ──
+      // Drop every Nth note at low difficulty to reduce density
+      if ((songRef.current?.difficultyLevel ?? 5) <= 2) {
+        notesRef.current = notesRef.current.filter((_, i) => i % 4 !== 3); // drop every 4th
+      } else if ((songRef.current?.difficultyLevel ?? 5) === 3) {
+        notesRef.current = notesRef.current.filter((_, i) => i % 5 !== 4); // drop every 5th
+      }
       gsRef.current = {
         score: 0,
         combo: 0,
