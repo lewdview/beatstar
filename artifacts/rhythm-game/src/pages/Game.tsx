@@ -496,8 +496,37 @@ export default function Game() {
       // Move the interaction to the new lane if it's a slide note
       if (ns.note.targetLane !== undefined && toLane === ns.note.targetLane) {
         ns.currentLane = toLane;
-        // Optional: Play a "slide" sound or effect
-        audioManager.playSfx("fusion", 0.3); // Subtle feedback
+        audioManager.playSfx("fusion", 0.3);
+
+        // ── Slide success particle effect ──
+        const canvas = canvasRef.current;
+        if (canvas) {
+          const W = canvas.width;
+          const H = canvas.height;
+          const hitY = H * HIT_RATIO;
+          const { x: lx, w: lw } = laneAt(toLane, 1, W);
+          const cx = lx + lw / 2;
+          const lc = laneColorsRef.current[toLane];
+          const particles: HitParticle[] = [];
+          for (let i = 0; i < 6; i++) {
+            const angle = (Math.random() - 0.5) * Math.PI;
+            const speed = 40 + Math.random() * 60;
+            particles.push({
+              vx: Math.cos(angle) * speed,
+              vy: Math.sin(angle) * speed - 20,
+              size: 2 + Math.random() * 3,
+            });
+          }
+          hitFxRef.current.push({
+            lane: toLane,
+            startMs: Date.now(),
+            cx,
+            cy: hitY,
+            color: lc,
+            kind: "GOOD", // Use GOOD kind for a subtler effect
+            particles,
+          });
+        }
       }
     },
     [],
@@ -1012,54 +1041,74 @@ export default function Game() {
         if (ns.holdActive) {
           const top = lerp(headY, hitY, ns.holdProgress);
           if (noteY > top) {
-            // While active, the trail connects from the current player lane to the note tail
-            const currentP = Math.min(prog, 1);
-            const { x: ax, w: aw } = laneAt(ns.currentLane, currentP, W);
+            // Determine lanes for the active trail segment
+            const { x: hx, w: hw } = laneAt(endLane, headP, W);
+            const { x: ax, w: aw } = laneAt(ns.currentLane, Math.min(prog, 1), W);
+            const midY = (top + noteY) / 2;
 
-            // Trail body
+            // Trail body (Curved to player's current lane)
             ctx.fillStyle = "rgba(245,240,228,0.18)";
             ctx.beginPath();
-            ctx.roundRect(
-              ax + aw * 0.25,
-              top,
-              aw * 0.5,
-              noteY - top + noteH / 2,
-              4,
-            );
+            ctx.moveTo(hx + hw * 0.25, top);
+            ctx.lineTo(hx + hw * 0.75, top);
+            ctx.quadraticCurveTo(ax + aw * 0.75, midY, ax + aw * 0.75, noteY + noteH / 2);
+            ctx.lineTo(ax + aw * 0.25, noteY + noteH / 2);
+            ctx.quadraticCurveTo(ax + aw * 0.25, midY, hx + hw * 0.25, top);
             ctx.fill();
-            // Colored stripe
+
+            // ── ELECTRIC WAVES (along the curve) ──
+            const waveCount = 4;
+            ctx.strokeStyle = lc;
+            ctx.lineWidth = 1.5;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = lc;
+            for (let i = 0; i < waveCount; i++) {
+              const t_wave = (i + (t * 4) % 1) / waveCount;
+              const wy = lerp(top, noteY, t_wave);
+              const waveP = lerp(headP, Math.min(prog, 1), t_wave);
+              const { x: wx, w: ww } = laneAt(lerp(endLane, ns.currentLane, t_wave), waveP, W);
+              const wOffset = (Math.sin(t * 20 + i) * ww * 0.1);
+              ctx.beginPath();
+              ctx.moveTo(wx + ww * 0.5 + wOffset, wy);
+              ctx.lineTo(wx + ww * 0.5 - wOffset, wy + 10);
+              ctx.stroke();
+            }
+            ctx.shadowBlur = 0;
+
+            // Colored stripe (Curved)
             ctx.fillStyle = lc;
             ctx.globalAlpha = 0.55;
             ctx.shadowColor = lc;
             ctx.shadowBlur = 8;
             ctx.beginPath();
-            ctx.roundRect(
-              ax + aw * 0.38,
-              top,
-              aw * 0.24,
-              noteY - top + noteH / 2,
-              2,
-            );
+            ctx.moveTo(hx + hw * 0.4, top);
+            ctx.lineTo(hx + hw * 0.6, top);
+            ctx.quadraticCurveTo(ax + aw * 0.6, midY, ax + aw * 0.6, noteY + noteH / 2);
+            ctx.lineTo(ax + aw * 0.4, noteY + noteH / 2);
+            ctx.quadraticCurveTo(ax + aw * 0.4, midY, hx + hw * 0.4, top);
             ctx.fill();
             ctx.globalAlpha = 1;
             ctx.shadowBlur = 0;
             ctx.shadowColor = "transparent";
           }
         } else if (headY < noteY) {
-          // Inactive trail — diagonal if it's a slide
+          // Inactive trail — SMOOTH CURVE if it's a slide
           const { x: hx, w: hw } = laneAt(endLane, headP, W);
           const { x: tx, w: tw } = laneAt(startLane, prog, W);
 
+          const midY = (headY + noteY) / 2;
+          
           ctx.fillStyle = "rgba(245,240,228,0.15)";
           ctx.beginPath();
+          // Draw a curved ribbon
           ctx.moveTo(hx + hw * 0.25, headY);
           ctx.lineTo(hx + hw * 0.75, headY);
-          ctx.lineTo(tx + tw * 0.75, noteY + noteH / 2);
+          ctx.quadraticCurveTo(tx + tw * 0.75, midY, tx + tw * 0.75, noteY + noteH / 2);
           ctx.lineTo(tx + tw * 0.25, noteY + noteH / 2);
-          ctx.closePath();
+          ctx.quadraticCurveTo(tx + tw * 0.25, midY, hx + hw * 0.25, headY);
           ctx.fill();
 
-          // Colored center ribbon
+          // Colored center ribbon (curved)
           ctx.fillStyle = lc;
           ctx.globalAlpha = 0.45;
           ctx.shadowColor = lc;
@@ -1067,9 +1116,9 @@ export default function Game() {
           ctx.beginPath();
           ctx.moveTo(hx + hw * 0.4, headY);
           ctx.lineTo(hx + hw * 0.6, headY);
-          ctx.lineTo(tx + tw * 0.6, noteY + noteH / 2);
+          ctx.quadraticCurveTo(tx + tw * 0.6, midY, tx + tw * 0.6, noteY + noteH / 2);
           ctx.lineTo(tx + tw * 0.4, noteY + noteH / 2);
-          ctx.closePath();
+          ctx.quadraticCurveTo(tx + tw * 0.4, midY, hx + hw * 0.4, headY);
           ctx.fill();
           ctx.globalAlpha = 1;
           ctx.shadowBlur = 0;
@@ -1405,11 +1454,19 @@ export default function Game() {
 
     // ── end check (skipped during rewind — setTimeout in doReturn handles transition) ──
     if (!isRewinding) {
+      const audio = audioRef.current;
       const allDone = notesRef.current.every((ns) => ns.hit || ns.missed);
       const lastT = notesRef.current.length
         ? Math.max(...notesRef.current.map((ns) => ns.note.time))
         : 0;
-      if ((allDone && t > lastT + 1.5 && t > 2) || t >= song.duration) {
+
+      // Finish if:
+      // 1. All notes are done and we've waited a bit
+      // 2. The audio has naturally ended
+      // 3. We've reached the song's defined duration
+      const audioEnded = audio ? (audio.ended || (audio.currentTime > 0 && audio.paused && !isRewinding && phaseRef.current === "playing" && audio.currentTime >= audio.duration - 0.1)) : false;
+
+      if ((allDone && t > lastT + 1.2) || audioEnded || (song && t >= song.duration)) {
         finishGame();
         return;
       }
@@ -1522,8 +1579,30 @@ export default function Game() {
     };
   }, [hitLane, releaseLane, moveHold, getT]);
 
-  // ── touch ──
   const touchStartPos = useRef<Record<number, { x: number, y: number, lane: number }>>({});
+
+  // ── Gesture Lock (Prevent mobile browser back/forward swipe) ──
+  useEffect(() => {
+    const wrapper = canvasWrapperRef.current;
+    if (!wrapper) return;
+
+    const handlePrevent = (e: TouchEvent) => {
+      // Always prevent default on game surface to stop pull-to-refresh/swipe-nav
+      if (e.cancelable) e.preventDefault();
+    };
+
+    // Use native listener with passive: false to ensure preventDefault() works
+    wrapper.addEventListener('touchstart', handlePrevent, { passive: false });
+    wrapper.addEventListener('touchmove', handlePrevent, { passive: false });
+    wrapper.addEventListener('touchend', handlePrevent, { passive: false });
+
+    return () => {
+      wrapper.removeEventListener('touchstart', handlePrevent);
+      wrapper.removeEventListener('touchmove', handlePrevent);
+      wrapper.removeEventListener('touchend', handlePrevent);
+    };
+  }, []);
+
   const onTouchStart = useCallback(
     (e: React.TouchEvent<HTMLCanvasElement>) => {
       e.preventDefault();
@@ -2279,10 +2358,15 @@ export default function Game() {
         </div>
 
         {/* Canvas */}
-        <div ref={canvasWrapperRef} className="relative flex-1 min-h-0 overflow-hidden">
+        <div 
+          ref={canvasWrapperRef} 
+          className="relative flex-1 min-h-0 overflow-hidden"
+          style={{ touchAction: 'none' }}
+        >
           <canvas
             ref={canvasRef}
             className="absolute inset-0"
+            style={{ touchAction: 'none' }}
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}

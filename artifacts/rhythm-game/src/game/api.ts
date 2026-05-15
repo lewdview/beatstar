@@ -140,6 +140,34 @@ const PHRASE_PATTERNS: number[][] = [
   [0, 2, 0, 1, 2, 1, 2, 0],  // irregular cross
 ];
 
+/** Unified pattern step to support mixed note types in a single template */
+interface PatternStep {
+  type: 'tap' | 'swipe' | 'hold' | 'slide';
+  lane: number;
+  target?: number;
+  dir?: Note['swipeDirection'];
+}
+
+/** Mixed patterns incorporating swipes with regular taps for better spacing */
+const SWIPE_MIXED_PATTERNS: PatternStep[][] = [
+  // Tap -> Swipe -> Tap -> Swipe (Diagonal outward)
+  [{ type: 'tap', lane: 1 }, { type: 'swipe', lane: 0, dir: 'up-left' }, { type: 'tap', lane: 1 }, { type: 'swipe', lane: 2, dir: 'up-right' }],
+  // Center swipe focus
+  [{ type: 'swipe', lane: 1, dir: 'up' }, { type: 'tap', lane: 0 }, { type: 'tap', lane: 2 }, { type: 'swipe', lane: 1, dir: 'down' }],
+  // Double side swipes
+  [{ type: 'swipe', lane: 0, dir: 'left' }, { type: 'swipe', lane: 2, dir: 'right' }, { type: 'tap', lane: 1 }, { type: 'tap', lane: 1 }],
+];
+
+/** Mixed patterns incorporating lane-change slides with rhythmic taps */
+const SLIDE_MIXED_PATTERNS: PatternStep[][] = [
+  // Slide -> Transition Tap
+  [{ type: 'slide', lane: 0, target: 1, dir: 'right' }, { type: 'tap', lane: 1 }, { type: 'slide', lane: 1, target: 2, dir: 'right' }, { type: 'tap', lane: 2 }],
+  // Outer slides with center bridge
+  [{ type: 'slide', lane: 0, target: 2, dir: 'right' }, { type: 'tap', lane: 1 }, { type: 'slide', lane: 2, target: 0, dir: 'left' }, { type: 'tap', lane: 1 }],
+  // Bounce slides
+  [{ type: 'tap', lane: 1 }, { type: 'slide', lane: 1, target: 0, dir: 'left' }, { type: 'tap', lane: 0 }, { type: 'slide', lane: 0, target: 1, dir: 'right' }],
+];
+
 export function generateNotesFromLyrics(words: LyricsWord[], bpm = 100): Note[] {
   const notes: Note[] = [];
   let id = 0;
@@ -148,6 +176,8 @@ export function generateNotesFromLyrics(words: LyricsWord[], bpm = 100): Note[] 
   let lastSnapped = -1;
   const MIN_GAP = 0.10;
 
+  let phraseType: 'tap' | 'swipe' | 'slide' = 'tap';
+
   for (const word of words) {
     if (word.start < 1.0) continue;
 
@@ -155,47 +185,58 @@ export function generateNotesFromLyrics(words: LyricsWord[], bpm = 100): Note[] 
     const snapped = snapToBeat(word.start, bpm, 16);
     if (snapped - lastSnapped < MIN_GAP) continue;
 
-    // Phrase boundary: silence > 0.65 s → advance to next lane pattern
+    // Phrase boundary: silence > 0.65 s → advance to next template
     if (lastSnapped > 0 && snapped - lastSnapped > 0.65) {
-      patternIdx = (patternIdx + 1) % PHRASE_PATTERNS.length;
+      const rand = Math.random();
+      if (rand < 0.6) phraseType = 'tap';
+      else if (rand < 0.85) phraseType = 'swipe';
+      else phraseType = 'slide';
+
+      patternIdx = (patternIdx + 1);
       noteInPattern = 0;
     }
 
-    const pattern = PHRASE_PATTERNS[patternIdx];
-    const lane    = pattern[noteInPattern % pattern.length];
-    noteInPattern++;
-    lastSnapped = snapped;
-
-    const dur    = word.end - word.start;
-    const isHold = dur > 0.55;
-    const isSwipe = !isHold && Math.random() > 0.7; // 30% of taps become swipes
-    const isSlide = isHold && Math.random() > 0.5; // 50% of holds are slides
-
+    let lane: number;
+    let type: Note['type'] = 'tap';
     let targetLane: number | undefined;
     let swipeDirection: Note['swipeDirection'];
+    let holdDuration: number | undefined;
 
-    if (isSwipe) {
-      const dirs: Note['swipeDirection'][] = ['up', 'down', 'left', 'right', 'up-left', 'up-right', 'down-left', 'down-right'];
-      swipeDirection = dirs[Math.floor(Math.random() * dirs.length)];
-    } else if (isSlide) {
-      if (lane === 0) {
-        targetLane = 1;
-        swipeDirection = 'right';
-      } else if (lane === 2) {
-        targetLane = 1;
-        swipeDirection = 'left';
+    if (phraseType === 'swipe') {
+      const p = SWIPE_MIXED_PATTERNS[patternIdx % SWIPE_MIXED_PATTERNS.length];
+      const entry = p[noteInPattern % p.length];
+      lane = entry.lane;
+      type = entry.type;
+      swipeDirection = entry.dir;
+    } else if (phraseType === 'slide') {
+      const p = SLIDE_MIXED_PATTERNS[patternIdx % SLIDE_MIXED_PATTERNS.length];
+      const entry = p[noteInPattern % p.length];
+      lane = entry.lane;
+      targetLane = entry.target;
+      swipeDirection = entry.dir;
+      type = entry.type === 'slide' ? 'hold' : entry.type;
+      if (type === 'hold') holdDuration = Math.max(0.5, word.end - word.start);
+    } else {
+      const p = PHRASE_PATTERNS[patternIdx % PHRASE_PATTERNS.length];
+      lane = p[noteInPattern % p.length];
+      const dur = word.end - word.start;
+      if (dur > 0.6) {
+        type = 'hold';
+        holdDuration = Math.min(dur * 0.8, 2.0);
       } else {
-        targetLane = Math.random() > 0.5 ? 0 : 2;
-        swipeDirection = targetLane === 0 ? 'left' : 'right';
+        type = 'tap';
       }
     }
+
+    noteInPattern++;
+    lastSnapped = snapped;
 
     notes.push({
       id: id++,
       time: snapped,
       lane,
-      type: isSwipe ? 'swipe' : (isHold ? 'hold' : 'tap'),
-      holdDuration: isHold ? Math.min(dur * 0.7, 2.0) : undefined,
+      type,
+      holdDuration,
       targetLane,
       swipeDirection,
     });
