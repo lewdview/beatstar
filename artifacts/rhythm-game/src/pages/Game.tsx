@@ -1675,8 +1675,13 @@ export default function Game() {
     if (!wrapper) return;
 
     const handlePrevent = (e: TouchEvent) => {
-      // Always prevent default on game surface to stop pull-to-refresh/swipe-nav
-      if (e.cancelable) e.preventDefault();
+      // Only prevent default during active gameplay to stop pull-to-refresh/swipe-nav.
+      // During 'continue', 'loading', 'paused' etc., allow normal touch→click synthesis
+      // so that buttons (Continue, Abandon, etc.) work on mobile.
+      const p = phaseRef.current;
+      if ((p === 'playing' || p === 'rewinding') && e.cancelable) {
+        e.preventDefault();
+      }
     };
 
     // Use native listener with passive: false to ensure preventDefault() works
