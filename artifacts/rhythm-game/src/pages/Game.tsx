@@ -2219,7 +2219,7 @@ export default function Game() {
               width: "100%",
               height: "100%",
               objectFit: "cover",
-              filter: "blur(32px) brightness(0.18) saturate(1.8)",
+              filter: "blur(18px) brightness(0.28) saturate(1.6)",
               transform: "scale(1.08)",
             }}
           />
@@ -2518,7 +2518,7 @@ export default function Game() {
             </div>
           )}
 
-          {/* Judgment text */}
+          {/* Judgment text — per-lane, moved up above the hit zone */}
           {opts.judgmentText && displayJudge.map((j) => {
             if (Date.now() - j.ts > 600) return null;
             const pct = (j.lane / LANE_COUNT + 1 / (LANE_COUNT * 2)) * 100;
@@ -2536,7 +2536,7 @@ export default function Game() {
                 className="absolute font-mono font-bold pointer-events-none judgment-pop"
                 style={{
                   left: `${pct}%`,
-                  top: "72%",
+                  top: "55%",
                   transform: "translateX(-50%)",
                   color,
                   textShadow: `0 0 18px ${color}`,
@@ -2548,6 +2548,36 @@ export default function Game() {
               </div>
             );
           })}
+
+          {/* Secondary judgment banner — top of screen, always visible above fingers */}
+          {opts.judgmentText && (() => {
+            const latest = displayJudge.filter(j => Date.now() - j.ts < 400).sort((a, b) => b.ts - a.ts)[0];
+            if (!latest) return null;
+            const age = (Date.now() - latest.ts) / 400;
+            const color =
+              latest.type === "PERFECT+" ? "#E5B800"
+                : latest.type === "PERFECT" ? "#ACE894"
+                : latest.type === "GOOD" ? "#4A314D"
+                : latest.type === "MISS" ? "#FF5400"
+                : "#444";
+            return (
+              <div
+                className="absolute left-1/2 font-mono font-bold pointer-events-none"
+                style={{
+                  top: "12%",
+                  transform: `translateX(-50%) scale(${1 + (1 - age) * 0.15})`,
+                  color,
+                  textShadow: `0 0 24px ${color}, 0 0 48px ${color}40`,
+                  letterSpacing: "0.25em",
+                  fontSize: latest.type === "PERFECT+" ? 20 : latest.type === "MISS" ? 18 : 16,
+                  opacity: 1 - age * 0.6,
+                  transition: "opacity 0.1s",
+                }}
+              >
+                {latest.type}
+              </div>
+            );
+          })()}
 
           {/* Loading overlay */}
           {(phase === "loading" || phase === "buffering") && (
