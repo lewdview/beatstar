@@ -603,16 +603,11 @@ export default function Game() {
     setMissCount(0);
 
     // Start the rewind render loop NOW so highway plays backwards
+    // draw() self-schedules via requestAnimationFrame(draw) at its end,
+    // so we only need to kick it once here.
     phaseRef.current = "rewinding";
     setPhase("rewinding");
-
-    // Kick off the draw loop for rewind animation
-    const runRewind = () => {
-      if (phaseRef.current !== "rewinding") return;
-      drawRef.current?.();
-      rafRef.current = requestAnimationFrame(runRewind);
-    };
-    rafRef.current = requestAnimationFrame(runRewind);
+    rafRef.current = requestAnimationFrame(() => drawRef.current?.());
 
     // After the 1.2 s animation: restore notes, seek audio, resume
     setTimeout(() => {
@@ -1051,39 +1046,60 @@ export default function Game() {
             ctx.quadraticCurveTo(ax + aw * 0.25, midY, hx + hw * 0.25, top);
             ctx.fill();
 
-            // ── ELECTRIC WAVES (sinusoidal pulses along the curve) ──
-            const waveCount = 6;
-            ctx.lineWidth = 1.8;
-            ctx.shadowBlur = 14;
-            ctx.shadowColor = lc;
-            for (let i = 0; i < waveCount; i++) {
-              const t_wave = (i + (t * 3) % 1) / waveCount;
-              const wy = lerp(top, noteY, t_wave);
-              const waveP = lerp(headP, Math.min(prog, 1), t_wave);
-              const waveLane = lerp(endLane, ns.currentLane, t_wave);
-              const { x: wx, w: ww } = laneAt(waveLane, waveP, W);
-              const cx = wx + ww * 0.5;
-              const amp = ww * 0.14 * (0.6 + 0.4 * Math.sin(t * 12 + i * 1.7));
-              // Draw a small sine arc segment
-              const flickAlpha = 0.5 + 0.5 * Math.sin(t * 25 + i * 2.3);
-              ctx.strokeStyle = lc + Math.round(flickAlpha * 200).toString(16).padStart(2, '0');
-              ctx.beginPath();
-              ctx.moveTo(cx - amp, wy - 4);
-              ctx.quadraticCurveTo(cx + amp * 0.8, wy, cx - amp * 0.6, wy + 8);
-              ctx.stroke();
-              // Mirror spark
-              ctx.beginPath();
-              ctx.moveTo(cx + amp, wy - 2);
-              ctx.quadraticCurveTo(cx - amp * 0.5, wy + 3, cx + amp * 0.7, wy + 10);
-              ctx.stroke();
-            }
-            ctx.shadowBlur = 0;
+            // Parse lane color to RGB for proper alpha compositing
+            const lcR = parseInt(lc.slice(1, 3), 16);
+            const lcG = parseInt(lc.slice(3, 5), 16);
+            const lcB = parseInt(lc.slice(5, 7), 16);
 
-            // Colored stripe (Curved)
+            // ── ELECTRIC LIGHTNING ARCS ──
+            const waveCount = 5;
+            const trailLen = noteY - top;
+            if (trailLen > 20) {
+              ctx.save();
+              ctx.shadowColor = lc;
+              ctx.shadowBlur = 18;
+              for (let i = 0; i < waveCount; i++) {
+                const t_wave = (i + (t * 2.5) % 1) / waveCount;
+                const wy = lerp(top + 6, noteY - 6, t_wave);
+                const waveP = lerp(headP, Math.min(prog, 1), t_wave);
+                const waveLane = lerp(endLane, ns.currentLane, t_wave);
+                const { x: wx, w: ww } = laneAt(waveLane, waveP, W);
+                const centerX = wx + ww * 0.5;
+                const amp = ww * 0.25 * (0.5 + 0.5 * Math.sin(t * 10 + i * 2.1));
+                const flicker = 0.4 + 0.6 * Math.abs(Math.sin(t * 18 + i * 3.7));
+
+                // Main lightning arc
+                ctx.strokeStyle = `rgba(${lcR},${lcG},${lcB},${flicker})`;
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.moveTo(centerX - amp, wy - 6);
+                ctx.bezierCurveTo(
+                  centerX + amp * 1.2, wy - 2,
+                  centerX - amp * 0.8, wy + 4,
+                  centerX + amp * 0.6, wy + 10
+                );
+                ctx.stroke();
+
+                // Bright white core
+                ctx.strokeStyle = `rgba(255,255,255,${flicker * 0.5})`;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(centerX - amp * 0.6, wy - 4);
+                ctx.bezierCurveTo(
+                  centerX + amp * 0.8, wy,
+                  centerX - amp * 0.5, wy + 3,
+                  centerX + amp * 0.4, wy + 8
+                );
+                ctx.stroke();
+              }
+              ctx.restore();
+            }
+
+            // Colored stripe (Curved) with glow
             ctx.fillStyle = lc;
-            ctx.globalAlpha = 0.6;
+            ctx.globalAlpha = 0.65;
             ctx.shadowColor = lc;
-            ctx.shadowBlur = 10;
+            ctx.shadowBlur = 12;
             ctx.beginPath();
             ctx.moveTo(hx + hw * 0.38, top);
             ctx.lineTo(hx + hw * 0.62, top);
