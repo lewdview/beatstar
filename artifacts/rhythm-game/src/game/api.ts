@@ -174,7 +174,8 @@ export function generateNotesFromLyrics(words: LyricsWord[], bpm = 100): Note[] 
   let patternIdx = 0;
   let noteInPattern = 0;
   let lastSnapped = -1;
-  const MIN_GAP = 0.10;
+  const MIN_GAP = 0.15; // slightly wider gap for better readability
+  let phraseCount = 0;
 
   let phraseType: 'tap' | 'swipe' | 'slide' = 'tap';
 
@@ -187,13 +188,20 @@ export function generateNotesFromLyrics(words: LyricsWord[], bpm = 100): Note[] 
 
     // Phrase boundary: silence > 0.65 s → advance to next template
     if (lastSnapped > 0 && snapped - lastSnapped > 0.65) {
-      const rand = Math.random();
-      if (rand < 0.6) phraseType = 'tap';
-      else if (rand < 0.85) phraseType = 'swipe';
-      else phraseType = 'slide';
-
-      patternIdx = (patternIdx + 1);
+      phraseCount++;
       noteInPattern = 0;
+      patternIdx++;
+
+      // First 2 phrases are always tap-only to establish rhythm
+      if (phraseCount < 3) {
+        phraseType = 'tap';
+      } else {
+        // Cyclical variety: tap → tap → swipe → tap → slide → tap → swipe ...
+        const cycle = (phraseCount - 2) % 5;
+        if (cycle === 1) phraseType = 'swipe';
+        else if (cycle === 3) phraseType = 'slide';
+        else phraseType = 'tap';
+      }
     }
 
     let lane: number;
@@ -216,7 +224,8 @@ export function generateNotesFromLyrics(words: LyricsWord[], bpm = 100): Note[] 
       targetLane = entry.target;
       swipeDirection = entry.dir;
       type = entry.type === 'slide' ? 'hold' : entry.type;
-      if (type === 'hold') holdDuration = Math.max(0.5, word.end - word.start);
+      // Slide holds need longer duration for the player to react to lane change
+      if (type === 'hold') holdDuration = Math.max(0.6, Math.min(word.end - word.start, 2.0));
     } else {
       const p = PHRASE_PATTERNS[patternIdx % PHRASE_PATTERNS.length];
       lane = p[noteInPattern % p.length];

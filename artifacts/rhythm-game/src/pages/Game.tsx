@@ -588,6 +588,9 @@ export default function Game() {
   const doReturn = useCallback(() => {
     playRewindSound();
 
+    // Stop any existing draw loop first
+    cancelAnimationFrame(rafRef.current);
+
     const audio = audioRef.current;
     const rewindTo = rewindToRef.current;
     const fromT = audio?.currentTime ?? (rewindTo + 2.5);
@@ -602,20 +605,41 @@ export default function Game() {
     // Start the rewind render loop NOW so highway plays backwards
     phaseRef.current = "rewinding";
     setPhase("rewinding");
-    rafRef.current = requestAnimationFrame(() => drawRef.current?.());
+
+    // Kick off the draw loop for rewind animation
+    const runRewind = () => {
+      if (phaseRef.current !== "rewinding") return;
+      drawRef.current?.();
+      rafRef.current = requestAnimationFrame(runRewind);
+    };
+    rafRef.current = requestAnimationFrame(runRewind);
 
     // After the 1.2 s animation: restore notes, seek audio, resume
     setTimeout(() => {
+      if (phaseRef.current !== "rewinding") return; // guard against double-fire
+      cancelAnimationFrame(rafRef.current);
+
+      // Undo misses that happened in the rewind window
       notesRef.current.forEach((ns) => {
-        if (ns.missed && ns.note.time >= rewindTo - 0.1) {
+        if (ns.missed && ns.note.time >= rewindTo - 0.5) {
           ns.missed = false;
           gsRef.current.misses = Math.max(0, gsRef.current.misses - 1);
+        }
+        // Also reset any hold notes that were in-flight
+        if (ns.holdActive && ns.note.time >= rewindTo - 0.5) {
+          ns.holdActive = false;
+          ns.holdProgress = 0;
         }
       });
       gsRef.current.combo = 0;
       [0, 1, 2].forEach(restoreLane);
       rewindAnimRef.current = null;
-      if (audio) { audio.currentTime = rewindTo; audio.play(); }
+
+      if (audio) {
+        audio.currentTime = rewindTo;
+        audio.play().catch(() => {});
+      }
+
       phaseRef.current = "playing";
       setPhase("playing");
       rafRef.current = requestAnimationFrame(() => drawRef.current?.());
@@ -949,12 +973,13 @@ export default function Game() {
         );
 
       // Miss detection — skip entirely during rewind (notes travel backwards; no new misses)
-      if (!isRewinding) {
-        if (
-          !ns.holdActive &&
-          note.type === "tap" &&
-          t > note.time + MISS_WINDOW
-        ) {
+      if (!isRewinding && phaseRef.current === "playing") {
+        const isMissed =
+          (note.type === "tap" && !ns.holdActive && t > note.time + MISS_WINDOW) ||
+          (note.type === "swipe" && t > note.time + MISS_WINDOW) ||
+          (note.type === "hold" && !ns.holdActive && t > note.time + MISS_WINDOW);
+
+        if (isMissed) {
           ns.missed = true;
           const gsx = gsRef.current;
           gsx.combo = 0;
@@ -970,50 +995,20 @@ export default function Game() {
           ];
           muteLane(note.lane);
           dirty = true;
-          if (phaseRef.current === "playing") {
-            missCountRef.current++;
-            setMissCount(missCountRef.current);
-            syncDisplay();
-            if (missCountRef.current >= 3 && optsRef.current.missSystem) {
-              const audio = audioRef.current;
-              if (audio) {
-                rewindToRef.current = Math.max(0, audio.currentTime - 2.5);
-                audio.pause();
-              }
-              phaseRef.current = "continue";
-              setPhase("continue");
-              audioManager.playSfx("gmeover", 0.7);
-              return;
+          missCountRef.current++;
+          setMissCount(missCountRef.current);
+          syncDisplay();
+          if (missCountRef.current >= 3 && optsRef.current.missSystem) {
+            const audio = audioRef.current;
+            if (audio) {
+              rewindToRef.current = Math.max(0, audio.currentTime - 2.5);
+              audio.pause();
             }
-          }
-          continue;
-        }
-        if (
-          note.type === "hold" &&
-          !ns.holdActive &&
-          t > note.time + MISS_WINDOW
-        ) {
-          ns.missed = true;
-          const gsx = gsRef.current;
-          gsx.combo = 0;
-          gsx.misses++;
-          muteLane(note.lane);
-          dirty = true;
-          if (phaseRef.current === "playing") {
-            missCountRef.current++;
-            setMissCount(missCountRef.current);
-            syncDisplay();
-            if (missCountRef.current >= 3 && optsRef.current.missSystem) {
-              const audio = audioRef.current;
-              if (audio) {
-                rewindToRef.current = Math.max(0, audio.currentTime - 2.5);
-                audio.pause();
-              }
-              phaseRef.current = "continue";
-              setPhase("continue");
-              audioManager.playSfx("gmeover", 0.7);
-              return;
-            }
+            cancelAnimationFrame(rafRef.current);
+            phaseRef.current = "continue";
+            setPhase("continue");
+            audioManager.playSfx("gmeover", 0.7);
+            return;
           }
           continue;
         }
@@ -1047,7 +1042,7 @@ export default function Game() {
             const midY = (top + noteY) / 2;
 
             // Trail body (Curved to player's current lane)
-            ctx.fillStyle = "rgba(245,240,228,0.18)";
+            ctx.fillStyle = "rgba(245,240,228,0.22)";
             ctx.beginPath();
             ctx.moveTo(hx + hw * 0.25, top);
             ctx.lineTo(hx + hw * 0.75, top);
@@ -1056,40 +1051,69 @@ export default function Game() {
             ctx.quadraticCurveTo(ax + aw * 0.25, midY, hx + hw * 0.25, top);
             ctx.fill();
 
-            // ── ELECTRIC WAVES (along the curve) ──
-            const waveCount = 4;
-            ctx.strokeStyle = lc;
-            ctx.lineWidth = 1.5;
-            ctx.shadowBlur = 10;
+            // ── ELECTRIC WAVES (sinusoidal pulses along the curve) ──
+            const waveCount = 6;
+            ctx.lineWidth = 1.8;
+            ctx.shadowBlur = 14;
             ctx.shadowColor = lc;
             for (let i = 0; i < waveCount; i++) {
-              const t_wave = (i + (t * 4) % 1) / waveCount;
+              const t_wave = (i + (t * 3) % 1) / waveCount;
               const wy = lerp(top, noteY, t_wave);
               const waveP = lerp(headP, Math.min(prog, 1), t_wave);
-              const { x: wx, w: ww } = laneAt(lerp(endLane, ns.currentLane, t_wave), waveP, W);
-              const wOffset = (Math.sin(t * 20 + i) * ww * 0.1);
+              const waveLane = lerp(endLane, ns.currentLane, t_wave);
+              const { x: wx, w: ww } = laneAt(waveLane, waveP, W);
+              const cx = wx + ww * 0.5;
+              const amp = ww * 0.14 * (0.6 + 0.4 * Math.sin(t * 12 + i * 1.7));
+              // Draw a small sine arc segment
+              const flickAlpha = 0.5 + 0.5 * Math.sin(t * 25 + i * 2.3);
+              ctx.strokeStyle = lc + Math.round(flickAlpha * 200).toString(16).padStart(2, '0');
               ctx.beginPath();
-              ctx.moveTo(wx + ww * 0.5 + wOffset, wy);
-              ctx.lineTo(wx + ww * 0.5 - wOffset, wy + 10);
+              ctx.moveTo(cx - amp, wy - 4);
+              ctx.quadraticCurveTo(cx + amp * 0.8, wy, cx - amp * 0.6, wy + 8);
+              ctx.stroke();
+              // Mirror spark
+              ctx.beginPath();
+              ctx.moveTo(cx + amp, wy - 2);
+              ctx.quadraticCurveTo(cx - amp * 0.5, wy + 3, cx + amp * 0.7, wy + 10);
               ctx.stroke();
             }
             ctx.shadowBlur = 0;
 
             // Colored stripe (Curved)
             ctx.fillStyle = lc;
-            ctx.globalAlpha = 0.55;
+            ctx.globalAlpha = 0.6;
             ctx.shadowColor = lc;
-            ctx.shadowBlur = 8;
+            ctx.shadowBlur = 10;
             ctx.beginPath();
-            ctx.moveTo(hx + hw * 0.4, top);
-            ctx.lineTo(hx + hw * 0.6, top);
-            ctx.quadraticCurveTo(ax + aw * 0.6, midY, ax + aw * 0.6, noteY + noteH / 2);
-            ctx.lineTo(ax + aw * 0.4, noteY + noteH / 2);
-            ctx.quadraticCurveTo(ax + aw * 0.4, midY, hx + hw * 0.4, top);
+            ctx.moveTo(hx + hw * 0.38, top);
+            ctx.lineTo(hx + hw * 0.62, top);
+            ctx.quadraticCurveTo(ax + aw * 0.62, midY, ax + aw * 0.62, noteY + noteH / 2);
+            ctx.lineTo(ax + aw * 0.38, noteY + noteH / 2);
+            ctx.quadraticCurveTo(ax + aw * 0.38, midY, hx + hw * 0.38, top);
             ctx.fill();
             ctx.globalAlpha = 1;
             ctx.shadowBlur = 0;
             ctx.shadowColor = "transparent";
+
+            // ── Slide direction arrow indicator at the hit line ──
+            if (note.targetLane !== undefined && ns.currentLane !== note.targetLane) {
+              const arrowDir = note.targetLane > ns.currentLane ? 1 : -1;
+              const arrowX = ax + aw * 0.5 + arrowDir * aw * 0.35;
+              const arrowY = noteY;
+              const arrowPulse = 0.5 + 0.5 * Math.sin(t * 8);
+              ctx.save();
+              ctx.globalAlpha = 0.6 + arrowPulse * 0.4;
+              ctx.fillStyle = lc;
+              ctx.shadowColor = lc;
+              ctx.shadowBlur = 12;
+              ctx.beginPath();
+              ctx.moveTo(arrowX + arrowDir * 12, arrowY);
+              ctx.lineTo(arrowX - arrowDir * 4, arrowY - 8);
+              ctx.lineTo(arrowX - arrowDir * 4, arrowY + 8);
+              ctx.closePath();
+              ctx.fill();
+              ctx.restore();
+            }
           }
         } else if (headY < noteY) {
           // Inactive trail — SMOOTH CURVE if it's a slide
@@ -1097,10 +1121,23 @@ export default function Game() {
           const { x: tx, w: tw } = laneAt(startLane, prog, W);
 
           const midY = (headY + noteY) / 2;
-          
-          ctx.fillStyle = "rgba(245,240,228,0.15)";
+
+          // Outer glow pulse for slide notes
+          const isSlide = note.targetLane !== undefined;
+          if (isSlide) {
+            const glowPulse = 0.12 + 0.06 * Math.sin(t * 5);
+            ctx.fillStyle = `rgba(245,240,228,${glowPulse})`;
+            ctx.beginPath();
+            ctx.moveTo(hx + hw * 0.18, headY);
+            ctx.lineTo(hx + hw * 0.82, headY);
+            ctx.quadraticCurveTo(tx + tw * 0.82, midY, tx + tw * 0.82, noteY + noteH / 2);
+            ctx.lineTo(tx + tw * 0.18, noteY + noteH / 2);
+            ctx.quadraticCurveTo(tx + tw * 0.18, midY, hx + hw * 0.18, headY);
+            ctx.fill();
+          }
+
+          ctx.fillStyle = "rgba(245,240,228,0.18)";
           ctx.beginPath();
-          // Draw a curved ribbon
           ctx.moveTo(hx + hw * 0.25, headY);
           ctx.lineTo(hx + hw * 0.75, headY);
           ctx.quadraticCurveTo(tx + tw * 0.75, midY, tx + tw * 0.75, noteY + noteH / 2);
@@ -1110,19 +1147,39 @@ export default function Game() {
 
           // Colored center ribbon (curved)
           ctx.fillStyle = lc;
-          ctx.globalAlpha = 0.45;
+          ctx.globalAlpha = 0.5;
           ctx.shadowColor = lc;
-          ctx.shadowBlur = 6;
+          ctx.shadowBlur = 8;
           ctx.beginPath();
-          ctx.moveTo(hx + hw * 0.4, headY);
-          ctx.lineTo(hx + hw * 0.6, headY);
-          ctx.quadraticCurveTo(tx + tw * 0.6, midY, tx + tw * 0.6, noteY + noteH / 2);
-          ctx.lineTo(tx + tw * 0.4, noteY + noteH / 2);
-          ctx.quadraticCurveTo(tx + tw * 0.4, midY, hx + hw * 0.4, headY);
+          ctx.moveTo(hx + hw * 0.38, headY);
+          ctx.lineTo(hx + hw * 0.62, headY);
+          ctx.quadraticCurveTo(tx + tw * 0.62, midY, tx + tw * 0.62, noteY + noteH / 2);
+          ctx.lineTo(tx + tw * 0.38, noteY + noteH / 2);
+          ctx.quadraticCurveTo(tx + tw * 0.38, midY, hx + hw * 0.38, headY);
           ctx.fill();
           ctx.globalAlpha = 1;
           ctx.shadowBlur = 0;
           ctx.shadowColor = "transparent";
+
+          // ── Slide direction arrow at the tail (destination indicator) ──
+          if (isSlide && note.targetLane !== undefined) {
+            const arrowDir = note.targetLane > startLane ? 1 : -1;
+            const arrowX = tx + tw * 0.5 + arrowDir * tw * 0.3;
+            const arrowY2 = noteY - 2;
+            const arrowPulse2 = 0.4 + 0.3 * Math.sin(t * 6);
+            ctx.save();
+            ctx.globalAlpha = arrowPulse2;
+            ctx.fillStyle = lc;
+            ctx.shadowColor = lc;
+            ctx.shadowBlur = 8;
+            ctx.beginPath();
+            ctx.moveTo(arrowX + arrowDir * 10, arrowY2);
+            ctx.lineTo(arrowX - arrowDir * 5, arrowY2 - 7);
+            ctx.lineTo(arrowX - arrowDir * 5, arrowY2 + 7);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+          }
         }
         drawKey(ctx, noteX, noteY, noteW, noteH, r, lc, prog, true, note.swipeDirection);
       }
@@ -1452,21 +1509,20 @@ export default function Game() {
       }
     }
 
-    // ── end check (skipped during rewind — setTimeout in doReturn handles transition) ──
-    if (!isRewinding) {
+    // ── end check — ONLY during playing phase ──
+    // Never trigger during rewind or continue. The continue screen's auto-abandon
+    // timer calls finishGame independently if the player doesn't act.
+    if (phaseRef.current === "playing" && !isRewinding) {
       const audio = audioRef.current;
       const allDone = notesRef.current.every((ns) => ns.hit || ns.missed);
       const lastT = notesRef.current.length
         ? Math.max(...notesRef.current.map((ns) => ns.note.time))
         : 0;
 
-      // Finish if:
-      // 1. All notes are done and we've waited a bit
-      // 2. The audio has naturally ended
-      // 3. We've reached the song's defined duration
-      const audioEnded = audio ? (audio.ended || (audio.currentTime > 0 && audio.paused && !isRewinding && phaseRef.current === "playing" && audio.currentTime >= audio.duration - 0.1)) : false;
+      // Only treat audio as "ended" if it naturally finished (not paused for rewind)
+      const audioEnded = audio ? audio.ended : false;
 
-      if ((allDone && t > lastT + 1.2) || audioEnded || (song && t >= song.duration)) {
+      if ((allDone && t > lastT + 1.2) || audioEnded || t >= song.duration) {
         finishGame();
         return;
       }
