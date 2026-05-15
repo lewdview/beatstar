@@ -206,8 +206,9 @@ export function generateNotesFromLyrics(words: LyricsWord[], bpm = 100): Note[] 
       const p = SWIPE_MIXED_PATTERNS[patternIdx % SWIPE_MIXED_PATTERNS.length];
       const entry = p[noteInPattern % p.length];
       lane = entry.lane;
-      type = entry.type;
+      type = entry.type === 'slide' ? 'hold' : entry.type;
       swipeDirection = entry.dir;
+      if (type === 'hold') holdDuration = Math.max(0.5, word.end - word.start);
     } else if (phraseType === 'slide') {
       const p = SLIDE_MIXED_PATTERNS[patternIdx % SLIDE_MIXED_PATTERNS.length];
       const entry = p[noteInPattern % p.length];
