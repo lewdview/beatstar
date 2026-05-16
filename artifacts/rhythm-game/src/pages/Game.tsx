@@ -745,38 +745,65 @@ export default function Game() {
     ctx.closePath();
     ctx.clip();
 
-    // Track surface: very dark, slightly warm
-    ctx.fillStyle = "#10101a";
+    // Track surface: deep gradient for depth
+    const trackGrad = ctx.createLinearGradient(0, 0, 0, hitY);
+    trackGrad.addColorStop(0, "#08081a");
+    trackGrad.addColorStop(0.35, "#0c0c22");
+    trackGrad.addColorStop(0.7, "#10102a");
+    trackGrad.addColorStop(1, "#141430");
+    ctx.fillStyle = trackGrad;
     ctx.fillRect(0, 0, W, hitY);
 
-    // Scrolling road dashes — drive-forward feel (dashes travel from vanishing point toward player)
-    const dashCycle = hitY * 0.13;
-    const scrollOff = (t * 0.6 * hitY) % dashCycle;
-    const dashLen = dashCycle * 0.42;
-    for (let row = -1; row < 10; row++) {
-      const dy1 = scrollOff + row * dashCycle;
-      const dy2 = dy1 + dashLen;
-      if (dy2 < 0 || dy1 > hitY) continue;
-      const p1 = Math.max(0, Math.min(1, dy1 / hitY));
-      const p2 = Math.max(0, Math.min(1, dy2 / hitY));
-      const { left: l1, right: r1 } = hwAtProgress(p1, W);
-      const { left: l2, right: r2 } = hwAtProgress(p2, W);
-      ctx.fillStyle = `rgba(255,248,235,${0.018 + p1 * 0.032})`;
+    // Per-lane colored tint (very subtle accent under each lane)
+    for (let i = 0; i < LANE_COUNT; i++) {
+      const { x: lx0, w: lw0 } = laneAt(i, 0.3, W);
+      const { x: lx1, w: lw1 } = laneAt(i, 1, W);
+      const lc = laneColorsRef.current[i];
+      const lcR = parseInt(lc.slice(1, 3), 16);
+      const lcG = parseInt(lc.slice(3, 5), 16);
+      const lcB = parseInt(lc.slice(5, 7), 16);
+      const laneGrad = ctx.createLinearGradient(0, 0, 0, hitY);
+      laneGrad.addColorStop(0, "transparent");
+      laneGrad.addColorStop(0.6, `rgba(${lcR},${lcG},${lcB},0.03)`);
+      laneGrad.addColorStop(1, `rgba(${lcR},${lcG},${lcB},0.07)`);
+      ctx.fillStyle = laneGrad;
       ctx.beginPath();
-      ctx.moveTo(l1, dy1);
-      ctx.lineTo(r1, dy1);
-      ctx.lineTo(r2, dy2);
-      ctx.lineTo(l2, dy2);
+      ctx.moveTo(lx0, hitY * 0.3);
+      ctx.lineTo(lx0 + lw0, hitY * 0.3);
+      ctx.lineTo(lx1 + lw1, hitY);
+      ctx.lineTo(lx1, hitY);
       ctx.closePath();
       ctx.fill();
     }
 
-    // Subtle perspective horizontal lines
-    for (let row = 0; row <= 14; row++) {
-      const ry = (row / 14) * hitY;
+    // Scrolling speed-lines — rushing forward effect per lane
+    const speedCycle = hitY * 0.18;
+    const speedOff = (t * 0.8 * hitY) % speedCycle;
+    for (let row = -1; row < 8; row++) {
+      const sy1 = speedOff + row * speedCycle;
+      const sy2 = sy1 + speedCycle * 0.35;
+      if (sy2 < 0 || sy1 > hitY) continue;
+      const sp1 = Math.max(0, Math.min(1, sy1 / hitY));
+      const sp2 = Math.max(0, Math.min(1, sy2 / hitY));
+      const { left: sl1, right: sr1 } = hwAtProgress(sp1, W);
+      const { left: sl2, right: sr2 } = hwAtProgress(sp2, W);
+      const speedAlpha = 0.012 + sp1 * 0.04;
+      ctx.fillStyle = `rgba(255,248,235,${speedAlpha})`;
+      ctx.beginPath();
+      ctx.moveTo(sl1, sy1);
+      ctx.lineTo(sr1, sy1);
+      ctx.lineTo(sr2, sy2);
+      ctx.lineTo(sl2, sy2);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Subtle perspective horizontal grid lines
+    for (let row = 0; row <= 16; row++) {
+      const ry = (row / 16) * hitY;
       const rp = ry / hitY;
       const { left, right } = hwAtProgress(rp, W);
-      ctx.strokeStyle = `rgba(255,248,235,${0.015 + rp * 0.03})`;
+      ctx.strokeStyle = `rgba(255,248,235,${0.01 + rp * 0.025})`;
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(left, ry);
@@ -784,43 +811,91 @@ export default function Game() {
       ctx.stroke();
     }
 
-    // Lane groove lines
+    // Lane groove dividers — double-line with glow
     for (let l = 1; l < LANE_COUNT; l++) {
       const topPos = laneAt(l, 0, W);
       const botPos = laneAt(l, 1, W);
-      ctx.strokeStyle = "rgba(0,0,0,0.9)";
-      ctx.lineWidth = 4;
+      // Dark groove
+      ctx.strokeStyle = "rgba(0,0,0,0.85)";
+      ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.moveTo(topPos.x, 0);
       ctx.lineTo(botPos.x, hitY);
       ctx.stroke();
-      ctx.strokeStyle = "rgba(255,255,255,0.06)";
+      // Subtle glow line
+      const divGrad = ctx.createLinearGradient(0, 0, 0, hitY);
+      divGrad.addColorStop(0, "rgba(255,255,255,0.0)");
+      divGrad.addColorStop(0.5, "rgba(255,255,255,0.08)");
+      divGrad.addColorStop(1, "rgba(255,255,255,0.14)");
+      ctx.strokeStyle = divGrad;
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(topPos.x + 2, 0);
-      ctx.lineTo(botPos.x + 2, hitY);
+      ctx.moveTo(topPos.x + 1.5, 0);
+      ctx.lineTo(botPos.x + 1.5, hitY);
       ctx.stroke();
     }
+
+    // ── HIT LINE BEAM ── neon horizontal bar at the hit zone
+    const beamGrad = ctx.createLinearGradient(hwBot.left, 0, hwBot.right, 0);
+    const beamColor = puColor ?? "rgba(255,248,235,0.7)";
+    const beamPulse = 0.7 + 0.3 * Math.sin(t * 6);
+    beamGrad.addColorStop(0, "transparent");
+    beamGrad.addColorStop(0.15, beamColor);
+    beamGrad.addColorStop(0.5, "rgba(255,255,255,0.9)");
+    beamGrad.addColorStop(0.85, beamColor);
+    beamGrad.addColorStop(1, "transparent");
+    ctx.globalAlpha = beamPulse * 0.45;
+    ctx.fillStyle = beamGrad;
+    ctx.fillRect(hwBot.left, hitY - 2, hwBot.right - hwBot.left, 4);
+    // Bloom glow under the beam
+    ctx.globalAlpha = beamPulse * 0.12;
+    ctx.shadowColor = puColor ?? "#fff";
+    ctx.shadowBlur = 20;
+    ctx.fillRect(hwBot.left, hitY - 1, hwBot.right - hwBot.left, 2);
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = "transparent";
 
     ctx.restore();
 
     // ── 3. TRACK EDGE RAILS ─────────────────────────────────────
-    // Bezier curves that bow outward at the shoulder, reinforcing the hill-crest perspective.
-    const railColor = puColor ?? "rgba(255,248,235,0.35)";
-    const railGlow = puColor ? `${puColor}AA` : "rgba(255,248,235,0.15)";
+    // Neon rails with strong glow
+    const railColor = puColor ?? "rgba(255,248,235,0.55)";
+    const railGlow = puColor ? `${puColor}CC` : "rgba(255,248,235,0.25)";
 
-    const railGrad = ctx.createLinearGradient(0, 0, 0, hitY);
-    railGrad.addColorStop(0, "rgba(255,255,255,0.0)");
-    railGrad.addColorStop(0.4, railGlow);
-    railGrad.addColorStop(1, railColor);
-    ctx.strokeStyle = railGrad;
-    ctx.lineWidth = 2;
-    // Left rail — bows left
+    // Outer glow pass (thicker, blurred)
+    ctx.save();
+    ctx.shadowColor = puColor ?? "rgba(255,248,235,0.4)";
+    ctx.shadowBlur = 16;
+    const railGlowGrad = ctx.createLinearGradient(0, 0, 0, hitY);
+    railGlowGrad.addColorStop(0, "rgba(255,255,255,0.0)");
+    railGlowGrad.addColorStop(0.3, railGlow);
+    railGlowGrad.addColorStop(1, railColor);
+    ctx.strokeStyle = railGlowGrad;
+    ctx.lineWidth = 3;
+    // Left rail
     ctx.beginPath();
     ctx.moveTo(hwTop.left, 0);
     ctx.quadraticCurveTo(hwTop.left - hillBow, bowY, hwBot.left, hitY);
     ctx.stroke();
-    // Right rail — bows right
+    // Right rail
+    ctx.beginPath();
+    ctx.moveTo(hwTop.right, 0);
+    ctx.quadraticCurveTo(hwTop.right + hillBow, bowY, hwBot.right, hitY);
+    ctx.stroke();
+    ctx.restore();
+
+    // Inner bright core
+    const railCoreGrad = ctx.createLinearGradient(0, 0, 0, hitY);
+    railCoreGrad.addColorStop(0, "rgba(255,255,255,0.0)");
+    railCoreGrad.addColorStop(0.5, "rgba(255,255,255,0.3)");
+    railCoreGrad.addColorStop(1, "rgba(255,255,255,0.6)");
+    ctx.strokeStyle = railCoreGrad;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(hwTop.left, 0);
+    ctx.quadraticCurveTo(hwTop.left - hillBow, bowY, hwBot.left, hitY);
+    ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(hwTop.right, 0);
     ctx.quadraticCurveTo(hwTop.right + hillBow, bowY, hwBot.right, hitY);
@@ -914,11 +989,13 @@ export default function Game() {
       // ── Inner radial glow (Beatstar style) ──
       if (pressed || !silenced) {
         ctx.save();
+        const lcR2 = parseInt(lc.slice(1, 3), 16);
+        const lcG2 = parseInt(lc.slice(3, 5), 16);
+        const lcB2 = parseInt(lc.slice(5, 7), 16);
         const rg = ctx.createRadialGradient(bx + bw / 2, hitY, 0, bx + bw / 2, hitY, bw * 0.8);
         const rgAlpha = pressed ? 0.38 : 0.14 + pulse * 0.04;
-        const colorWithAlpha = lc + Math.round(rgAlpha * 255).toString(16).padStart(2, "0");
-        rg.addColorStop(0, colorWithAlpha);
-        rg.addColorStop(1, lc + "00");
+        rg.addColorStop(0, `rgba(${lcR2},${lcG2},${lcB2},${rgAlpha})`);
+        rg.addColorStop(1, `rgba(${lcR2},${lcG2},${lcB2},0)`);
         ctx.fillStyle = rg;
         ctx.globalAlpha = 1;
         ctx.beginPath();
