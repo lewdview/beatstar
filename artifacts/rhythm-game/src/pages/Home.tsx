@@ -30,6 +30,18 @@ export default function Home() {
   const [introPhase, setIntroPhase] = useState<'prompt'|'booting'|'presented'|'intro'|'intro_2'|'intro3'|'climax'|'done'>('prompt');
   const [bootText, setBootText] = useState("");
   const [isIntroTransition, setIsIntroTransition] = useState(false);
+  const [currentTime, setCurrentTime] = useState("");
+
+  useEffect(() => {
+    const updateClock = () => {
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      setCurrentTime(`${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`);
+    };
+    updateClock();
+    const id = setInterval(updateClock, 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const startIntroSequence = useCallback(async () => {
     if (introPhase !== 'prompt') return;
@@ -257,6 +269,104 @@ export default function Home() {
         }
         .avant-fade-slow {
           animation: avant-fade-in 2.5s cubic-bezier(0.25, 1, 0.5, 1) both;
+        }
+
+        /* ── HUD Telemetry Overlays ── */
+        .hud-corner {
+          position: absolute;
+          width: 14px;
+          height: 14px;
+          border-color: rgba(0, 229, 255, 0.4);
+          border-style: solid;
+          pointer-events: none;
+          z-index: 10;
+        }
+        .hud-corner-tl { top: 76px; left: 24px; border-width: 2px 0 0 2px; }
+        .hud-corner-tr { top: 76px; right: 24px; border-width: 2px 2px 0 0; }
+        .hud-corner-bl { bottom: 24px; left: 24px; border-width: 0 0 2px 2px; }
+        .hud-corner-br { bottom: 24px; right: 24px; border-width: 0 2px 2px 0; }
+
+        @keyframes scanline-sweep {
+          0% { transform: translateY(-100vh); }
+          100% { transform: translateY(100vh); }
+        }
+        .hud-scanline-active {
+          position: absolute;
+          left: 0; right: 0; top: 0; height: 10px;
+          background: linear-gradient(to bottom, transparent, rgba(0, 229, 255, 0.05), transparent);
+          pointer-events: none;
+          z-index: 5;
+          animation: scanline-sweep 8s linear infinite;
+        }
+
+        /* ── Multi-Layer Glitch Typography ── */
+        @keyframes glitch-cyan-anim {
+          0%, 100% { transform: translate(-3px, 2px); }
+          20% { transform: translate(2px, -2px); }
+          40% { transform: translate(-1px, -1px); }
+          60% { transform: translate(3px, 1px); }
+          80% { transform: translate(-2px, -3px); }
+        }
+        @keyframes glitch-magenta-anim {
+          0%, 100% { transform: translate(3px, -2px); }
+          20% { transform: translate(-2px, 2px); }
+          40% { transform: translate(2px, 1px); }
+          60% { transform: translate(-3px, -1px); }
+          80% { transform: translate(1px, 3px); }
+        }
+        .pim-layer-cyan {
+          animation: glitch-cyan-anim 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+          mix-blend-mode: screen;
+        }
+        .pim-layer-magenta {
+          animation: glitch-magenta-anim 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+          mix-blend-mode: screen;
+        }
+
+        /* ── Soundwave Widget ── */
+        @keyframes eq-bounce-anim {
+          0%, 100% { transform: scaleY(0.1); }
+          50% { transform: scaleY(1.0); }
+        }
+        .eq-widget-bar {
+          display: inline-block;
+          width: 3px;
+          height: 100%;
+          background: linear-gradient(to top, #00E5FF, #FF1493);
+          transform-origin: bottom;
+          margin-right: 3px;
+        }
+
+        /* ── List Row Menu ── */
+        .avant-menu-row {
+          position: relative;
+          display: flex;
+          align-items: center;
+          width: 100%;
+          padding: 1.25rem 0.5rem;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+          font-family: monospace;
+          text-align: left;
+          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+          overflow: hidden;
+        }
+        .avant-menu-row:hover {
+          background: rgba(0, 229, 255, 0.03);
+          padding-left: 1.5rem;
+        }
+        .avant-menu-line {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          width: 100%;
+          height: 1px;
+          background: linear-gradient(90deg, #00E5FF, #FF1493, transparent);
+          transform: scaleX(0);
+          transform-origin: left;
+          transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .avant-menu-row:hover .avant-menu-line {
+          transform: scaleX(1);
         }
       `}</style>
       {showIntro && (
@@ -538,15 +648,10 @@ export default function Home() {
         </div>
       </div>
 
-      <div className={`relative z-10 flex flex-col items-center w-full max-w-lg px-6 ${
-        !showIntro
-          ? (introType === 'avant-garde' && isIntroTransition ? 'avant-fade-slow' : 'slide-up')
-          : 'opacity-0'
-      }`}>
-
-        {/* Hero number */}
-        <div className="relative w-full text-center" style={{ marginBottom: -10 }}>
-          {introType === 'classic' ? (
+      {introType === 'classic' && !showIntro && (
+        <div className="relative z-10 flex flex-col items-center w-full max-w-lg px-6 slide-up">
+          {/* Hero number */}
+          <div className="relative w-full text-center" style={{ marginBottom: -10 }}>
             <div className="font-mono font-black leading-none select-none text-glow"
               style={{
                 fontSize: 'clamp(120px, 25vw, 200px)',
@@ -559,135 +664,367 @@ export default function Home() {
               }}>
               PIM
             </div>
-          ) : (
-            <div className="font-mono font-black leading-none select-none"
+          </div>
+
+          {/* Sub label */}
+          <div className="w-full text-center py-2 mb-1">
+            <div className="font-mono text-[12px] font-bold tracking-[0.5em] uppercase" style={{ color: '#F2F0E8' }}>
+              POETRY IN MOTION
+            </div>
+            <div className="font-mono text-[9px] font-bold tracking-[0.3em] uppercase mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              BY <span style={{ color: '#FF1493' }}>TH3SCR1B3</span>
+            </div>
+          </div>
+
+          {/* Tagline - companion app */}
+          <div className="w-full text-center mb-6 opacity-0"
+            style={{
+              animation: !showIntro ? 'late-tagline 2.2s 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards' : 'none'
+            }}>
+            <div className="font-mono text-[9px] tracking-[0.35em] uppercase italic"
               style={{
-                fontSize: 'clamp(120px, 25vw, 200px)',
-                color: '#ffffff',
-                letterSpacing: '0.15em',
-                lineHeight: 0.8,
-                textShadow: '0 0 20px #fff, 0 0 40px #FF1493, 0 0 80px #00E5FF',
-                animation: 'pim-glow-breath 4s ease-in-out infinite alternate'
+                background: 'linear-gradient(90deg, rgba(255,255,255,0.3) 0%, #39FF14 50%, rgba(255,255,255,0.3) 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                textShadow: '0 0 15px rgba(57,255,20,0.4)',
               }}>
-              PIM
+              a 365 days of light and dark companion app
+            </div>
+          </div>
+
+          {/* Live stats — only if played */}
+          {stats.score > 0 && (
+            <div className="w-full grid grid-cols-3 mb-6 glass-card">
+              {[
+                { label: 'SCORE',    value: stats.score.toLocaleString(), color: '#F2F0E8' },
+                { label: 'PLATINUM', value: stats.platinums,              color: '#39FF14' },
+                { label: 'CLEARED',  value: stats.cleared,                color: '#FFBD00' },
+              ].map((s, i) => (
+                <div key={s.label} className="py-4 text-center relative"
+                  style={{ borderRight: i < 2 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+                  <div className="font-mono font-bold text-xl leading-tight" style={{ color: s.color, textShadow: `0 0 15px ${s.color}50` }}>{s.value}</div>
+                  <div className="font-mono font-bold" style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.2em' }}>{s.label}</div>
+                </div>
+              ))}
             </div>
           )}
-        </div>
 
-        {/* Sub label */}
-        <div className="w-full text-center py-2 mb-1">
-          <div className="font-mono text-[12px] font-bold tracking-[0.5em] uppercase" style={{ color: '#F2F0E8' }}>
-            POETRY IN MOTION
-          </div>
-          <div className="font-mono text-[9px] font-bold tracking-[0.3em] uppercase mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
-            BY <span style={{ color: '#FF1493' }}>TH3SCR1B3</span>
-          </div>
-        </div>
+          {/* CTA buttons */}
+          <div className="w-full mt-2 flex flex-col gap-4">
+            <button
+              data-testid="button-start"
+              onClick={() => navigate('/campaign')}
+              className="neon-btn w-full py-6 text-base tracking-[0.5em] font-black uppercase">
+              ▶ INITIATE CAMPAIGN
+            </button>
 
-        {/* Tagline - companion app */}
-        <div className="w-full text-center mb-6 opacity-0"
-          style={{
-            animation: !showIntro ? 'late-tagline 2.2s 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards' : 'none'
-          }}>
-          <div className="font-mono text-[9px] tracking-[0.35em] uppercase italic"
-            style={{
-              background: 'linear-gradient(90deg, rgba(255,255,255,0.3) 0%, #39FF14 50%, rgba(255,255,255,0.3) 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              textShadow: '0 0 15px rgba(57,255,20,0.4)',
-            }}>
-            a 365 days of light and dark companion app
-          </div>
-        </div>
+            <button
+              onClick={() => navigate('/songs')}
+              className="neon-btn-outline w-full py-4 text-xs tracking-[0.4em] uppercase">
+              ◈ ARCHIVE — ALL 365 TRACKS
+            </button>
 
-        {/* Live stats — only if played */}
-        {stats.score > 0 && (
-          <div className="w-full grid grid-cols-3 mb-6 glass-card">
-            {[
-              { label: 'SCORE',    value: stats.score.toLocaleString(), color: '#F2F0E8' },
-              { label: 'PLATINUM', value: stats.platinums,              color: '#39FF14' },
-              { label: 'CLEARED',  value: stats.cleared,                color: '#FFBD00' },
-            ].map((s, i) => (
-              <div key={s.label} className="py-4 text-center relative"
-                style={{ borderRight: i < 2 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
-                <div className="font-mono font-bold text-xl leading-tight" style={{ color: s.color, textShadow: `0 0 15px ${s.color}50` }}>{s.value}</div>
-                <div className="font-mono font-bold" style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.2em' }}>{s.label}</div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => navigate('/tutorial')}
+                className="neon-btn-outline flex-1 py-3 text-[10px] tracking-[0.3em] uppercase">
+                ? INTEL
+              </button>
+
+              <button
+                onClick={() => navigate('/options')}
+                className="neon-btn-outline flex-1 py-3 text-[10px] tracking-[0.3em] uppercase">
+                ⚙ CORE
+              </button>
+            </div>
+          </div>
+
+          {/* Blink prompt */}
+          <div className="mt-8 font-mono text-[10px] font-bold tracking-[0.4em] transition-opacity duration-300"
+            style={{ opacity: blink ? 0.6 : 0, color: 'rgba(255,255,255,0.5)' }}>
+            <span className="shimmer-text">[ STANDBY FOR TRANSMISSION ]</span>
+          </div>
+
+          {/* Lane keys */}
+          <div className="mt-8 flex gap-5 w-full max-w-xs mx-auto justify-center">
+            {LANE_KEYS.map((key, i) => (
+              <div key={key} className="flex flex-col items-center gap-2">
+                <div className="flex items-center justify-center font-mono font-bold text-xl rounded-xl transition-transform hover:scale-110 cursor-default"
+                  style={{
+                    width: 48, height: 48,
+                    color: LANE_COLORS[i],
+                    background: `${LANE_COLORS[i]}10`,
+                    border: `1px solid ${LANE_COLORS[i]}40`,
+                    boxShadow: `0 0 20px ${LANE_COLORS[i]}20, inset 0 0 10px ${LANE_COLORS[i]}10`,
+                    textShadow: `0 0 12px ${LANE_COLORS[i]}`,
+                  }}>{key}</div>
+                <div className="font-mono font-bold" style={{ fontSize: 8, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.2em' }}>
+                  {['LEFT','MID','RIGHT'][i]}
+                </div>
               </div>
             ))}
           </div>
-        )}
 
-        {/* CTA buttons */}
-        <div className="w-full mt-2 flex flex-col gap-4">
-          <button
-            data-testid="button-start"
-            onClick={() => navigate('/campaign')}
-            className="neon-btn w-full py-6 text-base tracking-[0.5em] font-black uppercase">
-            ▶ INITIATE CAMPAIGN
-          </button>
-
-          <button
-            onClick={() => navigate('/songs')}
-            className="neon-btn-outline w-full py-4 text-xs tracking-[0.4em] uppercase">
-            ◈ ARCHIVE — ALL 365 TRACKS
-          </button>
-
-          <div className="flex gap-3">
-            <button
-              onClick={() => navigate('/tutorial')}
-              className="neon-btn-outline flex-1 py-3 text-[10px] tracking-[0.3em] uppercase">
-              ? INTEL
-            </button>
-
-            <button
-              onClick={() => navigate('/options')}
-              className="neon-btn-outline flex-1 py-3 text-[10px] tracking-[0.3em] uppercase">
-              ⚙ CORE
-            </button>
+          {/* Power-up row */}
+          <div className="mt-6 flex w-full max-w-sm mx-auto glass-card">
+            {[
+              { label: 'FEVER',       color: '#FFBD00', mult: 2, combo: 20 },
+              { label: 'SURGE',       color: '#FF1493', mult: 3, combo: 40 },
+              { label: 'OVERDRIVE',   color: '#39FF14', mult: 4, combo: 60 },
+            ].map((p, i) => (
+              <div key={p.label} className="flex-1 py-3 text-center relative"
+                style={{ borderRight: i < 2 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+                <div className="font-mono font-bold uppercase" style={{ fontSize: 10, color: p.color, letterSpacing: '0.1em', textShadow: `0 0 10px ${p.color}40` }}>{p.label}</div>
+                <div className="font-mono" style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)' }}>×{p.mult} @ {p.combo}</div>
+              </div>
+            ))}
           </div>
         </div>
+      )}
 
-        {/* Blink prompt */}
-        <div className="mt-8 font-mono text-[10px] font-bold tracking-[0.4em] transition-opacity duration-300"
-          style={{ opacity: blink ? 0.6 : 0, color: 'rgba(255,255,255,0.5)' }}>
-          <span className="shimmer-text">[ STANDBY FOR TRANSMISSION ]</span>
-        </div>
+      {introType === 'avant-garde' && !showIntro && (
+        <>
+          {/* HUD Overlay Elements */}
+          <div className="hud-corner hud-corner-tl" />
+          <div className="hud-corner hud-corner-tr" />
+          <div className="hud-corner hud-corner-bl" />
+          <div className="hud-corner hud-corner-br" />
+          <div className="hud-scanline-active" />
 
-        {/* Lane keys */}
-        <div className="mt-8 flex gap-5 w-full max-w-xs mx-auto justify-center">
-          {LANE_KEYS.map((key, i) => (
-            <div key={key} className="flex flex-col items-center gap-2">
-              <div className="flex items-center justify-center font-mono font-bold text-xl rounded-xl transition-transform hover:scale-110 cursor-default"
-                style={{
-                  width: 48, height: 48,
-                  color: LANE_COLORS[i],
-                  background: `${LANE_COLORS[i]}10`,
-                  border: `1px solid ${LANE_COLORS[i]}40`,
-                  boxShadow: `0 0 20px ${LANE_COLORS[i]}20, inset 0 0 10px ${LANE_COLORS[i]}10`,
-                  textShadow: `0 0 12px ${LANE_COLORS[i]}`,
-                }}>{key}</div>
-              <div className="font-mono font-bold" style={{ fontSize: 8, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.2em' }}>
-                {['LEFT','MID','RIGHT'][i]}
+          {/* Asymmetrical Grid Container */}
+          <div className={`relative z-10 w-full max-w-5xl px-6 grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-12 items-center ${
+            isIntroTransition ? 'avant-fade-slow' : 'slide-up'
+          }`}>
+            
+            {/* LEFT COLUMN: Telemetry and Visualizer (5 cols) */}
+            <div className="md:col-span-5 flex flex-col gap-6 font-mono text-left select-none order-2 md:order-1">
+              
+              {/* Telemetry panel */}
+              <div className="p-5 border border-white/10 bg-black/40 backdrop-blur-md rounded-lg relative overflow-hidden">
+                {/* Small indicator light */}
+                <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#39FF14] animate-ping" />
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#39FF14] absolute" />
+                  <span className="text-[8px] text-[#39FF14] tracking-widest uppercase">ONLINE</span>
+                </div>
+                
+                <div className="text-[10px] text-cyan-400 font-bold tracking-[0.3em] mb-4">
+                  // TELEMETRY_STREAM_DATA
+                </div>
+
+                <div className="flex flex-col gap-2.5 text-[9px] tracking-wider text-white/50">
+                  <div className="flex justify-between border-b border-white/5 pb-1">
+                    <span>HOST PROTOCOL</span>
+                    <span className="text-[#F2F0E8] font-bold">PIM_V.2.4.0</span>
+                  </div>
+                  <div className="flex justify-between border-b border-white/5 pb-1">
+                    <span>AUDIO_ENGINE</span>
+                    <span className="text-[#F2F0E8] font-bold">STEM.DSP.32BIT</span>
+                  </div>
+                  <div className="flex justify-between border-b border-white/5 pb-1">
+                    <span>SAMPLING RATE</span>
+                    <span className="text-[#00E5FF] font-bold">44.1 KHZ // LOW_LAT</span>
+                  </div>
+                  <div className="flex justify-between border-b border-white/5 pb-1">
+                    <span>SECTOR CLOCK</span>
+                    <span className="text-[#FF1493] font-bold">{currentTime || "00:00:00"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>INTERFACE COMPILER</span>
+                    <span className="text-[#39FF14] font-bold">TH3SCR1B3_NODE</span>
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
 
-        {/* Power-up row */}
-        <div className="mt-6 flex w-full max-w-sm mx-auto glass-card">
-          {[
-            { label: 'FEVER',       color: '#FFBD00', mult: 2, combo: 20 },
-            { label: 'SURGE',       color: '#FF1493', mult: 3, combo: 40 },
-            { label: 'OVERDRIVE',   color: '#39FF14', mult: 4, combo: 60 },
-          ].map((p, i) => (
-            <div key={p.label} className="flex-1 py-3 text-center relative"
-              style={{ borderRight: i < 2 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
-              <div className="font-mono font-bold uppercase" style={{ fontSize: 10, color: p.color, letterSpacing: '0.1em', textShadow: `0 0 10px ${p.color}40` }}>{p.label}</div>
-              <div className="font-mono" style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)' }}>×{p.mult} @ {p.combo}</div>
+              {/* Animated Soundwave Visualizer Widget */}
+              <div className="p-5 border border-white/10 bg-black/40 backdrop-blur-md rounded-lg flex flex-col gap-4">
+                <div className="flex justify-between items-center text-[10px] text-white/40 tracking-[0.2em]">
+                  <span>SPECTRUM_ANALYSIS</span>
+                  <span className="text-[#39FF14] font-mono">DBFS: -12.4</span>
+                </div>
+                <div className="h-20 flex items-end justify-between px-1">
+                  {Array.from({ length: 24 }).map((_, i) => {
+                    const duration = 0.5 + (i % 7) * 0.15;
+                    const delay = (i % 4) * -0.2;
+                    return (
+                      <div
+                        key={i}
+                        className="eq-widget-bar"
+                        style={{
+                          animation: `eq-bounce-anim ${duration}s ${delay}s ease-in-out infinite alternate`
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+                <div className="text-[8px] text-white/30 tracking-[0.1em] text-center uppercase font-mono">
+                  Real-time DSP Monitoring Stream
+                </div>
+              </div>
+
+              {/* Telemetry Stats Display (SCORE, PLATINUM, CLEARED) */}
+              <div className="p-5 border border-white/10 bg-black/40 backdrop-blur-md rounded-lg flex flex-col gap-3">
+                <div className="text-[10px] text-white/40 tracking-[0.2em] uppercase">// COMPANION_DATA_METRICS</div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="flex flex-col">
+                    <span className="text-[8px] text-white/40 tracking-wider">SCORE</span>
+                    <span className="text-sm font-bold text-[#F2F0E8] truncate">{stats.score > 0 ? stats.score.toLocaleString() : "0"}</span>
+                  </div>
+                  <div className="flex flex-col border-l border-white/10 pl-2">
+                    <span className="text-[8px] text-white/40 tracking-wider">PLATINUM</span>
+                    <span className="text-sm font-bold text-[#39FF14]">{stats.platinums}</span>
+                  </div>
+                  <div className="flex flex-col border-l border-white/10 pl-2">
+                    <span className="text-[8px] text-white/40 tracking-wider">CLEARED</span>
+                    <span className="text-sm font-bold text-[#FFBD00]">{stats.cleared}</span>
+                  </div>
+                </div>
+              </div>
+
             </div>
-          ))}
-        </div>
-      </div>
+
+            {/* RIGHT COLUMN: Logo, Subtitle, Navigation, and Keys (7 cols) */}
+            <div className="md:col-span-7 flex flex-col items-center md:items-start gap-6 order-1 md:order-2">
+              
+              {/* Technical Logo Boundary Box */}
+              <div className="relative w-full border border-dashed border-white/15 p-6 rounded-lg flex flex-col items-center select-none overflow-hidden">
+                {/* Crosshairs in corners */}
+                <div className="absolute top-2 left-2 text-[8px] text-white/30 font-bold">+ TL</div>
+                <div className="absolute top-2 right-2 text-[8px] text-white/30 font-bold">TR +</div>
+                <div className="absolute bottom-2 left-2 text-[8px] text-white/30 font-bold">+ BL</div>
+                <div className="absolute bottom-2 right-2 text-[8px] text-white/30 font-bold">BR +</div>
+                
+                {/* Multi-layered Glitch Title Logo */}
+                <div className="relative w-full text-center py-4 flex items-center justify-center min-h-[140px]">
+                  {/* Neon Cyan Layer */}
+                  <div className="absolute font-mono font-black select-none pim-layer-cyan text-glow"
+                    style={{
+                      fontSize: 'clamp(90px, 15vw, 140px)',
+                      color: '#00E5FF',
+                      letterSpacing: '0.15em',
+                      lineHeight: 0.8,
+                      opacity: 0.8,
+                      transform: 'translate(-2px, 1px)'
+                    }}>
+                    PIM
+                  </div>
+                  
+                  {/* Neon Magenta Layer */}
+                  <div className="absolute font-mono font-black select-none pim-layer-magenta text-glow"
+                    style={{
+                      fontSize: 'clamp(90px, 15vw, 140px)',
+                      color: '#FF1493',
+                      letterSpacing: '0.15em',
+                      lineHeight: 0.8,
+                      opacity: 0.8,
+                      transform: 'translate(2px, -1px)'
+                    }}>
+                    PIM
+                  </div>
+
+                  {/* Crisp White Foreground Layer */}
+                  <div className="absolute font-mono font-black select-none text-glow z-10"
+                    style={{
+                      fontSize: 'clamp(90px, 15vw, 140px)',
+                      color: '#ffffff',
+                      letterSpacing: '0.15em',
+                      lineHeight: 0.8,
+                      textShadow: '0 0 15px rgba(255,255,255,0.8)'
+                    }}>
+                    PIM
+                  </div>
+                </div>
+
+                {/* Subtitle & Tagline details */}
+                <div className="text-center mt-2 z-10">
+                  <h2 className="font-mono text-xs font-bold tracking-[0.6em] text-white uppercase">
+                    POETRY IN MOTION
+                  </h2>
+                  <div className="font-mono text-[9px] font-bold tracking-[0.3em] uppercase mt-1 text-white/40">
+                    COMPANION FOR <span className="text-[#FF1493]">365 DAYS OF LIGHT & DARK</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Redesigned Menu Row Buttons */}
+              <div className="w-full flex flex-col gap-0 border border-white/10 rounded-lg overflow-hidden bg-black/20">
+                {[
+                  { label: '▶ INITIATE CAMPAIGN', path: '/campaign', prefix: '01', tag: '[ HYPER_LANE ]' },
+                  { label: '◈ ARCHIVE — ALL 365 TRACKS', path: '/songs', prefix: '02', tag: '[ AUDIO_CORE ]' },
+                  { label: '? INTEL & TUTORIAL', path: '/tutorial', prefix: '03', tag: '[ DOCUMENTATION ]' },
+                  { label: '⚙ SYSTEM CORE CONFIG', path: '/options', prefix: '04', tag: '[ CONFIG_IO ]' }
+                ].map((item) => (
+                  <button
+                    key={item.path}
+                    onClick={() => navigate(item.path)}
+                    onMouseEnter={() => {
+                      try {
+                        audioManager.playSfx('tap_nav', 0.12);
+                      } catch (e) {
+                        console.warn(e);
+                      }
+                    }}
+                    className="avant-menu-row text-white hover:text-[#00E5FF] group relative z-10 w-full cursor-pointer focus:outline-none"
+                  >
+                    {/* Index prefix */}
+                    <span className="text-[10px] text-[#39FF14] font-bold tracking-widest w-12 shrink-0 select-none">
+                      {item.prefix} //
+                    </span>
+                    
+                    {/* Main label */}
+                    <span className="flex-1 text-xs sm:text-sm tracking-[0.25em] font-semibold uppercase transition-transform duration-300 group-hover:translate-x-1">
+                      {item.label}
+                    </span>
+                    
+                    {/* Right-aligned telemetry tags */}
+                    <span className="hidden sm:inline font-mono text-[8px] tracking-wider text-white/30 group-hover:text-cyan-400/60 transition-colors select-none">
+                      {item.tag}
+                    </span>
+
+                    {/* Bottom sweep underline */}
+                    <div className="avant-menu-line" />
+                  </button>
+                ))}
+              </div>
+
+              {/* Lane Keys telemetry monitoring block */}
+              <div className="w-full flex flex-col gap-3 p-4 border border-white/10 bg-black/40 rounded-lg font-mono">
+                <div className="text-[9px] text-white/40 tracking-[0.2em] uppercase select-none">// LANE_TRIGGERS_ACTIVE</div>
+                
+                <div className="flex gap-4 justify-between items-center w-full">
+                  {LANE_KEYS.map((key, i) => (
+                    <div key={key} className="flex-1 flex items-center justify-between p-3 rounded-md bg-black/40 border border-white/5 relative group hover:border-cyan-500/30 transition-all select-none">
+                      <div className="flex flex-col text-left">
+                        <span className="text-[8px] text-white/30 tracking-wider">
+                          {['LEFT', 'MID', 'RIGHT'][i]}
+                        </span>
+                        <span className="text-[10px] font-bold uppercase" style={{ color: LANE_COLORS[i] }}>
+                          {LANE_COLORS[i]}
+                        </span>
+                      </div>
+                      
+                      <div
+                        className="w-10 h-10 flex items-center justify-center font-bold text-lg rounded-lg border transition-transform duration-300 group-hover:scale-105"
+                        style={{
+                          color: LANE_COLORS[i],
+                          background: `${LANE_COLORS[i]}08`,
+                          borderColor: `${LANE_COLORS[i]}30`,
+                          textShadow: `0 0 8px ${LANE_COLORS[i]}80`,
+                          boxShadow: `0 0 10px ${LANE_COLORS[i]}15`
+                        }}
+                      >
+                        {key}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        </>
+      )}
 
       {/* Footer */}
       <div className={`absolute bottom-0 left-0 right-0 flex items-center justify-center py-3 transition-all duration-1000 ${!showIntro ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
