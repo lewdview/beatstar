@@ -671,9 +671,9 @@ export default function Game() {
     audioRef.current && (audioRef.current.currentTime = 0);
 
     const gs = gsRef.current;
-    // No medal if the player used any continues OR is on the fail path
+    // Medal calculated on complete/clear, even if continues were used
     const continuesUsed = continueUsedRef.current;
-    const medal = (failed || continuesUsed > 0) ? "NONE" : getMedal(gs.perfectPlus, gs.perfects, gs.goods, gs.misses);
+    const medal = failed ? "NONE" : getMedal(gs.perfectPlus, gs.perfects, gs.goods, gs.misses);
 
     if (!failed) {
       audioManager.playSfx("song_completion", 0.8);

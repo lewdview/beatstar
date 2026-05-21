@@ -51,28 +51,6 @@ function ScoreRing({ progress, color, size = 180 }: { progress: number; color: s
   );
 }
 
-// ── animated counter ─────────────────────────────────────────
-function useCountUp(target: number, duration: number, delay: number) {
-  const [value, setValue] = useState(0);
-  const [done, setDone] = useState(false);
-  useEffect(() => {
-    if (!target) { setDone(true); return; }
-    const t = setTimeout(() => {
-      const start = Date.now();
-      const tick = () => {
-        const p = Math.min(1, (Date.now() - start) / duration);
-        const ease = 1 - Math.pow(1 - p, 3);
-        setValue(Math.round(ease * target));
-        if (p < 1) requestAnimationFrame(tick);
-        else { setValue(target); setDone(true); }
-      };
-      requestAnimationFrame(tick);
-    }, delay);
-    return () => clearTimeout(t);
-  }, [target, duration, delay]);
-  return { value, done };
-}
-
 // ── main component ───────────────────────────────────────────
 export default function Results() {
   const { songId } = useParams<{ songId: string }>();
@@ -90,6 +68,11 @@ export default function Results() {
   const [lastTierHit, setLastTierHit] = useState('');
   const [flashColor, setFlashColor] = useState<string | null>(null);
   const medalChimed = useRef(false);
+
+  // Staggered animation states
+  const [animAcc, setAnimAcc] = useState(0);
+  const [animScore, setAnimScore] = useState(0);
+  const [animDone, setAnimDone] = useState(false);
 
   useEffect(() => {
     const originFallback = (() => {
@@ -145,7 +128,6 @@ export default function Results() {
     audioManager.loadSfx('queue_before_mythic');
 
     // Random results ambient music — use HTMLAudioElement directly for long loops
-    // (avoids decoding 31MB WAVs into AudioBuffers)
     const ambientTracks = ['results', 'resuts2'];
     const pick = ambientTracks[Math.floor(Math.random() * ambientTracks.length)];
     const ambientAudio = new Audio(`/audio/sfx/${encodeURIComponent(pick)}.wav`);
@@ -184,36 +166,131 @@ export default function Results() {
     : 0;
   const ringProgress = Math.min(accuracy / 100, 1);
 
-  // Score count-up: 3.5s with 0.5s delay
-  const { value: scoreVal, done: scoreDone } = useCountUp(result?.score ?? 0, 3500, 500);
-
-  // Ring color transitions based on count-up progress
-  const countPct = result?.score ? (scoreVal / result.score) * accuracy : 0;
-  const currentRingColor = countPct >= 93 ? '#39FF14' : countPct >= 80 ? '#E5B800' : countPct >= 60 ? '#A0AABB' : countPct >= 40 ? '#C97A3A' : '#555';
-  const ringFill = result?.score ? (scoreVal / result.score) * ringProgress : 0;
-
-  // Detect tier crossings for flash effects
-  const currentTier = countPct >= 93 ? 'PLATINUM' : countPct >= 80 ? 'GOLD' : countPct >= 60 ? 'SILVER' : countPct >= 40 ? 'BRONZE' : 'NONE';
+  // Staggered animation controller
   useEffect(() => {
-    if (currentTier !== 'NONE' && currentTier !== lastTierHit) {
-      setLastTierHit(currentTier);
-      const color = MEDALS[currentTier]?.color ?? '#fff';
-      setFlashColor(color);
-      setTimeout(() => setFlashColor(null), 600);
-      // Tier-specific chimes
-      if (currentTier === 'GOLD') {
-        audioManager.playSfx('bing_before_platinum', 0.7);
-      } else if (currentTier === 'PLATINUM') {
-        audioManager.playSfx('queue_before_mythic', 0.7);
-      } else {
-        audioManager.playSfx('reveal', 0.6);
-      }
+    if (!result) return;
+
+    const targetAcc = accuracy;
+    const targetScore = result.score;
+    
+    const checkpoints: { acc: number; name: string; isMilestone: boolean }[] = [];
+    if (targetAcc >= 40) checkpoints.push({ acc: 40, name: 'BRONZE', isMilestone: true });
+    if (targetAcc >= 60) checkpoints.push({ acc: 60, name: 'SILVER', isMilestone: true });
+    if (targetAcc >= 80) checkpoints.push({ acc: 80, name: 'GOLD', isMilestone: true });
+    if (targetAcc >= 93) checkpoints.push({ acc: 93, name: 'PLATINUM', isMilestone: true });
+    
+    if (checkpoints.length === 0 || checkpoints[checkpoints.length - 1].acc !== targetAcc) {
+      checkpoints.push({ acc: targetAcc, name: 'FINAL', isMilestone: false });
     }
-  }, [currentTier, lastTierHit]);
 
-  // Phase transitions
+    let currentCheckpointIdx = 0;
+    let startAcc = 0;
+    let segmentStartTime = Date.now() + 500; // 500ms initial delay before starting
+    let segmentDuration = Math.max(400, checkpoints[0].acc * 20);
+    let isHanging = false;
+    let hangEndTime = 0;
+
+    let animFrameId: number;
+
+    const tick = () => {
+      const now = Date.now();
+
+      if (isHanging) {
+        if (now >= hangEndTime) {
+          isHanging = false;
+          // Start next segment
+          startAcc = checkpoints[currentCheckpointIdx].acc;
+          currentCheckpointIdx++;
+          
+          if (currentCheckpointIdx < checkpoints.length) {
+            const nextCheckpoint = checkpoints[currentCheckpointIdx];
+            segmentStartTime = now;
+            segmentDuration = Math.max(400, (nextCheckpoint.acc - startAcc) * 20);
+          } else {
+            // Reached the end!
+            setAnimDone(true);
+            return;
+          }
+        }
+        animFrameId = requestAnimationFrame(tick);
+        return;
+      }
+
+      // We are in a segment transition
+      const targetCheckpoint = checkpoints[currentCheckpointIdx];
+      const elapsed = now - segmentStartTime;
+      const progress = Math.min(1, elapsed / segmentDuration);
+      
+      // Cubic ease-out for each segment
+      const ease = 1 - Math.pow(1 - progress, 3);
+      const curAcc = startAcc + ease * (targetCheckpoint.acc - startAcc);
+      setAnimAcc(curAcc);
+      
+      // Proportional score
+      const curScore = targetAcc > 0 ? Math.round((curAcc / targetAcc) * targetScore) : 0;
+      setAnimScore(curScore);
+
+      if (progress >= 1) {
+        // Arrived at checkpoint
+        setAnimAcc(targetCheckpoint.acc);
+        const finalScore = targetAcc > 0 ? Math.round((targetCheckpoint.acc / targetAcc) * targetScore) : 0;
+        setAnimScore(finalScore);
+
+        if (targetCheckpoint.isMilestone) {
+          // Trigger milestone effects
+          const color = MEDALS[targetCheckpoint.name]?.color ?? '#fff';
+          setFlashColor(color);
+          setTimeout(() => setFlashColor(null), 500);
+          setLastTierHit(targetCheckpoint.name);
+
+          // Chime
+          if (targetCheckpoint.name === 'GOLD') {
+            audioManager.playSfx('bing_before_platinum', 0.7);
+          } else if (targetCheckpoint.name === 'PLATINUM') {
+            audioManager.playSfx('queue_before_mythic', 0.7);
+          } else {
+            audioManager.playSfx('reveal', 0.6);
+          }
+
+          isHanging = true;
+          hangEndTime = now + 650; // 650ms hang time
+        } else {
+          // Final non-milestone checkpoint reached
+          startAcc = targetCheckpoint.acc;
+          currentCheckpointIdx++;
+          if (currentCheckpointIdx < checkpoints.length) {
+            segmentStartTime = now;
+            segmentDuration = Math.max(400, (checkpoints[currentCheckpointIdx].acc - startAcc) * 20);
+          } else {
+            setAnimDone(true);
+            return;
+          }
+        }
+      }
+
+      animFrameId = requestAnimationFrame(tick);
+    };
+
+    const startTimeout = setTimeout(() => {
+      animFrameId = requestAnimationFrame(tick);
+    }, 500);
+
+    return () => {
+      clearTimeout(startTimeout);
+      cancelAnimationFrame(animFrameId);
+    };
+  }, [result, accuracy]);
+
+  // Derived values for styling
+  const currentRingColor = animAcc >= 93 ? '#39FF14' : animAcc >= 80 ? '#E5B800' : animAcc >= 60 ? '#A0AABB' : animAcc >= 40 ? '#C97A3A' : '#555';
+  const ringFill = animAcc / 100;
+  const scoreVal = animScore;
+  const countPct = animAcc;
+  const scoreDone = animDone;
+
+  // Phase transitions after animation finishes
   useEffect(() => {
-    if (scoreDone) {
+    if (animDone) {
       const t1 = setTimeout(() => {
         setPhase('medal');
         if (!medalChimed.current && result) {
@@ -230,13 +307,13 @@ export default function Results() {
             else audioManager.playSfx('reveal', 0.8);
           }, 300);
         }
-      }, 1200);
-      const t2 = setTimeout(() => setPhase('stats'), 2800);
-      const t3 = setTimeout(() => setPhase('actions'), 3600);
+      }, 800);
+      const t2 = setTimeout(() => setPhase('stats'), 2400);
+      const t3 = setTimeout(() => setPhase('actions'), 3200);
       return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
     }
     return undefined;
-  }, [scoreDone, result]);
+  }, [animDone, result]);
 
   if (!ready || !result) {
     return (
@@ -443,26 +520,17 @@ export default function Results() {
         {/* ── Medal Reveal ── */}
         {(phase === 'medal' || phase === 'stats' || phase === 'actions') && (
           <div className="text-center mb-4 medal-stamp">
-            {(result.continuesUsed ?? 0) > 0 ? (
-              <>
-                <div className="font-mono font-bold tracking-[0.08em]"
-                  style={{ fontSize: 24, color: 'rgba(255,255,255,0.25)' }}>
-                  ✕ NO MEDAL
-                </div>
-                <div className="font-mono text-xs mt-1" style={{ color: 'rgba(255,255,255,0.2)', letterSpacing: '0.2em' }}>
-                  CONTINUES USED — COMPLETE CLEANLY TO EARN A MEDAL
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="font-mono font-bold tracking-[0.08em]"
-                  style={{ fontSize: 32, color: mc, textShadow: `0 0 30px ${mc}80` }}>
-                  ★ {result.medal} ★
-                </div>
-                <div className="font-mono text-xs mt-1" style={{ color: 'rgba(255,255,255,0.35)', letterSpacing: '0.2em' }}>
-                  {medal.message}
-                </div>
-              </>
+            <div className="font-mono font-bold tracking-[0.08em]"
+              style={{ fontSize: 32, color: mc, textShadow: `0 0 30px ${mc}80` }}>
+              ★ {result.medal} ★
+            </div>
+            <div className="font-mono text-xs mt-1" style={{ color: 'rgba(255,255,255,0.35)', letterSpacing: '0.2em' }}>
+              {medal.message}
+            </div>
+            {(result.continuesUsed ?? 0) > 0 && (
+              <div className="font-mono text-[9px] mt-1.5" style={{ color: 'rgba(255,255,255,0.2)', letterSpacing: '0.15em' }}>
+                RECOVERY SIGNAL ACTIVE ({result.continuesUsed} {result.continuesUsed === 1 ? 'CONTINUE' : 'CONTINUES'} USED)
+              </div>
             )}
           </div>
         )}
