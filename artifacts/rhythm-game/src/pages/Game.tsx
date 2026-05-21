@@ -2012,7 +2012,10 @@ export default function Game() {
           !n.hit
       );
       if (activeHold) {
-        laneRef.current[activeHold.currentLane].pressed = false;
+        const prevLaneIdx = Math.round(activeHold.currentLane);
+        if (laneRef.current[prevLaneIdx]) {
+          laneRef.current[prevLaneIdx].pressed = false;
+        }
         laneRef.current[lane].pressed = true;
         laneRef.current[lane].isArrow = null;
         moveHold(activeHold.currentLane, lane);
