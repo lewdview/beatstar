@@ -5,6 +5,7 @@ import { loadOpts, keyLabel } from "@/lib/options";
 import { audioManager } from "@/game/audio";
 
 let hasPlayedIntroThisSession = false;
+let sessionIntroType: 'classic' | 'avant-garde' | null = null;
 
 export default function Home() {
   const [, setLocation] = useLocation();
@@ -15,15 +16,20 @@ export default function Home() {
   const LANE_KEYS   = liveOpts.laneKeys.map(k => keyLabel(k));
 
   const [introType] = useState<'classic' | 'avant-garde'>(() => {
+    if (sessionIntroType) {
+      return sessionIntroType;
+    }
     const cur = localStorage.getItem('pim_intro_type') || 'classic';
     const next = cur === 'classic' ? 'avant-garde' : 'classic';
     localStorage.setItem('pim_intro_type', next);
-    return cur as 'classic' | 'avant-garde';
+    sessionIntroType = cur as 'classic' | 'avant-garde';
+    return sessionIntroType;
   });
 
   const [showIntro, setShowIntro] = useState(() => !hasPlayedIntroThisSession);
   const [introPhase, setIntroPhase] = useState<'prompt'|'booting'|'presented'|'intro'|'intro_2'|'intro3'|'climax'|'done'>('prompt');
   const [bootText, setBootText] = useState("");
+  const [isIntroTransition, setIsIntroTransition] = useState(false);
 
   const startIntroSequence = useCallback(async () => {
     if (introPhase !== 'prompt') return;
@@ -36,7 +42,8 @@ export default function Home() {
       audioManager.loadSfx('by_th3scr1b3'),
       audioManager.loadSfx('intro'),
       audioManager.loadSfx('intro_2'),
-      audioManager.loadSfx('intro3')
+      audioManager.loadSfx('intro3'),
+      audioManager.loadSfx('fusion')
     ]);
 
     if (introType === 'classic') {
@@ -101,6 +108,7 @@ export default function Home() {
       await new Promise(r => setTimeout(r, 2600));
 
       // 7. Done
+      setIsIntroTransition(true);
       setIntroPhase('done');
       hasPlayedIntroThisSession = true;
       setShowIntro(false);
@@ -237,6 +245,19 @@ export default function Home() {
           letter-spacing: 0.4em;
           color: rgba(255, 255, 255, 0.25);
         }
+
+        @keyframes pim-glow-breath {
+          0% { text-shadow: 0 0 15px #fff, 0 0 30px #FF1493, 0 0 60px #00E5FF; transform: scale(1); }
+          100% { text-shadow: 0 0 25px #fff, 0 0 50px #FF1493, 0 0 100px #00E5FF; transform: scale(1.02); }
+        }
+
+        @keyframes avant-fade-in {
+          0% { opacity: 0; transform: translateY(15px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        .avant-fade-slow {
+          animation: avant-fade-in 2.5s cubic-bezier(0.25, 1, 0.5, 1) both;
+        }
       `}</style>
       {showIntro && (
         <div 
@@ -365,36 +386,39 @@ export default function Home() {
               }} />
 
               {introPhase === 'intro' && (
-                <div className="flex flex-col items-center justify-center w-full h-full relative">
+                <div className="flex flex-col items-center justify-center w-full h-full relative" style={{ perspective: '1200px' }}>
                   <div className="absolute font-black leading-none text-[#00E5FF] select-none uppercase tracking-tighter"
-                       style={{ fontSize: '75vw', textShadow: '0 0 60px rgba(0,229,255,0.3)', animation: 'kinetic-zoom-p 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards' }}>
+                       style={{ zIndex: 10, fontSize: '75vw', textShadow: '0 0 60px rgba(0,229,255,0.3)', animation: 'kinetic-zoom-p 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards' }}>
                     P
                   </div>
-                  <div className="absolute bottom-[20%] text-[10px] tracking-[0.8em] text-[#00E5FF] opacity-60 uppercase animate-pulse">
+                  <div className="absolute bottom-[20%] text-[10px] tracking-[0.8em] text-[#ffffff] uppercase animate-pulse"
+                       style={{ zIndex: 20, mixBlendMode: 'difference' }}>
                     [ poetry ]
                   </div>
                 </div>
               )}
 
               {introPhase === 'intro_2' && (
-                <div className="flex flex-col items-center justify-center w-full h-full relative">
+                <div className="flex flex-col items-center justify-center w-full h-full relative" style={{ perspective: '1200px' }}>
                   <div className="absolute font-black leading-none text-[#FF1493] select-none uppercase tracking-tighter"
-                       style={{ fontSize: '75vw', textShadow: '0 0 60px rgba(255,20,147,0.3)', animation: 'kinetic-zoom-i 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards' }}>
+                       style={{ zIndex: 10, fontSize: '75vw', textShadow: '0 0 60px rgba(255,20,147,0.3)', animation: 'kinetic-zoom-i 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards' }}>
                     I
                   </div>
-                  <div className="absolute bottom-[20%] text-[10px] tracking-[0.8em] text-[#FF1493] opacity-60 uppercase animate-pulse">
+                  <div className="absolute bottom-[20%] text-[10px] tracking-[0.8em] text-[#ffffff] uppercase animate-pulse"
+                       style={{ zIndex: 20, mixBlendMode: 'difference' }}>
                     [ in ]
                   </div>
                 </div>
               )}
 
               {introPhase === 'intro3' && (
-                <div className="flex flex-col items-center justify-center w-full h-full relative">
+                <div className="flex flex-col items-center justify-center w-full h-full relative" style={{ perspective: '1200px' }}>
                   <div className="absolute font-black leading-none text-[#39FF14] select-none uppercase tracking-tighter"
-                       style={{ fontSize: '75vw', textShadow: '0 0 60px rgba(57,255,20,0.3)', animation: 'kinetic-zoom-m 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards' }}>
+                       style={{ zIndex: 10, fontSize: '75vw', textShadow: '0 0 60px rgba(57,255,20,0.3)', animation: 'kinetic-zoom-m 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards' }}>
                     M
                   </div>
-                  <div className="absolute bottom-[20%] text-[10px] tracking-[0.8em] text-[#39FF14] opacity-60 uppercase animate-pulse">
+                  <div className="absolute bottom-[20%] text-[10px] tracking-[0.8em] text-[#ffffff] uppercase animate-pulse"
+                       style={{ zIndex: 20, mixBlendMode: 'difference' }}>
                     [ motion ]
                   </div>
                 </div>
@@ -439,27 +463,69 @@ export default function Home() {
       )}
 
       <div className="min-h-screen w-full flex flex-col items-center justify-center relative overflow-hidden"
-        style={{ background: 'radial-gradient(ellipse 80% 60% at 50% 45%, #0e1028 0%, #080808 55%, #0a0810 100%)' }}>
+        style={{
+          background: introType === 'classic'
+            ? 'radial-gradient(ellipse 80% 60% at 50% 45%, #0e1028 0%, #080808 55%, #0a0810 100%)'
+            : '#050505'
+        }}>
 
-      {/* Ambient floating particles */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {Array.from({ length: 12 }).map((_, i) => (
-          <div key={i} className="absolute rounded-full"
-            style={{
-              width: 2 + (i % 3),
-              height: 2 + (i % 3),
-              left: `${8 + (i * 7.3) % 84}%`,
-              top: `${60 + (i * 11) % 40}%`,
-              background: [LANE_COLORS[0], LANE_COLORS[1], LANE_COLORS[2]][i % 3],
-              opacity: 0.25,
-              animation: `float-up ${4 + (i % 3) * 2}s ${i * 0.5}s ease-in-out infinite`,
-            }} />
-        ))}
-      </div>
+      {introType === 'classic' ? (
+        <>
+          {/* Ambient floating particles */}
+          <div className="absolute inset-0 pointer-events-none overflow-hidden">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div key={i} className="absolute rounded-full"
+                style={{
+                  width: 2 + (i % 3),
+                  height: 2 + (i % 3),
+                  left: `${8 + (i * 7.3) % 84}%`,
+                  top: `${60 + (i * 11) % 40}%`,
+                  background: [LANE_COLORS[0], LANE_COLORS[1], LANE_COLORS[2]][i % 3],
+                  opacity: 0.25,
+                  animation: `float-up ${4 + (i % 3) * 2}s ${i * 0.5}s ease-in-out infinite`,
+                }} />
+            ))}
+          </div>
 
-      {/* Structural grid — subtle */}
-      <div className="absolute inset-0 pointer-events-none"
-        style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.01) 1px, transparent 1px)', backgroundSize: '80px 80px' }} />
+          {/* Structural grid — subtle */}
+          <div className="absolute inset-0 pointer-events-none"
+            style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.01) 1px, transparent 1px)', backgroundSize: '80px 80px' }} />
+        </>
+      ) : (
+        <>
+          {/* Avant-Garde Background Elements */}
+          <div className="absolute inset-0 pointer-events-none" style={{
+            backgroundImage: 'linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.01) 1px, transparent 1px)',
+            backgroundSize: '100px 100px'
+          }} />
+          <div className="neon-grid-floor pointer-events-none" />
+
+          {/* Rising Columns */}
+          <div className="absolute bottom-0 left-[20%] w-[2px] h-[70vh] bg-gradient-to-t from-transparent to-[#00E5FF] origin-bottom scale-y-75 opacity-20 pointer-events-none"
+               style={{ animation: 'rise-column 2s infinite ease-out' }} />
+          <div className="absolute bottom-0 right-[25%] w-[2px] h-[85vh] bg-gradient-to-t from-transparent to-[#FF1493] origin-bottom scale-y-90 opacity-25 pointer-events-none"
+               style={{ animation: 'rise-column 2.6s 0.4s infinite ease-out' }} />
+          <div className="absolute bottom-0 left-[45%] w-[3px] h-[60vh] bg-gradient-to-t from-transparent to-[#39FF14] origin-bottom scale-y-50 opacity-15 pointer-events-none"
+               style={{ animation: 'rise-column 1.8s 0.8s infinite ease-out' }} />
+
+          {/* Scrolling Tickers */}
+          <div className="absolute top-[12%] left-0 w-full overflow-hidden h-6 border-y border-white/5 flex items-center bg-black/40 backdrop-blur-sm z-0 pointer-events-none select-none">
+            <div className="ticker-text" style={{ animation: 'ticker-slide-left 12s linear infinite' }}>
+              {Array.from({ length: 8 }).map((_, idx) => (
+                <span key={idx}>POETRY IN MOTION {" // "} BY TH3SCR1B3 {" // "}</span>
+              ))}
+            </div>
+          </div>
+
+          <div className="absolute bottom-[12%] left-0 w-full overflow-hidden h-6 border-y border-white/5 flex items-center bg-black/40 backdrop-blur-sm z-0 pointer-events-none select-none">
+            <div className="ticker-text" style={{ animation: 'ticker-slide-right 12s linear infinite' }}>
+              {Array.from({ length: 8 }).map((_, idx) => (
+                <span key={idx}>365 DAYS OF LIGHT AND DARK {" // "} COMPANION APPLICATION {" // "}</span>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Top bar */}
       <div className={`absolute top-0 left-0 right-0 flex items-center justify-between px-6 py-4 z-20 transition-all duration-1000 ${!showIntro ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
@@ -472,22 +538,40 @@ export default function Home() {
         </div>
       </div>
 
-      <div className={`relative z-10 flex flex-col items-center w-full max-w-lg px-6 ${!showIntro ? 'slide-up' : 'opacity-0'}`}>
+      <div className={`relative z-10 flex flex-col items-center w-full max-w-lg px-6 ${
+        !showIntro
+          ? (introType === 'avant-garde' && isIntroTransition ? 'avant-fade-slow' : 'slide-up')
+          : 'opacity-0'
+      }`}>
 
         {/* Hero number */}
         <div className="relative w-full text-center" style={{ marginBottom: -10 }}>
-          <div className="font-mono font-black leading-none select-none text-glow"
-            style={{
-              fontSize: 'clamp(120px, 25vw, 200px)',
-              background: 'linear-gradient(180deg, #FFFFFF 0%, #C8B88A 50%, #8A7A5A 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              letterSpacing: '-0.05em',
-              lineHeight: 0.8,
-              filter: 'drop-shadow(0 0 50px rgba(255,255,255,0.2))',
-            }}>
-            PIM
-          </div>
+          {introType === 'classic' ? (
+            <div className="font-mono font-black leading-none select-none text-glow"
+              style={{
+                fontSize: 'clamp(120px, 25vw, 200px)',
+                background: 'linear-gradient(180deg, #FFFFFF 0%, #C8B88A 50%, #8A7A5A 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                letterSpacing: '-0.05em',
+                lineHeight: 0.8,
+                filter: 'drop-shadow(0 0 50px rgba(255,255,255,0.2))',
+              }}>
+              PIM
+            </div>
+          ) : (
+            <div className="font-mono font-black leading-none select-none"
+              style={{
+                fontSize: 'clamp(120px, 25vw, 200px)',
+                color: '#ffffff',
+                letterSpacing: '0.15em',
+                lineHeight: 0.8,
+                textShadow: '0 0 20px #fff, 0 0 40px #FF1493, 0 0 80px #00E5FF',
+                animation: 'pim-glow-breath 4s ease-in-out infinite alternate'
+              }}>
+              PIM
+            </div>
+          )}
         </div>
 
         {/* Sub label */}
