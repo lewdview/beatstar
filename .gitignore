@@ -47,3 +47,14 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Secrets & credentials — NEVER commit these
+serviceAccountKey.json
+*.serviceAccountKey.json
+.env.local
+.env*.local
+
+# One-off utility scripts
+artifacts/rhythm-game/replace_colors.cjs
+artifacts/rhythm-game/test-local.cjs
+artifacts/rhythm-game/upload_to_firebase.js

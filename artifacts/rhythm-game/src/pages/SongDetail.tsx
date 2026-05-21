@@ -6,14 +6,14 @@ import { getMedalForSong, getHighScore, getScoreHistory } from "@/game/progress"
 import { audioManager } from "@/game/audio";
 
 const MEDAL_COLOR: Record<string, string> = {
-  PLATINUM: '#ACE894', GOLD: '#E5B800', SILVER: '#A0AABB', BRONZE: '#C97A3A', NONE: '#444', '': '#1a1a1a',
+  PLATINUM: '#39FF14', GOLD: '#E5B800', SILVER: '#A0AABB', BRONZE: '#C97A3A', NONE: '#444', '': '#1a1a1a',
 };
 
 const DIFF_COLORS = [
-  '#ACE894','#ACE894','#ACE894',
-  '#4A314D','#4A314D','#4A314D',
+  '#39FF14','#39FF14','#39FF14',
+  '#00E5FF','#00E5FF','#00E5FF',
   '#E5B800','#E5B800','#E5B800',
-  '#FF5400',
+  '#FF1493',
 ];
 
 function DiffBars({ level }: { level: number }) {
@@ -39,7 +39,7 @@ function WaveformBars({ playing }: { playing: boolean }) {
         <div key={i} className="rounded-sm" style={{
           width: 3,
           height: playing ? `${40 + Math.sin(Date.now() / 200 + i) * 30}%` : '30%',
-          background: playing ? '#ACE894' : 'rgba(255,255,255,0.2)',
+          background: playing ? '#39FF14' : 'rgba(255,255,255,0.2)',
           transition: 'height 0.15s ease, background 0.3s',
           animation: playing ? `waveBar 0.6s ${i * 0.1}s ease-in-out infinite alternate` : 'none',
         }} />
@@ -156,7 +156,7 @@ export default function SongDetail() {
 
   if (!song) return null;
 
-  const moodColor = song.mood === 'light' ? '#ACE894' : '#FF5400';
+  const moodColor = song.mood === 'light' ? '#39FF14' : '#FF1493';
   const bestScore = history.length > 0 ? Math.max(...history) : 0;
 
   return (
@@ -320,8 +320,8 @@ export default function SongDetail() {
               style={{ accentColor: diffColor, cursor: 'pointer' }}
             />
             <div className="flex justify-between mt-1">
-              <span className="font-mono" style={{ fontSize: 8, color: '#ACE894', letterSpacing: '0.15em' }}>EASY</span>
-              <span className="font-mono" style={{ fontSize: 8, color: '#FF5400', letterSpacing: '0.15em' }}>BRUTAL</span>
+              <span className="font-mono" style={{ fontSize: 8, color: '#39FF14', letterSpacing: '0.15em' }}>EASY</span>
+              <span className="font-mono" style={{ fontSize: 8, color: '#FF1493', letterSpacing: '0.15em' }}>BRUTAL</span>
             </div>
           </div>
         )}

@@ -223,14 +223,14 @@ export default function Tutorial() {
           onClick={() => setLocation("/")}
           className="font-mono text-xs tracking-widest transition-colors"
           style={{ color: "rgba(255,255,255,0.25)" }}
-          onMouseEnter={e => (e.currentTarget.style.color = "#FF5400")}
+          onMouseEnter={e => (e.currentTarget.style.color = "#FF1493")}
           onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.25)")}
         >
           ✕ SKIP
         </button>
         <div className="flex-1 flex items-center gap-3">
           <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.06)" }}>
-            <div className="h-full" style={{ width: `${pct * 100}%`, background: "#ACE894", transition: "width 0.4s ease" }} />
+            <div className="h-full" style={{ width: `${pct * 100}%`, background: "#39FF14", transition: "width 0.4s ease" }} />
           </div>
           <div className="font-mono text-xs" style={{ color: "rgba(255,255,255,0.2)", letterSpacing: "0.2em", flexShrink: 0 }}>
             {cur.num} / {String(STEPS.length - 1).padStart(2, "0")}
@@ -280,7 +280,7 @@ export default function Tutorial() {
         {/* Practice hint */}
         {isPractice && (
           <div className="font-mono text-xs tracking-[0.3em]" style={{
-            color: notePhase === "hit" ? "#ACE894" : notePhase === "missed" ? "#FF5400" : notePhase === "in-window" ? "#F2EDE5" : "rgba(255,255,255,0.2)",
+            color: notePhase === "hit" ? "#39FF14" : notePhase === "missed" ? "#FF1493" : notePhase === "in-window" ? "#F2EDE5" : "rgba(255,255,255,0.2)",
             transition: "color 0.15s",
           }}>
             {notePhase === "in-window" ? "▼  PRESS NOW" : notePhase === "hit" ? "✦  " + (feedback ?? "HIT") : notePhase === "missed" ? "✗  MISS — TRYING AGAIN" : "WATCH THE NOTE…"}
@@ -293,7 +293,7 @@ export default function Tutorial() {
             onClick={advance}
             className="font-mono text-xs tracking-[0.35em] px-8 py-3"
             style={{ border: "1px solid rgba(255,255,255,0.2)", color: "#F2EDE5", background: "transparent", cursor: "pointer", transition: "all 0.15s" }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = "#ACE894"; e.currentTarget.style.color = "#ACE894"; }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "#39FF14"; e.currentTarget.style.color = "#39FF14"; }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)"; e.currentTarget.style.color = "#F2EDE5"; }}
           >
             NEXT →
@@ -302,7 +302,7 @@ export default function Tutorial() {
 
         {step === STEPS.length - 1 && (
           <div className="flex gap-4">
-            <button onClick={() => setLocation("/campaign")} className="font-mono text-xs font-bold tracking-[0.3em] px-8 py-3" style={{ background: "#ACE894", color: "#080808", border: "none", cursor: "pointer" }}>
+            <button onClick={() => setLocation("/campaign")} className="font-mono text-xs font-bold tracking-[0.3em] px-8 py-3" style={{ background: "#39FF14", color: "#080808", border: "none", cursor: "pointer" }}>
               ▶ CAMPAIGN
             </button>
             <button onClick={() => setLocation("/songs")} className="font-mono text-xs tracking-[0.3em] px-8 py-3" style={{ border: "1px solid rgba(255,255,255,0.2)", color: "#F2EDE5", background: "transparent", cursor: "pointer" }}>
@@ -409,13 +409,13 @@ function PracticeViz({ laneIdx, notePhase, noteKey, feedback }: PracticeVizProps
             )}
             {/* miss flash */}
             {active && isMiss && (
-              <div style={{ position: "absolute", inset: 0, background: "rgba(255,84,0,0.15)", animation: "tutflash 0.5s ease-out forwards" }} />
+              <div style={{ position: "absolute", inset: 0, background: "rgba(255,20,147,0.15)", animation: "tutflash 0.5s ease-out forwards" }} />
             )}
 
             {/* key label */}
             <div className="font-mono font-bold absolute" style={{
               bottom: 6, left: 0, right: 0, textAlign: "center", fontSize: 13,
-              color: active ? (isHit ? lc : isMiss ? "#FF5400" : hitLine ? "#fff" : `${lc}99`) : "rgba(255,255,255,0.15)",
+              color: active ? (isHit ? lc : isMiss ? "#FF1493" : hitLine ? "#fff" : `${lc}99`) : "rgba(255,255,255,0.15)",
               transition: "color 0.15s",
             }}>
               {LANE_KEYS()[i]}
@@ -442,7 +442,7 @@ function SyncViz() {
   const px = offset * 18;
   const ms = offset * 50;
   const synced = offset === 0;
-  const color = synced ? "#ACE894" : "#FF5400";
+  const color = synced ? "#39FF14" : "#FF1493";
   const label = synced ? "SYNCED" : ms > 0 ? `+${ms}ms` : `${ms}ms`;
 
   return (
@@ -452,8 +452,8 @@ function SyncViz() {
         <div style={{ position: "absolute", left: "50%", top: 8, bottom: 8, width: 1, background: "rgba(255,255,255,0.1)", transform: "translateX(-50%)" }} />
 
         {/* BEAT pulse — fixed at centre */}
-        <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 14, height: 14, background: "#ACE894", boxShadow: "0 0 12px #ACE894", transition: "none" }} />
-        <div className="font-mono" style={{ position: "absolute", top: 6, left: "50%", transform: "translateX(-50%)", fontSize: 8, color: "#ACE894", letterSpacing: "0.2em", whiteSpace: "nowrap" }}>BEAT</div>
+        <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 14, height: 14, background: "#39FF14", boxShadow: "0 0 12px #39FF14", transition: "none" }} />
+        <div className="font-mono" style={{ position: "absolute", top: 6, left: "50%", transform: "translateX(-50%)", fontSize: 8, color: "#39FF14", letterSpacing: "0.2em", whiteSpace: "nowrap" }}>BEAT</div>
 
         {/* TAP marker — shifts with offset */}
         <div style={{ position: "absolute", top: "50%", left: `calc(50% + ${px}px)`, transform: "translate(-50%,-50%)", width: 14, height: 14, background: color, boxShadow: `0 0 12px ${color}`, transition: "left 0.45s ease, background 0.3s, box-shadow 0.3s" }} />
@@ -478,8 +478,8 @@ function SyncViz() {
 function TimingViz() {
   const zones = [
     { label: "PERFECT+", color: "#E5B800", w: 14 },
-    { label: "PERFECT",  color: "#ACE894", w: 26 },
-    { label: "GOOD",     color: "#4A314D", w: 42 },
+    { label: "PERFECT",  color: "#39FF14", w: 26 },
+    { label: "GOOD",     color: "#00E5FF", w: 42 },
     { label: "MISS",     color: "#333",    w: 60 },
   ];
   return (
@@ -507,14 +507,14 @@ function MissesViz() {
         {[0, 1, 2].map(i => (
           <div key={i} style={{
             width: 20, height: 20,
-            background: i < lit ? "#FF5400" : "rgba(255,255,255,0.08)",
-            boxShadow: i < lit ? "0 0 12px rgba(255,84,0,0.8)" : "none",
+            background: i < lit ? "#FF1493" : "rgba(255,255,255,0.08)",
+            boxShadow: i < lit ? "0 0 12px rgba(255,20,147,0.8)" : "none",
             transition: "all 0.2s",
           }} />
         ))}
       </div>
       {lit >= 3 && (
-        <div className="font-mono text-sm tracking-[0.35em]" style={{ color: "#FF5400", textShadow: "0 0 20px rgba(255,84,0,0.7)", animation: "tutflash 0.5s ease-out 1, none 0.5s forwards" }}>
+        <div className="font-mono text-sm tracking-[0.35em]" style={{ color: "#FF1493", textShadow: "0 0 20px rgba(255,20,147,0.7)", animation: "tutflash 0.5s ease-out 1, none 0.5s forwards" }}>
           SIGNAL LOST
         </div>
       )}

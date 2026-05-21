@@ -18,20 +18,24 @@ const HIT_RATIO = 0.7;
 
 // Hit windows scale with difficulty — easier = more forgiving
 function perfectPlusWindow(diff: number): number {
-  // Level 1: 0.055s, Level 5: 0.035s, Level 10: 0.022s
-  return Math.max(0.022, 0.055 - (diff - 1) * 0.0037);
+  // Level 1: 0.060s, Level 10: 0.030s
+  return Math.max(0.030, 0.060 - (diff - 1) * 0.0033);
 }
 function perfectWindow(diff: number): number {
-  // Level 1: 0.10s, Level 5: 0.07s, Level 10: 0.045s
-  return Math.max(0.045, 0.10 - (diff - 1) * 0.0061);
+  // Level 1: 0.110s, Level 10: 0.055s
+  return Math.max(0.055, 0.110 - (diff - 1) * 0.0061);
 }
 function goodWindow(diff: number): number {
-  // Level 1: 0.18s, Level 5: 0.13s, Level 10: 0.09s
-  return Math.max(0.09, 0.18 - (diff - 1) * 0.01);
+  // Level 1: 0.190s, Level 10: 0.100s
+  return Math.max(0.100, 0.190 - (diff - 1) * 0.010);
 }
 function missWindow(diff: number): number {
-  // Level 1: 0.35s, Level 5: 0.25s, Level 10: 0.18s
-  return Math.max(0.18, 0.35 - (diff - 1) * 0.019);
+  // Level 1: 0.360s, Level 10: 0.190s
+  return Math.max(0.190, 0.360 - (diff - 1) * 0.019);
+}
+
+function getDifficultyLaneColor(baseColor: string, _diffLevel: number): string {
+  return baseColor;
 }
 
 // Perspective highway geometry
@@ -52,7 +56,7 @@ const POWER_UPS = [
     type: "SURGE",
     duration: 11,
     multiplier: 3,
-    color: "#FF5400",
+    color: "#FF1493",
     label: "SURGE",
   },
   {
@@ -60,7 +64,7 @@ const POWER_UPS = [
     type: "SIGNAL_LOCK",
     duration: 14,
     multiplier: 4,
-    color: "#ACE894",
+    color: "#39FF14",
     label: "SIGNAL LOCK",
   },
 ] as const;
@@ -101,7 +105,7 @@ function getMedal(pp: number, p: number, g: number, m: number) {
 
 // ── rewind sound (Sample based) ──────────────────────────
 function playRewindSound() {
-  audioManager.playSfx("rewind1", 0.8);
+  audioManager.playSfx("rewind", 0.8);
 }
 
 // ── interfaces ───────────────────────────────────────────────────
@@ -113,6 +117,7 @@ interface NoteState {
   holdProgress: number;
   currentLane: number; // For slide notes: tracking which lane the player is currently holding
   originLane: number;  // The lane that started this hold interaction
+  visualLane: number;  // For slide notes: tracking smoothly animated visual lane position
 }
 interface LanePress {
   pressed: boolean;
@@ -140,8 +145,16 @@ interface HitEffect {
   cx: number;
   cy: number;
   color: string;
-  kind: "PERFECT+" | "PERFECT" | "GOOD";
+  kind: "PERFECT+" | "PERFECT" | "GOOD" | "SHIELDED";
   particles: HitParticle[];
+}
+interface AmbientParticle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  size: number;
+  alpha: number;
 }
 
 // ── component ────────────────────────────────────────────────────
@@ -178,7 +191,7 @@ export default function Game() {
   const canvasWrapperRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioOffsetRef = useRef(0);
-  const laneColorsRef = useRef<[string, string, string]>(["#FF5400", "#4A314D", "#ACE894"]);
+  const laneColorsRef = useRef<[string, string, string]>(["#FF1493", "#00E5FF", "#39FF14"]);
   const laneKeysRef = useRef<[string, string, string]>(["a", "s", "d"]);
   const rafRef = useRef<number>(0);
   const notesRef = useRef<NoteState[]>([]);
@@ -221,10 +234,15 @@ export default function Game() {
     triggered: new Set(),
   });
   const hitFxRef = useRef<HitEffect[]>([]);
+  const shieldChargesRef = useRef<number>(0);
+  const lastMissTimeRef = useRef<number>(0);
+  const continueUsedRef = useRef<number>(0); // how many continues the player has used (max 3)
   const coverImgRef = useRef<HTMLImageElement | null>(null);
   const coverBlurRef = useRef<HTMLCanvasElement | null>(null);
   const scanPatternRef = useRef<CanvasPattern | null>(null);
   const lastMedalRef = useRef<string>("NONE");
+  const ambientParticlesRef = useRef<AmbientParticle[]>([]);
+  const lastFrameTimeRef = useRef<number>(performance.now());
   const medalStampRef = useRef<{ medal: string; startT: number } | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const laneGainsRef = useRef<GainNode[]>([]);
@@ -272,9 +290,15 @@ export default function Game() {
   };
 
   useEffect(() => {
-    // Pre-load necessary sound effects for low-latency playback
-    audioManager.loadSfx("rewind1");
+    // Pre-load all gameplay-critical SFX for zero-latency playback
+    audioManager.loadSfx("rewind");
     audioManager.loadSfx("gmeover");
+    audioManager.loadSfx("outof_continues");
+    audioManager.loadSfx("gameover_countdown");
+    audioManager.loadSfx("hidden_secret_found");
+    audioManager.loadSfx("song_completion");
+    audioManager.loadSfx("select_start_song");
+    audioManager.loadSfx("pause_2");
     audioManager.loadSfx("fusion");
   }, []);
 
@@ -293,7 +317,20 @@ export default function Game() {
     (combo: number, j: "PERFECT+" | "PERFECT" | "GOOD") => {
       const pu = puRef.current;
       const puMul = pu.active && getT() < pu.endTime ? pu.multiplier : 1;
-      const comboMul = combo < 10 ? 1 : combo < 25 ? 1.5 : combo < 50 ? 2 : 3;
+      const diff = songRef.current?.difficultyLevel ?? 5;
+
+      let comboMul = 1;
+      if (diff <= 3) {
+        // LIGHT (Level 1-3): Max 3x
+        comboMul = combo < 10 ? 1 : combo < 25 ? 1.5 : combo < 50 ? 2 : 3;
+      } else if (diff <= 6) {
+        // DARK (Level 4-6): Max 4x
+        comboMul = combo < 10 ? 1 : combo < 25 ? 1.5 : combo < 50 ? 2 : combo < 75 ? 3 : 4;
+      } else {
+        // VOID (Level 7-10): Max 5x
+        comboMul = combo < 10 ? 1 : combo < 25 ? 1.5 : combo < 50 ? 2 : combo < 75 ? 3 : combo < 100 ? 4 : 5;
+      }
+
       const base = j === "PERFECT+" ? 500 : j === "PERFECT" ? 300 : 150;
       return Math.round(base * puMul * comboMul);
     },
@@ -307,27 +344,81 @@ export default function Game() {
       for (const pw of POWER_UPS) {
         if (combo >= pw.threshold && !pu.triggered.has(pw.threshold)) {
           pu.triggered.add(pw.threshold);
+          const finalLabel = pw.type === "SIGNAL_LOCK" ? "SIGNAL LOCK (SHIELD x2)" : pw.label;
           Object.assign(pu, {
             active: pw.type,
             endTime: t + pw.duration,
             startTime: t,
             multiplier: pw.multiplier,
             color: pw.color,
-            label: pw.label,
+            label: finalLabel,
             duration: pw.duration,
           });
           setPuDisplay({
-            label: pw.label,
+            label: finalLabel,
             color: pw.color,
             multiplier: pw.multiplier,
             progress: 1,
           });
-          audioManager.playSfx("fusion", 0.7);
+          if (pw.type === "SIGNAL_LOCK") {
+            shieldChargesRef.current = 2;
+            // Distinct stinger for the defensive shield power-up
+            audioManager.playSfx("hidden_secret_found", 0.9);
+          } else {
+            // Energetic activation for FEVER / SURGE
+            audioManager.playSfx("fusion", 0.75);
+          }
           break;
         }
       }
     },
     [getT],
+  );
+
+  const triggerHitFx = useCallback(
+    (lane: number, kind: "PERFECT+" | "PERFECT" | "GOOD" | "SHIELDED") => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const W = canvas.width;
+      const H = canvas.height;
+      const hitY = H * HIT_RATIO;
+      const { x: lx, w: lw } = laneAt(lane, 1, W);
+      const cx = lx + lw / 2;
+      const color =
+        kind === "SHIELDED"
+          ? "#00FFDD"
+          : getDifficultyLaneColor(laneColorsRef.current[lane], songRef.current?.difficultyLevel ?? 5);
+
+      const count =
+        kind === "SHIELDED"
+          ? 20
+          : kind === "PERFECT+"
+            ? 18
+            : kind === "PERFECT"
+              ? 13
+              : 9;
+
+      const particles: HitParticle[] = [];
+      for (let i = 0; i < count; i++) {
+        const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * (kind === "SHIELDED" ? 0.4 : 0.6);
+        const speed = kind === "SHIELDED" ? 120 + Math.random() * 200 : 90 + Math.random() * 160;
+        particles.push({
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed - (kind === "SHIELDED" ? 40 : 80),
+          size: (kind === "SHIELDED" ? 3 : 2.5) + Math.random() * 4.5,
+        });
+      }
+      hitFxRef.current.push({
+        lane,
+        startMs: Date.now(),
+        cx,
+        cy: hitY,
+        color,
+        kind,
+        particles,
+      });
+    },
+    [],
   );
 
   const muteLane = useCallback((lane: number) => {
@@ -386,7 +477,8 @@ export default function Game() {
         // unless it's specifically a hold note start.
       }
 
-      const j: "PERFECT+" | "PERFECT" | "GOOD" | null =
+      const isFever = puRef.current.active === "FEVER" && t < puRef.current.endTime;
+      let j: "PERFECT+" | "PERFECT" | "GOOD" | null =
         diff <= perfectPlusWindow(dl)
           ? "PERFECT+"
           : diff <= perfectWindow(dl)
@@ -394,6 +486,9 @@ export default function Game() {
             : diff <= goodWindow(dl)
               ? "GOOD"
               : null;
+      if (j === "PERFECT" && isFever) {
+        j = "PERFECT+";
+      }
       if (!j) return;
 
       if (ns.note.type === "hold") {
@@ -406,9 +501,18 @@ export default function Game() {
       gs.score += calcScore(gs.combo, j);
       gs.combo++;
       gs.maxCombo = Math.max(gs.maxCombo, gs.combo);
-      if (j === "PERFECT+") gs.perfectPlus++;
-      else if (j === "PERFECT") gs.perfects++;
-      else gs.goods++;
+      if (j === "PERFECT+") {
+        gs.perfectPlus++;
+        audioManager.playSfx("tap_nav", 0.15);
+      }
+      else if (j === "PERFECT") {
+        gs.perfects++;
+        audioManager.playSfx("tap_nav", 0.12);
+      }
+      else {
+        gs.goods++;
+        audioManager.playSfx("tap_nav", 0.1);
+      }
       checkPowerUps(gs.combo);
 
       jRef.current = [
@@ -417,64 +521,75 @@ export default function Game() {
       ];
 
       // ── Hit explosion effect ──
-      const canvas = canvasRef.current;
-      if (canvas) {
-        const W = canvas.width;
-        const H = canvas.height;
-        const hitY = H * HIT_RATIO;
-        const { x: lx, w: lw } = laneAt(lane, 1, W);
-        const cx = lx + lw / 2;
-        const lc = laneColorsRef.current[lane];
-        const count = j === "PERFECT+" ? 18 : j === "PERFECT" ? 13 : 9;
-        const particles: HitParticle[] = [];
-        for (let i = 0; i < count; i++) {
-          const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.6;
-          const speed = 90 + Math.random() * 160;
-          particles.push({
-            vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed - 80,
-            size: 2.5 + Math.random() * 4.5,
-          });
-        }
-        hitFxRef.current.push({
-          lane,
-          startMs: Date.now(),
-          cx,
-          cy: hitY,
-          color: lc,
-          kind: j,
-          particles,
-        });
-      }
+      triggerHitFx(lane, j);
 
       syncDisplay();
     },
-    [getT, calcScore, checkPowerUps, syncDisplay, restoreLane],
+    [getT, calcScore, checkPowerUps, syncDisplay, restoreLane, triggerHitFx],
   );
 
   const releaseLane = useCallback(
     (lane: number) => {
       if (phaseRef.current !== "playing") return;
+      const isSurge = puRef.current.active === "SURGE" && getT() < puRef.current.endTime;
+      if (isSurge) return;
       const ns = notesRef.current.find(
         (n) =>
           n.note.type === "hold" &&
           n.holdActive &&
-          (n.originLane === lane || n.currentLane === lane) &&
+          n.currentLane === lane &&
           !n.hit,
       );
       if (!ns) return;
 
       // If it's a slide note, it must end in the targetLane
       if (ns.note.targetLane !== undefined && ns.currentLane !== ns.note.targetLane) {
-        // Did not finish the slide
-        ns.holdActive = false;
-        ns.missed = true;
-        const gsx = gsRef.current;
-        gsx.combo = 0;
-        gsx.misses++;
-        muteLane(ns.note.lane);
-        syncDisplay();
-        return;
+        const isSignalLock = puRef.current.active === "SIGNAL_LOCK" && getT() < puRef.current.endTime && shieldChargesRef.current > 0;
+        if (isSignalLock) {
+          shieldChargesRef.current--;
+          const activeLabel = `SIGNAL LOCK (SHIELD x${shieldChargesRef.current})`;
+          puRef.current.label = activeLabel;
+          setPuDisplay((prev) => prev ? { ...prev, label: activeLabel } : null);
+          if (shieldChargesRef.current <= 0) {
+            puRef.current.endTime = 0;
+            puRef.current.active = null;
+            setPuDisplay(null);
+          }
+          audioManager.playSfx("tap_nav", 0.35);
+          triggerHitFx(ns.currentLane, "SHIELDED");
+
+          // Treat as HIT with GOOD
+          ns.hit = true;
+          ns.holdActive = false;
+          const gs = gsRef.current;
+          gs.score += calcScore(gs.combo, "GOOD");
+          gs.combo++;
+          gs.maxCombo = Math.max(gs.maxCombo, gs.combo);
+          gs.goods++;
+          checkPowerUps(gs.combo);
+          jRef.current = [
+            ...jRef.current.filter((x) => Date.now() - x.ts < 600),
+            { type: "SHIELDED", lane: ns.currentLane, id: ++jCounter.current, ts: Date.now() },
+          ];
+          syncDisplay();
+          return;
+        } else {
+          // Did not finish the slide
+          ns.holdActive = false;
+          ns.missed = true;
+          const gsx = gsRef.current;
+          gsx.combo = 0;
+          gsx.misses++;
+          // Deactivate power up on combo break
+          puRef.current.active = null;
+          puRef.current.endTime = 0;
+          setPuDisplay(null);
+          puRef.current.triggered.clear();
+
+          muteLane(ns.note.lane);
+          syncDisplay();
+          return;
+        }
       }
 
       ns.hit = true;
@@ -493,7 +608,7 @@ export default function Game() {
       }
       syncDisplay();
     },
-    [calcScore, checkPowerUps, syncDisplay, muteLane],
+    [calcScore, checkPowerUps, syncDisplay, muteLane, triggerHitFx],
   );
 
   const moveHold = useCallback(
@@ -511,7 +626,7 @@ export default function Game() {
       // Move the interaction to the new lane if it's a slide note
       if (ns.note.targetLane !== undefined && toLane === ns.note.targetLane) {
         ns.currentLane = toLane;
-        audioManager.playSfx("fusion", 0.3);
+        audioManager.playSfx("hidden_secret_found", 0.3);
 
         // ── Slide success particle effect ──
         const canvas = canvasRef.current;
@@ -521,7 +636,7 @@ export default function Game() {
           const hitY = H * HIT_RATIO;
           const { x: lx, w: lw } = laneAt(toLane, 1, W);
           const cx = lx + lw / 2;
-          const lc = laneColorsRef.current[toLane];
+          const lc = getDifficultyLaneColor(laneColorsRef.current[toLane], songRef.current?.difficultyLevel ?? 5);
           const particles: HitParticle[] = [];
           for (let i = 0; i < 6; i++) {
             const angle = (Math.random() - 0.5) * Math.PI;
@@ -547,25 +662,31 @@ export default function Game() {
     [],
   );
 
-  const finishGame = useCallback(() => {
+  const finishGame = useCallback((failed = false) => {
     if (phaseRef.current === "finished") return;
     phaseRef.current = "finished";
     setPhase("finished");
     cancelAnimationFrame(rafRef.current);
     audioRef.current?.pause();
     audioRef.current && (audioRef.current.currentTime = 0);
-    
+
     const gs = gsRef.current;
-    const medal = getMedal(gs.perfectPlus, gs.perfects, gs.goods, gs.misses);
-    
+    // No medal if the player used any continues OR is on the fail path
+    const continuesUsed = continueUsedRef.current;
+    const medal = (failed || continuesUsed > 0) ? "NONE" : getMedal(gs.perfectPlus, gs.perfects, gs.goods, gs.misses);
+
+    if (!failed) {
+      audioManager.playSfx("song_completion", 0.8);
+    }
+
     // Save progress with error handling
     try {
-      if (songRef.current) {
+      if (songRef.current && !failed) {
         saveHighScore(songRef.current.id, gs.score);
         saveMedal(songRef.current.id, medal);
         saveScoreHistory(songRef.current.id, gs.score);
       }
-      
+
       sessionStorage.setItem(
         `result_${songId}`,
         JSON.stringify({
@@ -577,6 +698,8 @@ export default function Game() {
           misses: gs.misses,
           medal,
           total: gs.perfectPlus + gs.perfects + gs.goods + gs.misses,
+          failed,
+          continuesUsed,
         }),
       );
     } catch (err) {
@@ -602,6 +725,7 @@ export default function Game() {
 
   const doReturn = useCallback(() => {
     playRewindSound();
+    continueUsedRef.current++;
 
     // Stop any existing draw loop first
     cancelAnimationFrame(rafRef.current);
@@ -615,11 +739,10 @@ export default function Game() {
 
     // Reset miss counter immediately (pips clear visually)
     missCountRef.current = 0;
+    lastMissTimeRef.current = 0;
     setMissCount(0);
 
     // Start the rewind render loop NOW so highway plays backwards
-    // draw() self-schedules via requestAnimationFrame(draw) at its end,
-    // so we only need to kick it once here.
     phaseRef.current = "rewinding";
     setPhase("rewinding");
     rafRef.current = requestAnimationFrame(() => drawRef.current?.());
@@ -660,6 +783,8 @@ export default function Game() {
   useEffect(() => {
     if (phase !== "continue") return;
     setContinueCountdown(10);
+    // Play the tense countdown loop once on entry
+    audioManager.playSfx("gameover_countdown", 0.55);
     let count = 10;
     const id = setInterval(() => {
       count--;
@@ -722,6 +847,57 @@ export default function Game() {
     // Canvas is transparent — CSS cover art layer shows through beneath everything
     ctx.clearRect(0, 0, W, H);
 
+    // Save context for entire frame drawing (supports global translations / shake)
+    ctx.save();
+
+    // Ambient particles update & draw
+    const now = performance.now();
+    const frameDt = Math.min(0.1, (now - lastFrameTimeRef.current) / 1000);
+    lastFrameTimeRef.current = now;
+
+    const diffLevel = song.difficultyLevel;
+    const isVoid = diffLevel >= 7;
+    const speedFactor = diffLevel <= 3 ? 0.6 : diffLevel <= 6 ? 1.0 : 1.5;
+    const particleColor = diffLevel <= 3 ? "#00FFDD" : diffLevel <= 6 ? "#39FF14" : "#FF1493";
+
+    ctx.save();
+    for (const p of ambientParticlesRef.current) {
+      // update positions
+      p.x += p.vx * frameDt * speedFactor;
+      p.y += p.vy * frameDt * speedFactor;
+
+      // wrap boundaries
+      if (p.y < 0) {
+        p.y = H;
+        p.x = Math.random() * W;
+      }
+      if (p.x < 0 || p.x > W) {
+        p.x = Math.random() * W;
+      }
+
+      ctx.fillStyle = particleColor;
+      ctx.globalAlpha = p.alpha * (0.3 + 0.7 * Math.sin(t * 3 + p.x));
+      ctx.shadowColor = particleColor;
+      ctx.shadowBlur = diffLevel >= 7 ? 8 : 4;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // Glitch/Shake viewport if VOID and high combo / power-up active
+    let shakeX = 0;
+    let shakeY = 0;
+    if (isVoid && (puActive || gs.combo >= 40)) {
+      if (Math.random() < 0.28) {
+        shakeX = (Math.random() - 0.5) * 3.8;
+        shakeY = (Math.random() - 0.5) * 3.8;
+      }
+    }
+    if (shakeX !== 0 || shakeY !== 0) {
+      ctx.translate(shakeX, shakeY);
+    }
+
     // Full-screen effects (vignette, mood, scanlines) are now CSS overlays on the
     // outer wrapper — they cover the entire viewport uniformly so no column seam appears.
 
@@ -758,7 +934,7 @@ export default function Game() {
     for (let i = 0; i < LANE_COUNT; i++) {
       const { x: lx0, w: lw0 } = laneAt(i, 0.3, W);
       const { x: lx1, w: lw1 } = laneAt(i, 1, W);
-      const lc = laneColorsRef.current[i];
+      const lc = getDifficultyLaneColor(laneColorsRef.current[i], songRef.current?.difficultyLevel ?? 5);
       const lcR = parseInt(lc.slice(1, 3), 16);
       const lcG = parseInt(lc.slice(3, 5), 16);
       const lcB = parseInt(lc.slice(5, 7), 16);
@@ -932,31 +1108,39 @@ export default function Game() {
     for (let i = 0; i < LANE_COUNT; i++) {
       const { x, w } = laneAt(i, 1, W);
       const pressed = laneRef.current[i].pressed;
-      const lc = laneColorsRef.current[i];
+      const lc = getDifficultyLaneColor(laneColorsRef.current[i], songRef.current?.difficultyLevel ?? 5);
       const silenced = laneSilenced.current[i];
       const bx = x + 4;
       const bw = w - 8;
       const bTop = btnY + (pressed ? 2 : 0);
 
-      // Key body — semi-transparent ivory
+      // Calculate themed difficulty hue
+      const diffLvl = songRef.current?.difficultyLevel ?? 5;
+      const diffColor = diffLvl <= 3 ? "#00FFDD" : diffLvl >= 7 ? "#FF1493" : "#39FF14";
+      const r = parseInt(diffColor.slice(1, 3), 16);
+      const g = parseInt(diffColor.slice(3, 5), 16);
+      const b = parseInt(diffColor.slice(5, 7), 16);
+
+      // Key body — semi-transparent ivory tinted with difficulty hue
       const kGrad = ctx.createLinearGradient(bx, bTop, bx, bTop + btnH);
       if (pressed) {
         kGrad.addColorStop(0, "rgba(210,203,191,0.52)");
-        kGrad.addColorStop(1, "rgba(195,188,175,0.56)");
+        kGrad.addColorStop(0.66, "rgba(210,203,191,0.52)");
+        kGrad.addColorStop(1, `rgba(${r},${g},${b},0.48)`);
       } else {
         kGrad.addColorStop(0, "rgba(255,252,245,0.32)");
-        kGrad.addColorStop(0.3, "rgba(252,248,238,0.28)");
-        kGrad.addColorStop(1, "rgba(230,223,208,0.22)");
+        kGrad.addColorStop(0.66, "rgba(252,248,238,0.24)");
+        kGrad.addColorStop(1, `rgba(${r},${g},${b},0.18)`);
       }
       ctx.fillStyle = kGrad;
       ctx.beginPath();
       ctx.roundRect(bx, bTop, bw, btnH, 10);
       ctx.fill();
 
-      // Subtle border
+      // Subtle border — tinted with difficulty hue
       ctx.strokeStyle = pressed
-        ? "rgba(120,114,102,0.35)"
-        : "rgba(200,193,178,0.18)";
+        ? `rgba(${r},${g},${b},0.55)`
+        : `rgba(${r},${g},${b},0.22)`;
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.roundRect(bx, bTop, bw, btnH, 10);
@@ -1048,16 +1232,53 @@ export default function Game() {
       if (ns.hit) continue;
       if (!isRewinding && ns.missed) continue;
       const { note } = ns;
-      const lc = laneColorsRef.current[note.lane];
+      const lc = getDifficultyLaneColor(laneColorsRef.current[note.lane], songRef.current?.difficultyLevel ?? 5);
       const spawnT = note.time - AT;
       const prog = (t - spawnT) / AT;
       const noteY = prog * hitY;
 
-      if (ns.holdActive)
+      if (ns.visualLane === undefined) {
+        ns.visualLane = ns.currentLane;
+      }
+      if (Math.abs(ns.visualLane - ns.currentLane) > 0.001) {
+        ns.visualLane = lerp(ns.visualLane, ns.currentLane, 0.18);
+      } else {
+        ns.visualLane = ns.currentLane;
+      }
+
+      const isSurge = puRef.current.active === "SURGE" && t < puRef.current.endTime;
+      if (note.type === "hold" && !ns.hit && !ns.missed && !ns.holdActive && isSurge && t >= note.time) {
+        ns.holdActive = true;
+        ns.currentLane = note.lane;
+        ns.originLane = note.lane;
+        audioManager.playSfx("tap_nav", 0.12);
+      }
+
+      if (ns.holdActive) {
         ns.holdProgress = Math.min(
           1,
           (t - note.time) / (note.holdDuration || 0.5),
         );
+        if (isSurge && note.targetLane !== undefined) {
+          ns.currentLane = note.lane + (note.targetLane - note.lane) * ns.holdProgress;
+        }
+      }
+
+      if (ns.holdActive && ns.holdProgress >= 1 && isSurge) {
+        ns.hit = true;
+        ns.holdActive = false;
+        const gs = gsRef.current;
+        gs.score += calcScore(gs.combo, "PERFECT+");
+        gs.combo++;
+        gs.maxCombo = Math.max(gs.maxCombo, gs.combo);
+        gs.perfectPlus++;
+        checkPowerUps(gs.combo);
+        jRef.current = [
+          ...jRef.current.filter((x) => Date.now() - x.ts < 600),
+          { type: "PERFECT+", lane: ns.currentLane, id: ++jCounter.current, ts: Date.now() },
+        ];
+        dirty = true;
+      }
 
       // Miss detection — skip entirely during rewind (notes travel backwards; no new misses)
       if (!isRewinding && phaseRef.current === "playing") {
@@ -1068,35 +1289,85 @@ export default function Game() {
           (note.type === "hold" && !ns.holdActive && t > note.time + MW);
 
         if (isMissed) {
-          ns.missed = true;
-          const gsx = gsRef.current;
-          gsx.combo = 0;
-          gsx.misses++;
-          jRef.current = [
-            ...jRef.current.filter((x) => Date.now() - x.ts < 600),
-            {
-              type: "MISS",
-              lane: note.lane,
-              id: ++jCounter.current,
-              ts: Date.now(),
-            },
-          ];
-          muteLane(note.lane);
-          dirty = true;
-          missCountRef.current++;
-          setMissCount(missCountRef.current);
-          syncDisplay();
-          if (missCountRef.current >= 3 && optsRef.current.missSystem) {
-            const audio = audioRef.current;
-            if (audio) {
-              rewindToRef.current = Math.max(0, audio.currentTime - 2.5);
-              audio.pause();
+          const isSignalLock = puRef.current.active === "SIGNAL_LOCK" && t < puRef.current.endTime && shieldChargesRef.current > 0;
+          if (isSignalLock) {
+            shieldChargesRef.current--;
+            const activeLabel = `SIGNAL LOCK (SHIELD x${shieldChargesRef.current})`;
+            puRef.current.label = activeLabel;
+            setPuDisplay((prev) => prev ? { ...prev, label: activeLabel } : null);
+            if (shieldChargesRef.current <= 0) {
+              puRef.current.endTime = 0;
+              puRef.current.active = null;
+              setPuDisplay(null);
             }
-            cancelAnimationFrame(rafRef.current);
-            phaseRef.current = "continue";
-            setPhase("continue");
-            audioManager.playSfx("gmeover", 0.7);
-            return;
+            audioManager.playSfx("tap_nav", 0.35);
+            triggerHitFx(note.lane, "SHIELDED");
+
+            ns.hit = true;
+            const gsx = gsRef.current;
+            gsx.score += calcScore(gsx.combo, "GOOD");
+            gsx.combo++;
+            gsx.maxCombo = Math.max(gsx.maxCombo, gsx.combo);
+            gsx.goods++;
+            checkPowerUps(gsx.combo);
+            jRef.current = [
+              ...jRef.current.filter((x) => Date.now() - x.ts < 600),
+              {
+                type: "SHIELDED",
+                lane: note.lane,
+                id: ++jCounter.current,
+                ts: Date.now(),
+              },
+            ];
+            dirty = true;
+            syncDisplay();
+          } else {
+            ns.missed = true;
+            const gsx = gsRef.current;
+            gsx.combo = 0;
+            gsx.misses++;
+            // Deactivate power up on combo break
+            puRef.current.active = null;
+            puRef.current.endTime = 0;
+            setPuDisplay(null);
+            puRef.current.triggered.clear();
+
+            jRef.current = [
+              ...jRef.current.filter((x) => Date.now() - x.ts < 600),
+              {
+                type: "MISS",
+                lane: note.lane,
+                id: ++jCounter.current,
+                ts: Date.now(),
+              },
+            ];
+            muteLane(note.lane);
+            dirty = true;
+            const now = Date.now();
+            if (now - lastMissTimeRef.current > 350) {
+              missCountRef.current++;
+              lastMissTimeRef.current = now;
+            }
+            setMissCount(missCountRef.current);
+            syncDisplay();
+            if (missCountRef.current >= 3 && optsRef.current.missSystem) {
+              const audio = audioRef.current;
+              if (audio) {
+                rewindToRef.current = Math.max(0, audio.currentTime - 2.5);
+                audio.pause();
+              }
+              cancelAnimationFrame(rafRef.current);
+              if (continueUsedRef.current >= 3) {
+                // All continues exhausted — play the out-of-continues sting then fail
+                audioManager.playSfx("outof_continues", 0.85);
+                finishGame(true);
+              } else {
+                phaseRef.current = "continue";
+                setPhase("continue");
+                audioManager.playSfx("gmeover", 0.7);
+              }
+              return;
+            }
           }
           continue;
         }
@@ -1126,7 +1397,7 @@ export default function Game() {
           if (noteY > top) {
             // Determine lanes for the active trail segment
             const { x: hx, w: hw } = laneAt(endLane, headP, W);
-            const { x: ax, w: aw } = laneAt(ns.currentLane, Math.min(prog, 1), W);
+            const { x: ax, w: aw } = laneAt(ns.visualLane, Math.min(prog, 1), W);
             const midY = (top + noteY) / 2;
 
             // Trail body (Curved to player's current lane)
@@ -1155,7 +1426,7 @@ export default function Game() {
                 const t_wave = (i + (t * 2.5) % 1) / waveCount;
                 const wy = lerp(top + 6, noteY - 6, t_wave);
                 const waveP = lerp(headP, Math.min(prog, 1), t_wave);
-                const waveLane = lerp(endLane, ns.currentLane, t_wave);
+                const waveLane = lerp(endLane, ns.visualLane, t_wave);
                 const { x: wx, w: ww } = laneAt(waveLane, waveP, W);
                 const centerX = wx + ww * 0.5;
                 const amp = ww * 0.25 * (0.5 + 0.5 * Math.sin(t * 10 + i * 2.1));
@@ -1205,8 +1476,8 @@ export default function Game() {
             ctx.shadowColor = "transparent";
 
             // ── Slide direction arrow indicator at the hit line ──
-            if (note.targetLane !== undefined && ns.currentLane !== note.targetLane) {
-              const arrowDir = note.targetLane > ns.currentLane ? 1 : -1;
+            if (note.targetLane !== undefined && Math.abs(ns.visualLane - note.targetLane) > 0.05) {
+              const arrowDir = note.targetLane > ns.visualLane ? 1 : -1;
               const arrowX = ax + aw * 0.5 + arrowDir * aw * 0.35;
               const arrowY = noteY;
               const arrowPulse = 0.5 + 0.5 * Math.sin(t * 8);
@@ -1605,9 +1876,9 @@ export default function Game() {
         const active = i < missCountRef.current; // filled = miss accumulated
         ctx.save();
         ctx.globalAlpha = active ? 0.88 : 0.15;
-        ctx.fillStyle = "#FF5400";
+        ctx.fillStyle = "#FF1493";
         ctx.shadowBlur = active ? 14 : 0;
-        ctx.shadowColor = "#FF5400";
+        ctx.shadowColor = "#FF1493";
         ctx.fillRect(
           startX + i * (dotSize + dotGap),
           dotY - dotSize / 2,
@@ -1617,6 +1888,9 @@ export default function Game() {
         ctx.restore();
       }
     }
+
+    // Restore context for entire frame drawing
+    ctx.restore();
 
     // ── end check — ONLY during playing phase ──
     // Never trigger during rewind or continue. The continue screen's auto-abandon
@@ -1699,7 +1973,20 @@ export default function Game() {
         if (key === "ArrowLeft" || key === "ArrowRight") {
           for (let i = 0; i < LANE_COUNT; i++) {
             if (laneRef.current[i].pressed) {
-              const nextLane = key === "ArrowLeft" ? i - 1 : i + 1;
+              const activeHold = notesRef.current.find(
+                (n) => n.note.type === "hold" && n.holdActive && n.currentLane === i && !n.hit
+              );
+              let nextLane: number;
+              if (activeHold && activeHold.note.targetLane !== undefined) {
+                const toRight = key === "ArrowRight";
+                const isTargetInDirection = toRight
+                  ? activeHold.note.targetLane > i
+                  : activeHold.note.targetLane < i;
+                nextLane = isTargetInDirection ? activeHold.note.targetLane : (toRight ? i + 1 : i - 1);
+              } else {
+                nextLane = key === "ArrowLeft" ? i - 1 : i + 1;
+              }
+
               if (nextLane >= 0 && nextLane < LANE_COUNT) {
                 laneRef.current[i].pressed = false;
                 laneRef.current[nextLane].pressed = true;
@@ -1714,6 +2001,24 @@ export default function Game() {
 
       const lane = laneKeysRef.current.indexOf(key === " " ? " " : key.toLowerCase());
       if (lane < 0) return;
+
+      // ── Check if there is an active hold/slide note that needs to transition to this lane ──
+      const activeHold = notesRef.current.find(
+        (n) =>
+          n.note.type === "hold" &&
+          n.holdActive &&
+          n.note.targetLane === lane &&
+          n.currentLane !== lane &&
+          !n.hit
+      );
+      if (activeHold) {
+        laneRef.current[activeHold.currentLane].pressed = false;
+        laneRef.current[lane].pressed = true;
+        laneRef.current[lane].isArrow = null;
+        moveHold(activeHold.currentLane, lane);
+        return;
+      }
+
       laneRef.current[lane].pressed = true;
       laneRef.current[lane].isArrow = null;
       hitLane(lane);
@@ -1950,6 +2255,21 @@ export default function Game() {
       if (!isNaN(diffOverrideNum) && diffOverrideNum >= 1 && diffOverrideNum <= 10) {
         songRef.current.difficultyLevel = diffOverrideNum;
       }
+      // Initialize ambient particles depending on difficulty
+      const diffLvl = songRef.current.difficultyLevel;
+      const partCount = diffLvl <= 3 ? 8 : diffLvl <= 6 ? 12 : 18;
+      const ambientParts: AmbientParticle[] = [];
+      for (let i = 0; i < partCount; i++) {
+        ambientParts.push({
+          x: Math.random() * 800,
+          y: Math.random() * 600,
+          vx: (Math.random() - 0.5) * (diffLvl <= 3 ? 15 : diffLvl <= 6 ? 30 : 55),
+          vy: -30 - Math.random() * (diffLvl <= 3 ? 20 : diffLvl <= 6 ? 40 : 80),
+          size: 1.5 + Math.random() * 2.5,
+          alpha: 0.12 + Math.random() * 0.38,
+        });
+      }
+      ambientParticlesRef.current = ambientParts;
       // Pre-load + pre-blur cover art for background effect
       coverImgRef.current = null;
       coverBlurRef.current = null;
@@ -2011,15 +2331,30 @@ export default function Game() {
           holdProgress: 0,
           currentLane: note.lane,
           originLane: note.lane,
+          visualLane: note.lane,
         };
       }).filter((ns): ns is NonNullable<typeof ns> => ns !== null);
 
-      // ── Note thinning for easy difficulties ──
-      // Drop every Nth note at low difficulty to reduce density
-      if ((songRef.current?.difficultyLevel ?? 5) <= 2) {
-        notesRef.current = notesRef.current.filter((_, i) => i % 4 !== 3); // drop every 4th
-      } else if ((songRef.current?.difficultyLevel ?? 5) === 3) {
-        notesRef.current = notesRef.current.filter((_, i) => i % 5 !== 4); // drop every 5th
+      // ── Note thinning for easy difficulties (rhythm-aware temporal filtering) ──
+      const dLevel = songRef.current?.difficultyLevel ?? 5;
+      if (dLevel <= 2) {
+        let lastTime = -999;
+        notesRef.current = notesRef.current.filter(ns => {
+          if (ns.note.time - lastTime < 0.38) {
+            return false; // drop notes closer than 380ms (e.g. rapid taps)
+          }
+          lastTime = ns.note.time;
+          return true;
+        });
+      } else if (dLevel === 3) {
+        let lastTime = -999;
+        notesRef.current = notesRef.current.filter(ns => {
+          if (ns.note.time - lastTime < 0.28) {
+            return false; // drop notes closer than 280ms
+          }
+          lastTime = ns.note.time;
+          return true;
+        });
       }
       gsRef.current = {
         score: 0,
@@ -2041,6 +2376,9 @@ export default function Game() {
         duration: 0,
         triggered: new Set(),
       };
+      shieldChargesRef.current = 0;
+      lastMissTimeRef.current = 0;
+      continueUsedRef.current = 0;
       missCountRef.current = 0;
       setMissCount(0);
 
@@ -2095,13 +2433,19 @@ export default function Game() {
       setPhase("countdown");
       let count = 3;
       setCountdown(count);
+      audioManager.playSfx('countdown', 0.7);
       await new Promise<void>((resolve) => {
         const tick = setInterval(() => {
           count--;
-          if (count > 0) setCountdown(count);
+          if (count > 0) {
+            setCountdown(count);
+            audioManager.playSfx('countdown', 0.7);
+          }
           else {
             clearInterval(tick);
             setCountdown(0);
+            // "GO!" stinger
+            audioManager.playSfx('select_start_song', 0.8);
             resolve();
           }
         }, 1000);
@@ -2202,8 +2546,8 @@ export default function Game() {
         : gs.combo < 40
           ? "#E5B800"
           : gs.combo < 60
-            ? "#FF5400"
-            : "#ACE894";
+            ? "#FF1493"
+            : "#39FF14";
   const animatedScore = useAnimatedCount(gs.score);
 
   const doPause = useCallback(() => {
@@ -2211,14 +2555,14 @@ export default function Game() {
     pausedRef.current = true;
     setPaused(true);
     audioRef.current?.pause();
-    audioManager.playSfx('back', 0.5);
+    audioManager.playSfx('pause', 0.5);
   }, []);
 
   const doResume = useCallback(() => {
     if (!pausedRef.current) return;
     pausedRef.current = false;
     setPaused(false);
-    audioManager.playSfx('reveal', 0.6);
+    audioManager.playSfx('pause_2', 0.6);
     if (phaseRef.current === 'playing') {
       audioRef.current?.play().catch(() => {});
       // Restart the loop
@@ -2330,8 +2674,8 @@ export default function Game() {
         style={{
           background:
             song?.mood === "dark"
-              ? "rgba(255,84,0,0.07)"
-              : "rgba(172,232,148,0.06)",
+              ? "rgba(255,20,147,0.07)"
+              : "rgba(57,255,20,0.06)",
         }}
       />
       <div
@@ -2361,7 +2705,7 @@ export default function Game() {
               }}
               className="font-mono text-xs tracking-widest transition-colors"
               style={{ color: "hsl(30 15% 30%)" }}
-              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#FF5400")}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#FF1493")}
               onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "hsl(30 15% 30%)")}
             >
               ✕ QUIT
@@ -2378,9 +2722,9 @@ export default function Game() {
             <button
               onClick={toggleFullscreen}
               title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-              style={{ color: isFullscreen ? "#ACE894" : "hsl(30 15% 28%)", lineHeight: 1, padding: "2px 3px", transition: "color 0.15s" }}
-              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#ACE894")}
-              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = isFullscreen ? "#ACE894" : "hsl(30 15% 28%)")}
+              style={{ color: isFullscreen ? "#39FF14" : "hsl(30 15% 28%)", lineHeight: 1, padding: "2px 3px", transition: "color 0.15s" }}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#39FF14")}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = isFullscreen ? "#39FF14" : "hsl(30 15% 28%)")}
             >
               <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
                 {isFullscreen ? (
@@ -2440,8 +2784,8 @@ export default function Game() {
                     key={i}
                     style={{
                       width: 7, height: 7,
-                      background: i < missCount ? "#FF5400" : "rgba(255,255,255,0.1)",
-                      boxShadow: i < missCount ? "0 0 6px rgba(255,84,0,0.9)" : "none",
+                      background: i < missCount ? "#FF1493" : "rgba(255,255,255,0.1)",
+                      boxShadow: i < missCount ? "0 0 6px rgba(255,20,147,0.9)" : "none",
                       transition: "background 0.15s, box-shadow 0.15s",
                     }}
                   />
@@ -2487,8 +2831,8 @@ export default function Game() {
                       }}
                       style={{
                         width: 38, height: 20, position: "relative", flexShrink: 0,
-                        background: on ? "#FF5400" : "rgba(255,255,255,0.1)",
-                        border: on ? "1px solid #FF5400" : "1px solid rgba(255,255,255,0.15)",
+                        background: on ? "#FF1493" : "rgba(255,255,255,0.1)",
+                        border: on ? "1px solid #FF1493" : "1px solid rgba(255,255,255,0.15)",
                         transition: "background 0.15s",
                         cursor: "pointer",
                       }}
@@ -2509,7 +2853,7 @@ export default function Game() {
                     <div className="font-mono text-xs" style={{ color: "rgba(255,255,255,0.75)", letterSpacing: "0.15em" }}>AUDIO OFFSET</div>
                     <div className="font-mono mt-0.5" style={{ fontSize: 9, color: "rgba(255,255,255,0.2)", letterSpacing: "0.1em" }}>Sync to your speaker delay</div>
                   </div>
-                  <div className="font-mono text-xs font-bold" style={{ color: opts.audioOffset === 0 ? "#ACE894" : "#FF5400", letterSpacing: "0.1em", minWidth: 52, textAlign: "right" }}>
+                  <div className="font-mono text-xs font-bold" style={{ color: opts.audioOffset === 0 ? "#39FF14" : "#FF1493", letterSpacing: "0.1em", minWidth: 52, textAlign: "right" }}>
                     {opts.audioOffset === 0 ? "SYNCED" : opts.audioOffset > 0 ? `+${opts.audioOffset}ms` : `${opts.audioOffset}ms`}
                   </div>
                 </div>
@@ -2524,7 +2868,7 @@ export default function Game() {
                     localStorage.setItem("opt_audioOffset", String(v));
                     setOpts(o => ({ ...o, audioOffset: v }));
                   }}
-                  style={{ width: "100%", accentColor: "#FF5400", cursor: "pointer" }}
+                  style={{ width: "100%", accentColor: "#FF1493", cursor: "pointer" }}
                 />
                 <div className="flex justify-between font-mono" style={{ fontSize: 8, color: "rgba(255,255,255,0.18)", letterSpacing: "0.08em", marginTop: 2 }}>
                   <span>-150ms</span><span>0</span><span>+150ms</span>
@@ -2544,8 +2888,8 @@ export default function Game() {
               height: "100%",
               borderRadius: 999,
               width: `${(gs.progress || 0) * 100}%`,
-              background: "linear-gradient(90deg, #FF5400, #4A314D, #ACE894)",
-              boxShadow: "0 0 8px rgba(255,84,0,0.3), 0 0 16px rgba(172,232,148,0.15)",
+              background: "linear-gradient(90deg, #FF1493, #00E5FF, #39FF14)",
+              boxShadow: "0 0 8px rgba(255,20,147,0.3), 0 0 16px rgba(57,255,20,0.15)",
               transition: "width 0.2s linear",
             }}
           />
@@ -2608,10 +2952,12 @@ export default function Game() {
               j.type === "PERFECT+"
                 ? "#E5B800"
                 : j.type === "PERFECT"
-                  ? "#ACE894"
+                  ? "#39FF14"
                   : j.type === "GOOD"
-                    ? "#4A314D"
-                    : "#444";
+                    ? "#00E5FF"
+                    : j.type === "SHIELDED"
+                      ? "#00FFDD"
+                      : "#FF1493";
             return (
               <div
                 key={j.id}
@@ -2638,9 +2984,10 @@ export default function Game() {
             const age = (Date.now() - latest.ts) / 400;
             const color =
               latest.type === "PERFECT+" ? "#E5B800"
-                : latest.type === "PERFECT" ? "#ACE894"
-                : latest.type === "GOOD" ? "#4A314D"
-                : latest.type === "MISS" ? "#FF5400"
+                : latest.type === "PERFECT" ? "#39FF14"
+                : latest.type === "GOOD" ? "#00E5FF"
+                : latest.type === "SHIELDED" ? "#00FFDD"
+                : latest.type === "MISS" ? "#FF1493"
                 : "#444";
             return (
               <div
@@ -2669,7 +3016,7 @@ export default function Game() {
             >
               <div
                 className="font-mono text-xs tracking-[0.3em]"
-                style={{ color: "#ACE894", textShadow: "0 0 10px rgba(172,232,148,0.3)" }}
+                style={{ color: "#39FF14", textShadow: "0 0 10px rgba(57,255,20,0.3)" }}
               >
                 {loadMsg}
               </div>
@@ -2703,7 +3050,7 @@ export default function Game() {
                     style={{ height: 4, borderRadius: 999, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}
                   >
                     <div
-                      style={{ height: "100%", borderRadius: 999, width: `${bufferPct}%`, background: "linear-gradient(90deg, #FF5400, #FF7A33)", boxShadow: "0 0 8px rgba(255,84,0,0.3)" }}
+                      style={{ height: "100%", borderRadius: 999, width: `${bufferPct}%`, background: "linear-gradient(90deg, #FF1493, #FF7A33)", boxShadow: "0 0 8px rgba(255,20,147,0.3)" }}
                     />
                   </div>
                   <div
@@ -2770,7 +3117,7 @@ export default function Game() {
               </div>
               <div
                 className="font-mono font-bold tracking-[0.2em] text-center"
-                style={{ fontSize: 28, color: "#FF5400", textShadow: "0 0 40px rgba(255,84,0,0.7)" }}
+                style={{ fontSize: 28, color: "#FF1493", textShadow: "0 0 40px rgba(255,20,147,0.7)" }}
               >
                 TAP TO START
               </div>
@@ -2798,10 +3145,10 @@ export default function Game() {
                   fontSize: 120,
                   lineHeight: 1,
                   background:
-                    "linear-gradient(135deg, #FF5400, #4A314D, #ACE894)",
+                    "linear-gradient(135deg, #FF1493, #00E5FF, #39FF14)",
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
-                  filter: "drop-shadow(0 0 40px rgba(74,49,77,0.6))",
+                  filter: "drop-shadow(0 0 40px rgba(0,229,255,0.6))",
                   animation: "slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both",
                 }}
               >
@@ -2820,18 +3167,26 @@ export default function Game() {
               }}
             >
               {/* Header */}
-              <div
-                className="font-mono font-bold tracking-[0.35em]"
-                style={{
-                  fontSize: 28,
-                  color: "#FF5400",
-                  textShadow: "0 0 40px rgba(255,84,0,0.9)",
-                }}
-              >
-                SIGNAL LOST
+              <div className="flex flex-col items-center gap-2">
+                <div
+                  className="font-mono font-bold tracking-[0.35em]"
+                  style={{
+                    fontSize: 28,
+                    color: "#FF1493",
+                    textShadow: "0 0 40px rgba(255,20,147,0.9)",
+                  }}
+                >
+                  SIGNAL LOST
+                </div>
+                <div
+                  className="font-mono text-xs tracking-[0.25em]"
+                  style={{ color: "rgba(255,255,255,0.35)" }}
+                >
+                  {3 - continueUsedRef.current} CONTINUE{3 - continueUsedRef.current !== 1 ? "S" : ""} REMAINING
+                </div>
               </div>
 
-              {/* Miss pips — all 3 lit = why we're here */}
+              {/* 3 miss pips — all lit */}
               <div className="flex flex-col items-center gap-2">
                 <div
                   className="font-mono text-xs tracking-[0.25em]"
@@ -2846,12 +3201,60 @@ export default function Game() {
                       style={{
                         width: 16,
                         height: 16,
-                        background: "#FF5400",
-                        boxShadow: "0 0 14px rgba(255,84,0,0.75)",
+                        background: "#FF1493",
+                        boxShadow: "0 0 14px rgba(255,20,147,0.75)",
                       }}
                     />
                   ))}
                 </div>
+              </div>
+
+              {/* Continue bank — shows how many are used/remaining */}
+              <div className="flex flex-col items-center gap-2">
+                <div
+                  className="font-mono text-xs tracking-[0.25em]"
+                  style={{ color: "rgba(255,255,255,0.28)" }}
+                >
+                  CONTINUES
+                </div>
+                <div className="flex gap-3">
+                  {[0, 1, 2].map((i) => {
+                    const used = continueUsedRef.current;
+                    // Slots 0..used-1 are spent, current one is being used (pulse), rest available
+                    const isSpent = i < used;
+                    const isCurrent = i === used;
+                    return (
+                      <div
+                        key={i}
+                        style={{
+                          width: 14,
+                          height: 14,
+                          borderRadius: "50%",
+                          background: isSpent
+                            ? "rgba(255,255,255,0.08)"
+                            : isCurrent
+                            ? "#FF1493"
+                            : "rgba(255,20,147,0.35)",
+                          border: isSpent
+                            ? "1.5px solid rgba(255,255,255,0.12)"
+                            : `1.5px solid #FF1493`,
+                          boxShadow: isCurrent
+                            ? "0 0 12px rgba(255,20,147,0.9)"
+                            : "none",
+                          transition: "all 0.3s ease",
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+                {continueUsedRef.current >= 2 && (
+                  <div
+                    className="font-mono text-xs tracking-[0.2em]"
+                    style={{ color: "rgba(255,80,80,0.8)" }}
+                  >
+                    LAST CHANCE
+                  </div>
+                )}
               </div>
 
               {/* Continue button */}
@@ -2859,11 +3262,11 @@ export default function Game() {
                 onClick={doReturn}
                 className="font-mono font-bold tracking-[0.3em] px-10 py-3"
                 style={{
-                  background: "rgba(255,84,0,0.12)",
-                  border: "2px solid #FF5400",
-                  color: "#FF5400",
-                  textShadow: "0 0 20px rgba(255,84,0,0.7)",
-                  boxShadow: "0 0 30px rgba(255,84,0,0.2)",
+                  background: "rgba(255,20,147,0.12)",
+                  border: "2px solid #FF1493",
+                  color: "#FF1493",
+                  textShadow: "0 0 20px rgba(255,20,147,0.7)",
+                  boxShadow: "0 0 30px rgba(255,20,147,0.2)",
                   clipPath:
                     "polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%)",
                 }}
@@ -2898,6 +3301,7 @@ export default function Game() {
             </div>
           )}
 
+
           {/* Rewinding overlay — VHS tape rewind visual */}
           {phase === "rewinding" && (
             <div
@@ -2920,8 +3324,8 @@ export default function Game() {
                   className="font-mono font-bold rewind-flicker"
                   style={{
                     fontSize: 34,
-                    color: "#ACE894",
-                    textShadow: "0 0 40px rgba(172,232,148,0.9)",
+                    color: "#39FF14",
+                    textShadow: "0 0 40px rgba(57,255,20,0.9)",
                     letterSpacing: "0.28em",
                   }}
                 >
@@ -2930,7 +3334,7 @@ export default function Game() {
                 <div
                   className="font-mono text-xs"
                   style={{
-                    color: "rgba(172,232,148,0.4)",
+                    color: "rgba(57,255,20,0.4)",
                     letterSpacing: "0.2em",
                   }}
                 >

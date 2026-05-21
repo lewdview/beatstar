@@ -32,7 +32,7 @@ export interface ScoreEntry {
   timestamp: number;
 }
 
-export type JudgmentType = 'PERFECT+' | 'PERFECT' | 'GOOD' | 'MISS';
+export type JudgmentType = 'PERFECT+' | 'PERFECT' | 'GOOD' | 'MISS' | 'SHIELDED';
 
 export interface JudgmentDisplay {
   type: JudgmentType;

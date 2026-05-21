@@ -1,15 +1,16 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { loadOpts, resetOpts, keyLabel, type GameOpts } from "@/lib/options";
+import { clearCatalogCache } from "@/game/api";
 
 // ── colour palette presets (8 per lane, thematically grouped) ────
 const COLOR_PRESETS: [string[], string[], string[]] = [
   // Lane 0 — warm / fire
-  ["#FF5400", "#FF0000", "#FF8C00", "#E5B800", "#FF1493", "#CC2200", "#FF6B6B", "#FFD700"],
+  ["#FF1493", "#FF0000", "#FF8C00", "#E5B800", "#FF5400", "#CC2200", "#FF6B6B", "#FFD700"],
   // Lane 1 — cool / deep
-  ["#4A314D", "#6B21A8", "#1E3A8A", "#0891B2", "#7C3AED", "#059669", "#831843", "#374151"],
+  ["#00E5FF", "#6B21A8", "#1E3A8A", "#0891B2", "#7C3AED", "#059669", "#831843", "#374151"],
   // Lane 2 — fresh / neon
-  ["#ACE894", "#22C55E", "#10B981", "#06B6D4", "#84CC16", "#A78BFA", "#FDE047", "#F0F0F0"],
+  ["#39FF14", "#22C55E", "#10B981", "#06B6D4", "#84CC16", "#A78BFA", "#FDE047", "#F0F0F0"],
 ];
 
 // Common keys displayed for mobile remapping
@@ -28,8 +29,8 @@ function Toggle({ on, onChange }: { on: boolean; onChange: () => void }) {
       onClick={onChange}
       style={{
         width: 44, height: 24, position: "relative", flexShrink: 0,
-        background: on ? "#FF5400" : "rgba(255,255,255,0.08)",
-        border: on ? "2px solid #FF5400" : "2px solid rgba(255,255,255,0.12)",
+        background: on ? "#FF1493" : "rgba(255,255,255,0.08)",
+        border: on ? "2px solid #FF1493" : "2px solid rgba(255,255,255,0.12)",
         transition: "background 0.15s, border-color 0.15s",
         cursor: "pointer",
       }}
@@ -46,7 +47,7 @@ function SectionLabel({ label, sub }: { label: string; sub?: string }) {
   return (
     <div className="flex items-baseline justify-between"
       style={{ borderBottom: "2px solid rgba(255,255,255,0.08)", paddingBottom: 10, marginBottom: 0 }}>
-      <div className="font-mono font-bold tracking-[0.35em]" style={{ fontSize: 11, color: "#FF5400" }}>{label}</div>
+      <div className="font-mono font-bold tracking-[0.35em]" style={{ fontSize: 11, color: "#FF1493" }}>{label}</div>
       {sub && <div className="font-mono" style={{ fontSize: 9, color: "rgba(255,255,255,0.22)", letterSpacing: "0.15em" }}>{sub}</div>}
     </div>
   );
@@ -79,20 +80,20 @@ function BeatVisualizer({ offsetMs }: { offsetMs: number }) {
         position: "absolute", top: "50%", left: `${beatPos * 100}%`,
         transform: "translate(-50%, -50%)",
         width: 12, height: 12, borderRadius: "50%",
-        background: "#ACE894", boxShadow: "0 0 10px #ACE894",
+        background: "#39FF14", boxShadow: "0 0 10px #39FF14",
       }} />
       {/* TAP dot — drifts */}
       <div style={{
         position: "absolute", top: "50%", left: `${tapPos * 100}%`,
         transform: "translate(-50%, -50%)",
         width: 12, height: 12, borderRadius: "50%",
-        background: "#FF5400", boxShadow: "0 0 10px #FF5400",
+        background: "#FF1493", boxShadow: "0 0 10px #FF1493",
         transition: "left 0.08s linear",
       }} />
 
       {/* labels */}
-      <div style={{ position: "absolute", bottom: 3, left: `${beatPos * 100}%`, transform: "translateX(-50%)", fontFamily: "monospace", fontSize: 7, color: "#ACE894", letterSpacing: "0.1em" }}>BEAT</div>
-      <div style={{ position: "absolute", top: 3, left: `${tapPos * 100}%`, transform: "translateX(-50%)", fontFamily: "monospace", fontSize: 7, color: "#FF5400", letterSpacing: "0.1em" }}>TAP</div>
+      <div style={{ position: "absolute", bottom: 3, left: `${beatPos * 100}%`, transform: "translateX(-50%)", fontFamily: "monospace", fontSize: 7, color: "#39FF14", letterSpacing: "0.1em" }}>BEAT</div>
+      <div style={{ position: "absolute", top: 3, left: `${tapPos * 100}%`, transform: "translateX(-50%)", fontFamily: "monospace", fontSize: 7, color: "#FF1493", letterSpacing: "0.1em" }}>TAP</div>
     </div>
   );
 }
@@ -141,10 +142,15 @@ export default function Options() {
     setOpts(o => ({ ...o, laneColors: newColors }));
   }
 
-  function toggle(k: "missSystem" | "hudMisses" | "comboDisplay" | "judgmentText") {
+  function toggle(k: "missSystem" | "hudMisses" | "comboDisplay" | "judgmentText" | "useLocalFiles") {
     const v = !opts[k];
     localStorage.setItem(`opt_${k}`, String(v));
     setOpts(o => ({ ...o, [k]: v }));
+    
+    // Clear catalog cache if we toggled the local files switch
+    if (k === "useLocalFiles") {
+      clearCatalogCache();
+    }
   }
 
   function handleReset() {
@@ -176,7 +182,7 @@ export default function Options() {
         >
           <span className="font-mono text-xs tracking-[0.25em] flex items-center gap-1.5 transition-colors"
             style={{ color: "rgba(255,255,255,0.4)" }}
-            onMouseEnter={e => (e.currentTarget.style.color = "#FF5400")}
+            onMouseEnter={e => (e.currentTarget.style.color = "#FF1493")}
             onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}>
             ← BACK
           </span>
@@ -191,8 +197,8 @@ export default function Options() {
           className="font-mono text-xs tracking-[0.2em] transition-all"
           style={{
             background: "none",
-            border: `1px solid ${resetState === "confirm" ? "#FF5400" : "rgba(255,84,0,0.25)"}`,
-            color: resetState === "confirm" ? "#FF5400" : "rgba(255,84,0,0.4)",
+            border: `1px solid ${resetState === "confirm" ? "#FF1493" : "rgba(255,20,147,0.25)"}`,
+            color: resetState === "confirm" ? "#FF1493" : "rgba(255,20,147,0.4)",
             padding: "4px 10px", cursor: "pointer", whiteSpace: "nowrap",
           }}
         >
@@ -329,7 +335,7 @@ export default function Options() {
                 OFFSET
               </div>
               <div className="font-mono font-bold"
-                style={{ fontSize: 18, letterSpacing: "0.08em", color: opts.audioOffset === 0 ? "#ACE894" : "#FF5400" }}>
+                style={{ fontSize: 18, letterSpacing: "0.08em", color: opts.audioOffset === 0 ? "#39FF14" : "#FF1493" }}>
                 {opts.audioOffset === 0 ? "SYNCED" : opts.audioOffset > 0 ? `+${opts.audioOffset} ms` : `${opts.audioOffset} ms`}
               </div>
             </div>
@@ -341,7 +347,7 @@ export default function Options() {
                   localStorage.setItem("opt_audioOffset", String(v));
                   setOpts(o => ({ ...o, audioOffset: v }));
                 }}
-                style={{ width: "100%", accentColor: "#FF5400", cursor: "pointer" }}
+                style={{ width: "100%", accentColor: "#FF1493", cursor: "pointer" }}
               />
               <div className="flex justify-between font-mono mt-0.5"
                 style={{ fontSize: 8, color: "rgba(255,255,255,0.18)", letterSpacing: "0.05em" }}>
@@ -355,6 +361,42 @@ export default function Options() {
                 NOTES PASS BEFORE YOU HEAR THE BEAT → DRAG LEFT<br />
                 YOU HEAR THE BEAT BEFORE NOTES PASS → DRAG RIGHT
               </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── CHART GENERATION ──────────────────────────────────── */}
+        <section className="flex flex-col gap-3">
+          <SectionLabel label="CHART GENERATION" sub="Note mapping engine" />
+          <div style={{ border: "2px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.015)", padding: 12 }}>
+            <div className="flex gap-2">
+              {(["auto", "lyrics", "bpm"] as const).map(mode => {
+                const active = opts.noteGenerationSource === mode;
+                return (
+                  <button
+                    key={mode}
+                    onClick={() => {
+                      localStorage.setItem("opt_noteGenerationSource", mode);
+                      setOpts(o => ({ ...o, noteGenerationSource: mode }));
+                      clearCatalogCache();
+                    }}
+                    className="font-mono text-xs font-bold flex-1 py-2.5 transition-all"
+                    style={{
+                      background: active ? "#FF1493" : "rgba(255,255,255,0.04)",
+                      border: `1px solid ${active ? "#FF1493" : "rgba(255,255,255,0.12)"}`,
+                      color: active ? "#fff" : "rgba(255,255,255,0.4)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {mode.toUpperCase()}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="font-mono mt-3" style={{ fontSize: 9, color: "rgba(255,255,255,0.2)", letterSpacing: "0.12em", lineHeight: 1.6 }}>
+              {opts.noteGenerationSource === "auto" && "AUTO: Map from lyrics if available, fallback to BPM rhythm patterns."}
+              {opts.noteGenerationSource === "lyrics" && "LYRICS: Force mapping notes synced to song vocal syllables (requires lyrics)."}
+              {opts.noteGenerationSource === "bpm" && "BPM: Force mapping notes using structured tempo/BPM patterns."}
             </div>
           </div>
         </section>
@@ -376,6 +418,34 @@ export default function Options() {
                   <div>
                     <div className="font-mono text-xs tracking-[0.15em]"
                       style={{ color: on ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.28)" }}>
+                      {label}
+                    </div>
+                    <div className="font-mono mt-0.5"
+                      style={{ fontSize: 9, color: "rgba(255,255,255,0.18)", letterSpacing: "0.1em" }}>
+                      {sub}
+                    </div>
+                  </div>
+                  <Toggle on={on} onChange={() => toggle(key)} />
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* ── DEVELOPMENT ───────────────────────────────────────── */}
+        <section className="flex flex-col gap-3">
+          <SectionLabel label="DEVELOPMENT" sub="Debug & local overrides" />
+          <div style={{ border: "2px solid rgba(255,255,255,0.08)" }}>
+            {([
+              { key: "useLocalFiles", label: "LOCAL RELEASE DATA", sub: "Use local /365-releases when Supabase is down" },
+            ] as const).map(({ key, label, sub }, i, arr) => {
+              const on = opts[key];
+              return (
+                <div key={key} className="flex items-center justify-between px-4 py-3"
+                  style={{ borderBottom: i < arr.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
+                  <div>
+                    <div className="font-mono text-xs tracking-[0.15em]"
+                      style={{ color: on ? "#FF1493" : "rgba(255,255,255,0.28)" }}>
                       {label}
                     </div>
                     <div className="font-mono mt-0.5"

@@ -232,7 +232,7 @@
    ───────────────────────────────────────────────────────────────── */
 .neon-btn {
   position: relative;
-  background: linear-gradient(135deg, #FF5400 0%, #FF8A00 100%);
+  background: linear-gradient(135deg, #FF1493 0%, #FF8A00 100%);
   color: #fff;
   font-family: var(--app-font-mono);
   font-weight: 700;
@@ -243,15 +243,15 @@
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.23, 1, 0.32, 1);
   box-shadow:
-    0 0 20px rgba(255, 84, 0, 0.2),
-    0 10px 20px -5px rgba(255, 84, 0, 0.3);
+    0 0 20px rgba(255, 20, 147, 0.2),
+    0 10px 20px -5px rgba(255, 20, 147, 0.3);
 }
 
 .neon-btn:hover {
   transform: translateY(-2px) scale(1.01);
   box-shadow:
-    0 0 35px rgba(255, 84, 0, 0.4),
-    0 15px 30px -5px rgba(255, 84, 0, 0.4);
+    0 0 35px rgba(255, 20, 147, 0.4),
+    0 15px 30px -5px rgba(255, 20, 147, 0.4);
 }
 
 .neon-btn:active {
@@ -334,7 +334,7 @@
 }
 
 .text-gradient-primary {
-  background: linear-gradient(to right, #FF5400, #FFBD00);
+  background: linear-gradient(to right, #FF1493, #FFBD00);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -379,8 +379,8 @@
 
 /* Lane color definitions */
 :root {
-  --lane-0: #FF5400;
-  --lane-1: #ACE894;
+  --lane-0: #FF1493;
+  --lane-1: #39FF14;
   --lane-2: #E5B800;
   --lane-3: #8B48E5;
 }
@@ -417,8 +417,8 @@
 
 /* Soft pulsing glow for active/selected states */
 @keyframes breathe {
-  0%, 100% { box-shadow: 0 0 8px var(--breathe-color, rgba(255,84,0,0.3)); }
-  50%      { box-shadow: 0 0 22px var(--breathe-color, rgba(255,84,0,0.5)), 0 0 44px var(--breathe-color, rgba(255,84,0,0.15)); }
+  0%, 100% { box-shadow: 0 0 8px var(--breathe-color, rgba(255,20,147,0.3)); }
+  50%      { box-shadow: 0 0 22px var(--breathe-color, rgba(255,20,147,0.5)), 0 0 44px var(--breathe-color, rgba(255,20,147,0.15)); }
 }
 .breathe-glow {
   animation: breathe 2.5s ease-in-out infinite;
@@ -471,11 +471,11 @@
   width: 100%;
 }
 .glitch-text::before {
-  color: #FF5400;
+  color: #FF1493;
   animation: glitch 4s infinite;
 }
 .glitch-text::after {
-  color: #ACE894;
+  color: #39FF14;
   animation: glitch2 4s infinite 0.1s;
 }
 
@@ -531,7 +531,7 @@
 @keyframes scoreFlash {
   0%   { background: rgba(255,255,255,0.0); }
   15%  { background: rgba(255,255,255,0.12); }
-  40%  { background: rgba(74,49,77,0.08); }
+  40%  { background: rgba(0,229,255,0.08); }
   100% { background: rgba(255,255,255,0.0); }
 }
 .score-flash {
@@ -571,7 +571,7 @@
   100%{ clip-path: inset(55% 0 30% 0); transform: translateX(6px);  opacity: 0.35; }
 }
 .rewind-glitch {
-  background: linear-gradient(180deg, rgba(172,232,148,0.12) 0%, transparent 40%, rgba(255,84,0,0.08) 100%);
+  background: linear-gradient(180deg, rgba(57,255,20,0.12) 0%, transparent 40%, rgba(255,20,147,0.08) 100%);
   animation: rewindGlitch 0.09s steps(1) infinite;
 }
 

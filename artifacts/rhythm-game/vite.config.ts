@@ -50,7 +50,8 @@ export default defineConfig({
       "/api": "http://localhost:8080",
     },
     fs: {
-      strict: true,
+      strict: false,
+      allow: ["..", "/Volumes/extremeUno/th3scr1b3-365-warp/365-releases"],
     },
   },
   preview: {

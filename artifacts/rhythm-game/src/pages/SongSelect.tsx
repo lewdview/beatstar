@@ -4,7 +4,7 @@ import { loadCatalog, getHighScore, isSongTimeLocked } from "@/game/api";
 import type { GameSong } from "@/game/api";
 import { audioManager } from "@/game/audio";
 
-const LANE_COLORS = ['#FF5400', '#ACE894', '#E5B800', '#8B48E5'];
+const LANE_COLORS = ['#FF1493', '#39FF14', '#E5B800', '#8B48E5'];
 
 function DiffBars({ level }: { level: number }) {
   return (
@@ -27,7 +27,7 @@ function DiffBars({ level }: { level: number }) {
 
 function CoverArt({ src, title, mood }: { src: string | null; title: string; mood: 'light' | 'dark' }) {
   const [err, setErr] = useState(false);
-  const moodColor = mood === 'light' ? '#ACE894' : '#FF5400';
+  const moodColor = mood === 'light' ? '#39FF14' : '#FF1493';
   
   if (!src || err) {
     return (
@@ -66,7 +66,7 @@ function SongRow({ song, selected, onClick }: {
   onClick: () => void;
 }) {
   const hs = getHighScore(song.id);
-  const moodColor = song.mood === 'light' ? '#ACE894' : '#FF5400';
+  const moodColor = song.mood === 'light' ? '#39FF14' : '#FF1493';
   const durMin = Math.floor(song.duration / 60);
   const durSec = String(Math.round(song.duration % 60)).padStart(2, '0');
 
@@ -120,7 +120,7 @@ function SongRow({ song, selected, onClick }: {
           </span>
           <DiffBars level={song.difficultyLevel} />
           {hs > 0 && (
-            <span className="font-mono text-[10px] font-black ml-auto" style={{ color: '#ACE894', textShadow: '0 0 8px rgba(172,232,148,0.4)' }}>
+            <span className="font-mono text-[10px] font-black ml-auto" style={{ color: '#39FF14', textShadow: '0 0 8px rgba(57,255,20,0.4)' }}>
               {hs.toLocaleString()}
             </span>
           )}
@@ -180,7 +180,7 @@ export default function SongSelect() {
         >
           ← BACK
         </button>
-        <div className="font-mono text-xs tracking-widest" style={{ color: '#ACE894', textShadow: '0 0 8px rgba(172,232,148,0.3)' }}>
+        <div className="font-mono text-xs tracking-widest" style={{ color: '#39FF14', textShadow: '0 0 8px rgba(57,255,20,0.3)' }}>
           {loading ? 'LOADING TRANSMISSIONS...' : `${songs.length} TRANSMISSIONS`}
         </div>
         <div className="font-mono text-xs" style={{ color: 'hsl(30 15% 35%)' }}>
@@ -207,9 +207,9 @@ export default function SongSelect() {
                   color: '#F2EDE5',
                 }}
                 onFocus={(e) => { 
-                  (e.target as HTMLElement).style.borderColor = 'rgba(255,84,0,0.5)'; 
+                  (e.target as HTMLElement).style.borderColor = 'rgba(255,20,147,0.5)'; 
                   (e.target as HTMLElement).style.background = 'rgba(255,255,255,0.05)';
-                  (e.target as HTMLElement).style.boxShadow = '0 0 20px rgba(255,84,0,0.1)'; 
+                  (e.target as HTMLElement).style.boxShadow = '0 0 20px rgba(255,20,147,0.1)'; 
                 }}
                 onBlur={(e) => { 
                   (e.target as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)'; 
@@ -230,10 +230,10 @@ export default function SongSelect() {
                   onClick={() => { setMoodFilter(m); setShowCount(50); }}
                   className="font-mono text-[10px] font-bold px-4 py-2 tracking-widest transition-all duration-200 rounded-full uppercase"
                   style={{
-                    background: moodFilter === m ? 'linear-gradient(135deg, #FF5400, #FF8A00)' : 'rgba(255,255,255,0.04)',
+                    background: moodFilter === m ? 'linear-gradient(135deg, #FF1493, #FF8A00)' : 'rgba(255,255,255,0.04)',
                     color: moodFilter === m ? '#fff' : 'rgba(255,255,255,0.4)',
                     border: `1px solid ${moodFilter === m ? 'transparent' : 'rgba(255,255,255,0.08)'}`,
-                    boxShadow: moodFilter === m ? '0 5px 15px rgba(255,84,0,0.25)' : 'none',
+                    boxShadow: moodFilter === m ? '0 5px 15px rgba(255,20,147,0.25)' : 'none',
                   }}
                 >
                   {m}
@@ -266,7 +266,7 @@ export default function SongSelect() {
           <div className="flex-1 overflow-y-auto px-2 py-2 scroll-smooth">
             {loading ? (
               <div className="flex flex-col items-center justify-center h-48 gap-4">
-                <div className="font-mono text-[10px] font-bold tracking-[0.4em] text-glow uppercase" style={{ color: '#FF5400' }}>
+                <div className="font-mono text-[10px] font-bold tracking-[0.4em] text-glow uppercase" style={{ color: '#FF1493' }}>
                   SYNCHRONIZING ARCHIVES...
                 </div>
                 <div className="flex gap-2">
@@ -301,7 +301,7 @@ export default function SongSelect() {
                     style={{
                       color: 'rgba(255,255,255,0.4)',
                     }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#ACE894'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(172,232,148,0.3)'; }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#39FF14'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(57,255,20,0.3)'; }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.4)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)'; }}
                   >
                     LOAD MORE ({filtered.length - showCount} REMAINING)
@@ -325,7 +325,7 @@ export default function SongSelect() {
                         src={selected.coverArt}
                         alt={selected.title}
                         className="w-64 h-64 object-cover transition-transform duration-700 group-hover:scale-110"
-                        style={{ boxShadow: `0 20px 40px rgba(0,0,0,0.6), 0 0 30px ${selected.mood === 'light' ? 'rgba(172,232,148,0.15)' : 'rgba(255,84,0,0.15)'}` }}
+                        style={{ boxShadow: `0 20px 40px rgba(0,0,0,0.6), 0 0 30px ${selected.mood === 'light' ? 'rgba(57,255,20,0.15)' : 'rgba(255,20,147,0.15)'}` }}
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                     </div>
@@ -339,9 +339,9 @@ export default function SongSelect() {
                   )}
                   <div className="absolute -top-3 -left-3 pill-badge font-black text-[11px]"
                     style={{
-                      background: selected.mood === 'light' ? '#ACE894' : '#FF5400',
+                      background: selected.mood === 'light' ? '#39FF14' : '#FF1493',
                       color: '#000',
-                      boxShadow: `0 10px 20px -5px ${selected.mood === 'light' ? 'rgba(172,232,148,0.5)' : 'rgba(255,84,0,0.5)'}`
+                      boxShadow: `0 10px 20px -5px ${selected.mood === 'light' ? 'rgba(57,255,20,0.5)' : 'rgba(255,20,147,0.5)'}`
                     }}
                   >
                     DAY {selected.day}
@@ -359,7 +359,7 @@ export default function SongSelect() {
                   {selected.title}
                 </h2>
 
-                <div className="font-mono font-bold text-base mb-6 tracking-[0.1em]" style={{ color: selected.mood === 'light' ? '#ACE894' : '#FF5400' }}>
+                <div className="font-mono font-bold text-base mb-6 tracking-[0.1em]" style={{ color: selected.mood === 'light' ? '#39FF14' : '#FF1493' }}>
                   {selected.artist}
                 </div>
 
@@ -410,7 +410,7 @@ export default function SongSelect() {
                   {getHighScore(selected.id) > 0 && (
                     <div className="text-right">
                       <div className="font-mono text-[9px] font-bold mb-1 tracking-wider uppercase" style={{ color: 'rgba(255,255,255,0.3)' }}>MAX SCORE</div>
-                      <div className="font-mono font-black text-xl text-glow" style={{ color: '#ACE894' }}>
+                      <div className="font-mono font-black text-xl text-glow" style={{ color: '#39FF14' }}>
                         {getHighScore(selected.id).toLocaleString()}
                       </div>
                     </div>

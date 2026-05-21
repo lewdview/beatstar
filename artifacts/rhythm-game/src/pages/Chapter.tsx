@@ -8,7 +8,7 @@ import { CHAPTERS, calculateCampaignDifficulty } from "@/game/campaign";
 
 
 const MEDAL_COLOR: Record<string, string> = {
-  PLATINUM: '#ACE894', GOLD: '#E5B800', SILVER: '#A0AABB', BRONZE: '#C97A3A', NONE: '#333', '': '#1a1a1a',
+  PLATINUM: '#39FF14', GOLD: '#E5B800', SILVER: '#A0AABB', BRONZE: '#C97A3A', NONE: '#333', '': '#1a1a1a',
 };
 const MEDAL_ABBR: Record<string, string> = {
   PLATINUM: 'PT', GOLD: 'GO', SILVER: 'SI', BRONZE: 'BR', NONE: '—', '': '?',
@@ -84,7 +84,7 @@ function StageRow({ song, stageNum, isBonus, locked, lockReason, dc, from, diffi
         <div className="flex items-center gap-2.5">
           <span className="font-mono" style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.15em' }}>DAY {song.day}</span>
           {!timeLock && <>
-            <span className="font-mono font-bold" style={{ fontSize: 9, color: difficultyLevel >= 9 ? '#FF5400' : difficultyLevel >= 7 ? '#E5B800' : 'rgba(255,255,255,0.3)', letterSpacing: '0.15em' }}>LVL {difficultyLevel}</span>
+            <span className="font-mono font-bold" style={{ fontSize: 9, color: difficultyLevel >= 9 ? '#FF1493' : difficultyLevel >= 7 ? '#E5B800' : 'rgba(255,255,255,0.3)', letterSpacing: '0.15em' }}>LVL {difficultyLevel}</span>
             <span className="font-mono" style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.15em' }}>{song.bpm}BPM</span>
           </>}
         </div>

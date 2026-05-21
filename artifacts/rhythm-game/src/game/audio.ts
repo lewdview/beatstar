@@ -10,43 +10,137 @@
 
 export type SfxName =
   | 'back'
-  | 'rewind1'
-  | 'rewind2'
+  | 'rewind'
   | 'gmeover'
   | 'fusion'
   | 'gold_get'
+  | 'silver_get'
+  | 'bronxe_get'
+  | 'diamond'
+  | 'mythic_get'
+  | 'platinum_get'
   | 'reveal'
   | 'open_chest'
   | 'bing_before_platinum'
   | 'queue_before_mythic'
-  | 'tap_nav';
+  | 'tap_nav'
+  | 'continue?'
+  | 'countdown'
+  | 'gameover_countdown'
+  | 'outof_continues'
+  | 'perfect'
+  | 'results'
+  | 'resuts2'
+  | 'select_high_short'
+  | 'select_start_song'
+  | 'song_completion'
+  | 'locked_out'
+  | 'not_enough'
+  | 'error'
+  | 'hidden_secret_found'
+  | 'new_modes_available'
+  | 'pause'
+  | 'pause_2'
+  | 'intro'
+  | 'intro_2'
+  | 'intro3'
+  | 'cas_slam_down'
+  | 'case_open_2'
+  | 'open_basic'
+  | 'open_basic_2'
+  | 'open_case'
+  | 'by_th3scr1b3'
+  | 'inbetween'
+  | 'crowd'
+  | 'month_3';
 
-/** Canonical file mapping — keeps messy filenames out of call sites. */
+const REWIND_TRACKS = [
+  'rewind1', 'rewind2', 'rewind3', 'rewind4',
+  'rewind5', 'rewind6', 'rewind7', 'rewind8'
+];
+
+let nextRewindIdx = Math.floor(Math.random() * REWIND_TRACKS.length);
+
+// ── Canonical filename map ─────────────────────────────────────────────────
+// Maps logical SFX names to actual filenames on disk (no .wav extension).
+// Typos / spaces in actual filenames are contained here so callers never
+// need to know about them.
 const SFX_FILES: Record<SfxName, string> = {
   back:                   'back',
-  rewind1:                'rewind1',
-  rewind2:                'rewind2',
+  rewind:                 'rewind1',         // dynamically cycled — see playSfx()
   gmeover:                'gmeover',
   fusion:                 'fusion',
-  gold_get:               'gold_get',
+  gold_get:               'gold_voice_get',
+  silver_get:             'silver_get',
+  bronxe_get:             'bronxe_get',
+  diamond:                'diamond',
+  mythic_get:             'mythic_get',
+  platinum_get:           'platinum _get_voice',  // space intentional — matches disk
   reveal:                 'reveal',
   open_chest:             'open_chest',
-  bing_before_platinum:   'bing befre pltinum',
+  bing_before_platinum:   'bing befre pltinum',   // typo intentional — matches disk
   queue_before_mythic:    'que_before_mythic',
-  tap_nav:                'back',  // re-use click sound for generic navigation taps
+  // Navigation tap — crisp short blip, NOT the back sound
+  tap_nav:                'select_high_short',
+  'continue?':            'continue?',
+  countdown:              'countdown',
+  gameover_countdown:     'gameover_countdown',
+  outof_continues:        'outof_continues',
+  perfect:                'perfect',
+  results:                'results',
+  resuts2:                'resuts2',
+  select_high_short:      'select_high_short',
+  select_start_song:      'select_start_song',
+  song_completion:        'song_completion',
+  locked_out:             'locked_out',
+  not_enough:             'not_enough',
+  error:                  'error',
+  hidden_secret_found:    'hidden_secret_found',
+  new_modes_available:    'new_modes_available',
+  pause:                  'pause',
+  pause_2:                'pause_2',
+  intro:                  'intro',
+  intro_2:                'intro_2',
+  intro3:                 'intro3',
+  cas_slam_down:          'cas_slam_down',
+  case_open_2:            'case_open_2',
+  open_basic:             'open_basic',
+  open_basic_2:           'open_basic_2',
+  open_case:              'open_case',
+  by_th3scr1b3:           'by_th3scr1b3',
+  inbetween:              'inbetween',
+  crowd:                  'crowd',
+  month_3:                'month_3',
 };
 
-/** All SFX names that should be eagerly preloaded. */
+// ── Preload list ───────────────────────────────────────────────────────────
+// Everything used during active gameplay must be here — latency-sensitive.
 const PRELOAD_LIST: SfxName[] = [
+  // Navigation / UI
   'back',
-  'rewind1',
+  'tap_nav',
+  'pause',
+  'pause_2',
+  // Gameplay
+  'countdown',
+  'rewind',
   'gmeover',
+  'outof_continues',
+  'gameover_countdown',
+  'song_completion',
+  'select_start_song',
+  'hidden_secret_found',
   'fusion',
-  'gold_get',
+  'perfect',
+  // Results
   'reveal',
   'open_chest',
   'bing_before_platinum',
   'queue_before_mythic',
+  'gold_get',
+  'silver_get',
+  'bronxe_get',
+  'platinum_get',
 ];
 
 export class AudioManager {
@@ -87,7 +181,15 @@ export class AudioManager {
    * De-duplicates concurrent requests for the same file.
    */
   async loadSfx(name: SfxName): Promise<void> {
+    if (name === 'rewind') {
+      await Promise.all(REWIND_TRACKS.map(f => this._loadSingleSfx(f)));
+      return;
+    }
     const filename = SFX_FILES[name] ?? name;
+    await this._loadSingleSfx(filename);
+  }
+
+  private async _loadSingleSfx(filename: string): Promise<void> {
     if (this.bufferCache.has(filename)) return;
     if (this.loadingPromises.has(filename)) return this.loadingPromises.get(filename)!;
 
@@ -105,7 +207,7 @@ export class AudioManager {
         const audioBuffer = await this.ctx!.decodeAudioData(arrayBuffer);
         this.bufferCache.set(filename, audioBuffer);
       } catch (err) {
-        console.warn(`Failed to load sfx "${name}" (${url}):`, err);
+        console.warn(`Failed to load sfx "${filename}" (${url}):`, err);
       } finally {
         this.loadingPromises.delete(filename);
       }
@@ -134,7 +236,11 @@ export class AudioManager {
    */
   playSfx(name: SfxName, volume = 0.6): void {
     if (!this.ctx || !this.masterGain) return;
-    const filename = SFX_FILES[name] ?? name;
+    let filename = SFX_FILES[name] ?? name;
+    if (name === 'rewind') {
+      filename = REWIND_TRACKS[nextRewindIdx % REWIND_TRACKS.length];
+      nextRewindIdx++;
+    }
     const buffer = this.bufferCache.get(filename);
     if (!buffer) return;
 

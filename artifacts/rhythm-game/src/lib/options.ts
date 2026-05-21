@@ -6,6 +6,8 @@ export type GameOpts = {
   audioOffset: number;
   laneKeys: [string, string, string];
   laneColors: [string, string, string];
+  useLocalFiles: boolean;
+  noteGenerationSource: 'auto' | 'lyrics' | 'bpm';
 };
 
 export const DEFAULT_OPTS: GameOpts = {
@@ -15,7 +17,9 @@ export const DEFAULT_OPTS: GameOpts = {
   judgmentText: true,
   audioOffset: 0,
   laneKeys: ["a", "s", "d"],
-  laneColors: ["#FF5400", "#4A314D", "#ACE894"],
+  laneColors: ["#FF1493", "#00E5FF", "#39FF14"],
+  useLocalFiles: false,
+  noteGenerationSource: "auto",
 };
 
 export function loadOpts(): GameOpts {
@@ -37,6 +41,11 @@ export function loadOpts(): GameOpts {
       localStorage.getItem("opt_laneColor_1") ?? DEFAULT_OPTS.laneColors[1],
       localStorage.getItem("opt_laneColor_2") ?? DEFAULT_OPTS.laneColors[2],
     ],
+    useLocalFiles: bool("opt_useLocalFiles", false),
+    noteGenerationSource: (() => {
+      const v = localStorage.getItem("opt_noteGenerationSource");
+      return (v === "lyrics" || v === "bpm" || v === "auto") ? v : "auto";
+    })(),
   };
 }
 

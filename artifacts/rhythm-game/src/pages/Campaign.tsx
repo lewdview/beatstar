@@ -235,14 +235,14 @@ export default function Campaign() {
       <div className="max-w-2xl mx-auto px-4 py-6 slide-up">
         {/* ── Score panel ── */}
         <div className="mb-6 glass-panel breathe-glow"
-          style={{ '--breathe-color': 'rgba(255,84,0,0.15)' } as React.CSSProperties}>
+          style={{ '--breathe-color': 'rgba(255,20,147,0.15)' } as React.CSSProperties}>
           {/* Panel header */}
           <div className="px-5 py-2.5 flex items-center justify-between"
             style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
             <div className="font-mono font-bold text-xs tracking-[0.4em]" style={{ color: 'rgba(255,255,255,0.3)' }}>
               TOTAL TRANSMISSION SCORE
             </div>
-            <div className="font-mono text-xs" style={{ color: totals.score > 0 ? '#ACE894' : 'rgba(255,255,255,0.15)' }}>
+            <div className="font-mono text-xs" style={{ color: totals.score > 0 ? '#39FF14' : 'rgba(255,255,255,0.15)' }}>
               {totals.score > 0 ? '●' : '○'} LIVE
             </div>
           </div>
@@ -255,9 +255,9 @@ export default function Campaign() {
           {/* Stats row */}
           <div className="grid grid-cols-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
             {[
-              { label: 'PLATINUM',  value: totals.platinums,                     color: '#ACE894' },
-              { label: 'CLEARED',   value: totals.cleared,                        color: '#4A314D' },
-              { label: 'CHAPTERS',  value: `${startedChapters}/${CHAPTERS.length}`, color: '#FF5400' },
+              { label: 'PLATINUM',  value: totals.platinums,                     color: '#39FF14' },
+              { label: 'CLEARED',   value: totals.cleared,                        color: '#00E5FF' },
+              { label: 'CHAPTERS',  value: `${startedChapters}/${CHAPTERS.length}`, color: '#FF1493' },
             ].map((s, i) => (
               <div key={s.label} className="py-3 px-4"
                 style={{ borderRight: i < 2 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
@@ -296,7 +296,7 @@ export default function Campaign() {
 
         {/* Legend */}
         <div className="mt-6 flex gap-3 justify-center">
-          {[['EASY','#ACE894'],['MEDIUM','#4A314D'],['HARD','#E5B800'],['BRUTAL','#FF5400']].map(([diff, color]) => (
+          {[['EASY','#39FF14'],['MEDIUM','#00E5FF'],['HARD','#E5B800'],['BRUTAL','#FF1493']].map(([diff, color]) => (
             <div key={diff} className="flex items-center gap-1.5">
               <div className="rounded-full" style={{ width: 8, height: 8, background: color as string, boxShadow: `0 0 6px ${color}40` }} />
               <div className="font-mono" style={{ fontSize: 8, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.2em' }}>{diff}</div>
