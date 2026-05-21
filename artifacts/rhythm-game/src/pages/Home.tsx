@@ -17,12 +17,14 @@ export default function Home() {
 
   const [introType] = useState<'classic' | 'avant-garde'>(() => {
     if (sessionIntroType) {
+      sessionStorage.setItem('pim_active_theme', sessionIntroType);
       return sessionIntroType;
     }
     const cur = localStorage.getItem('pim_intro_type') || 'classic';
     const next = cur === 'classic' ? 'avant-garde' : 'classic';
     localStorage.setItem('pim_intro_type', next);
     sessionIntroType = cur as 'classic' | 'avant-garde';
+    sessionStorage.setItem('pim_active_theme', sessionIntroType);
     return sessionIntroType;
   });
 

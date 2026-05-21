@@ -4,6 +4,7 @@ import { getSongById } from "@/game/api";
 import type { GameSong } from "@/game/api";
 import { getMedalForSong, getHighScore, getScoreHistory } from "@/game/progress";
 import { audioManager } from "@/game/audio";
+import { getActiveTheme } from "@/lib/options";
 
 const MEDAL_COLOR: Record<string, string> = {
   PLATINUM: '#39FF14', GOLD: '#E5B800', SILVER: '#A0AABB', BRONZE: '#C97A3A', NONE: '#444', '': '#1a1a1a',
@@ -66,6 +67,8 @@ export default function SongDetail() {
   const [previewing, setPreviewing] = useState(false);
   const [previewProg, setPreviewProg] = useState(0);
 
+  const isAvant = getActiveTheme() === 'avant-garde';
+
   useEffect(() => {
     if (!songId) { setLocation('/campaign'); return; }
     audioManager.loadSfx('back');
@@ -99,6 +102,7 @@ export default function SongDetail() {
 
   const togglePreview = () => {
     if (!song) return;
+    if (isAvant) audioManager.playSfx('tap_nav', 0.12);
     if (previewing && previewRef.current) {
       previewRef.current.pause();
       setPreviewing(false);
@@ -146,8 +150,8 @@ export default function SongDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'radial-gradient(ellipse at 50% 40%, #0e1028, #080808)' }}>
-        <div className="font-mono text-xs tracking-widest animate-pulse" style={{ color: 'rgba(255,255,255,0.3)' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: isAvant ? '#050505' : 'radial-gradient(ellipse at 50% 40%, #0e1028, #080808)' }}>
+        <div className="font-mono text-xs tracking-widest animate-pulse" style={{ color: isAvant ? '#39FF14' : 'rgba(255,255,255,0.3)' }}>
           LOADING TRANSMISSION...
         </div>
       </div>
@@ -158,6 +162,256 @@ export default function SongDetail() {
 
   const moodColor = song.mood === 'light' ? '#39FF14' : '#FF1493';
   const bestScore = history.length > 0 ? Math.max(...history) : 0;
+
+  if (isAvant) {
+    return (
+      <div className="min-h-screen w-full relative overflow-hidden" style={{ background: '#050505' }}>
+        {/* Green scanning grids */}
+        <div className="absolute inset-0 pointer-events-none z-0"
+          style={{
+            backgroundImage: "linear-gradient(rgba(57,255,20,0.015) 1px,transparent 1px),linear-gradient(90deg,rgba(57,255,20,0.015) 1px,transparent 1px)",
+            backgroundSize: "64px 64px"
+          }} />
+
+        {/* Header */}
+        <div className="sticky top-0 z-20 flex items-center justify-between px-5 py-3.5"
+          style={{ background: 'rgba(5,5,5,0.9)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(57,255,20,0.2)' }}>
+          <button onClick={handleBack}
+            onMouseEnter={() => audioManager.playSfx('tap_nav', 0.08)}
+            className="font-mono text-xs px-4 py-1.5 tracking-widest border border-[#39FF14]/30 text-[#39FF14] bg-transparent cursor-pointer">
+            ← {isFromFreePlay ? 'ARCHIVES' : from.startsWith('chapter') ? 'STAGES' : 'CAMPAIGN'}
+          </button>
+          <div className="font-mono font-bold text-xs tracking-[0.2em] text-[#39FF14]">
+            SIGNAL // DAY {String(song.day).padStart(3, '0')}
+          </div>
+          <div className="font-mono text-xs tracking-widest text-white/30">PIM // ANALYZER</div>
+        </div>
+
+        <div className="relative z-10 max-w-xl mx-auto px-4 py-8 space-y-6 slide-up">
+          {/* Song hero */}
+          <div className="flex gap-5 items-center">
+            <div className="relative flex-shrink-0 group">
+              {/* Tech corner borders */}
+              <div className="absolute -top-2 -left-2 w-4 h-4 border-t-2 border-l-2 border-[#39FF14]" />
+              <div className="absolute -top-2 -right-2 w-4 h-4 border-t-2 border-r-2 border-[#39FF14]" />
+              <div className="absolute -bottom-2 -left-2 w-4 h-4 border-b-2 border-l-2 border-[#39FF14]" />
+              <div className="absolute -bottom-2 -right-2 w-4 h-4 border-b-2 border-r-2 border-[#39FF14]" />
+              <div className="absolute -inset-1 border border-white/5 pointer-events-none" />
+
+              {song.coverArt ? (
+                <img src={song.coverArt} alt={song.title}
+                  className="flex-shrink-0 object-cover"
+                  style={{ width: 88, height: 88, border: '1px solid rgba(57,255,20,0.2)', filter: 'grayscale(15%)' }} />
+              ) : (
+                <div className="flex-shrink-0 flex items-center justify-center font-mono font-bold text-xl"
+                  style={{ width: 88, height: 88, background: 'rgba(57,255,20,0.02)', border: '1px solid rgba(57,255,20,0.2)', color: 'rgba(255,255,255,0.3)' }}>
+                  {song.day}
+                </div>
+              )}
+              
+              {/* Audio preview button overlaid on cover */}
+              <button
+                onClick={togglePreview}
+                onMouseEnter={() => audioManager.playSfx('tap_nav', 0.08)}
+                className="absolute inset-0 flex items-center justify-center transition-all duration-200"
+                style={{
+                  background: previewing ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.2)',
+                  opacity: previewing ? 1 : 0.6,
+                }}
+              >
+                <div className="font-mono font-bold text-base text-white">
+                  {previewing ? '❚❚' : '▶'}
+                </div>
+              </button>
+            </div>
+            
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                <span className="font-mono text-[8px] px-1.5 py-[2px] border font-black uppercase"
+                  style={{ borderColor: moodColor, color: moodColor, background: `${moodColor}10` }}>
+                  {song.mood.toUpperCase()}
+                </span>
+                {medal && medal !== '' && (
+                  <span className="font-mono text-[8px] px-1.5 py-[2px] border font-black uppercase"
+                    style={{ borderColor: mc, color: mc, background: `${mc}10` }}>
+                    {medal}
+                  </span>
+                )}
+              </div>
+              <h1 className="font-mono font-black leading-tight uppercase tracking-tight text-[18px]"
+                style={{ color: '#F2F0E8' }}>
+                {song.title}
+              </h1>
+              <div className="font-mono text-xs truncate uppercase text-white/40">
+                {song.artist}
+              </div>
+              <div className="font-mono text-[9px] mt-0.5 uppercase text-white/20">
+                {song.date}{song.key ? ` // KEY: ${song.key}` : ''}
+              </div>
+            </div>
+          </div>
+
+          {/* Audio preview progress bar */}
+          {previewing && (
+            <div className="results-fade-in" style={{ animationDuration: '0.3s' }}>
+              <div className="flex items-center gap-3 border border-[#39FF14]/25 bg-black/50 px-3 py-2.5">
+                <WaveformBars playing={previewing} />
+                <div className="flex-1 h-1" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                  <div className="h-full transition-all duration-200" style={{
+                    width: `${previewProg * 100}%`,
+                    background: moodColor,
+                    boxShadow: `0 0 6px ${moodColor}40`,
+                  }} />
+                </div>
+                <button onClick={togglePreview}
+                  onMouseEnter={() => audioManager.playSfx('tap_nav', 0.05)}
+                  className="font-mono text-xs text-white/40 hover:text-white cursor-pointer bg-transparent border-none">
+                  ✕
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Stats grid */}
+          <div className="grid grid-cols-4 gap-2">
+            {[
+              { label: 'BPM', value: song.bpm },
+              { label: 'NODES', value: song.notes.length },
+              { label: 'LENGTH', value: `${durMin}:${durSec}` },
+              { label: 'CALIB', value: song.difficultyLevel },
+            ].map(({ label, value }) => (
+              <div key={label} className="border border-[#39FF14]/15 bg-black/40 px-2 py-3 text-center">
+                <div className="font-mono mb-1 text-[8px] uppercase tracking-wider text-white/30">{label}</div>
+                <div className="font-mono font-bold text-sm text-[#39FF14]">{value}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Best score banner */}
+          {hs > 0 && (
+            <div className="border border-[#39FF14]/15 bg-black/40 flex items-center justify-between px-4 py-3">
+              <div className="font-mono text-[8px] tracking-[0.25em] text-white/30">// HIGH INTEGRITY DISPATCH SCORE</div>
+              <div className="font-mono font-black text-base text-[#39FF14]">{hs.toLocaleString()}</div>
+            </div>
+          )}
+
+          {/* Description */}
+          {song.description && (
+            <div className="border border-[#39FF14]/15 bg-black/30 px-4 py-3">
+              <div className="font-mono text-[8px] tracking-widest text-[#39FF14] mb-1.5 uppercase">// DISPATCH NOTE</div>
+              <p className="text-xs leading-relaxed font-mono italic" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                "{song.description.toUpperCase()}"
+              </p>
+            </div>
+          )}
+
+          {/* Difficulty override — free play only */}
+          {isFromFreePlay && (
+            <div className="border border-[#39FF14]/25 bg-black/40" style={{ padding: '14px 16px' }}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="font-mono text-[8px] uppercase tracking-wider text-white/30">
+                  // CALIBRATION COEFFICIENT OVERRIDE
+                </div>
+                <div className="font-mono font-bold text-xs" style={{ color: diffColor }}>
+                  LVL {diffOverride}
+                </div>
+              </div>
+              
+              {/* Visualizer bars */}
+              <div className="flex gap-px items-end mb-3" style={{ height: 14 }}>
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <div key={i} className="flex-1" style={{
+                    height: `${30 + i * 7}%`,
+                    background: i < diffOverride ? diffColor : 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                  }} />
+                ))}
+              </div>
+
+              <input
+                type="range" min={1} max={10} value={diffOverride}
+                onChange={e => {
+                  audioManager.playSfx('tap_nav', 0.05);
+                  setDiffOverride(parseInt(e.target.value, 10));
+                }}
+                className="w-full mt-3 cursor-pointer"
+                style={{ accentColor: diffColor }}
+              />
+              <div className="flex justify-between mt-1">
+                <span className="font-mono text-[8px] text-[#39FF14]" style={{ letterSpacing: '0.15em' }}>MINIMUM</span>
+                <span className="font-mono text-[8px] text-[#FF1493]" style={{ letterSpacing: '0.15em' }}>MAXIMUM</span>
+              </div>
+            </div>
+          )}
+
+          {/* Track stats / score history */}
+          <div>
+            <div className="font-mono flex items-center gap-3 mb-3 pb-2 border-b border-[#39FF14]/10">
+              <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.25em' }}>
+                // TELEMETRY HISTORY LOG
+              </span>
+              <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.15em' }}>
+                LAST {Math.min(10, history.length)} TRANSMISSIONS
+              </span>
+            </div>
+
+            {history.length === 0 ? (
+              <div className="font-mono text-center py-6 border border-[#39FF14]/10 bg-black/20"
+                style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.25em' }}>
+                NO RECORDS DETECTED IN STORAGE
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {history.map((score, i) => {
+                  const isTop = score === bestScore && i === history.indexOf(bestScore);
+                  const pct = bestScore > 0 ? score / bestScore : 1;
+                  return (
+                    <div key={i} className="flex items-center gap-3 px-3 py-2 border bg-black/30"
+                      style={{
+                        borderColor: isTop ? '#39FF14' : 'rgba(57,255,20,0.15)',
+                      }}>
+                      <div className="font-mono flex-shrink-0"
+                        style={{ fontSize: 8, color: isTop ? '#39FF14' : 'rgba(255,255,255,0.3)', width: 22 }}>
+                        {isTop ? '★' : `#${String(i + 1).padStart(2, '0')}`}
+                      </div>
+                      <div className="flex-1 h-1 bg-white/5 relative">
+                        <div style={{
+                          height: '100%',
+                          width: `${pct * 100}%`,
+                          background: isTop ? '#39FF14' : 'rgba(255,255,255,0.2)',
+                          transition: 'width 0.5s ease',
+                        }} />
+                      </div>
+                      <div className="font-mono font-bold flex-shrink-0 text-[10px]"
+                        style={{ color: isTop ? '#39FF14' : 'rgba(255,255,255,0.5)', minWidth: 70, textAlign: 'right' }}>
+                        {score.toLocaleString()}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Play button */}
+          <div className="pb-8 flex flex-col gap-2">
+            <button onClick={handlePlay}
+              onMouseEnter={() => audioManager.playSfx('tap_nav', 0.08)}
+              className="w-full py-4 text-xs tracking-[0.4em] font-black border border-[#39FF14] bg-[#39FF14] text-black hover:bg-[#39FF14]/90 transition-colors uppercase">
+              ▶ START TRANSMISSION{isFromFreePlay ? ` · LVL ${diffOverride}` : ''}
+            </button>
+            {song.audioUrl && !previewing && (
+              <button onClick={togglePreview}
+                onMouseEnter={() => audioManager.playSfx('tap_nav', 0.08)}
+                className="w-full py-3 text-[9px] font-bold tracking-[0.3em] border border-[#39FF14]/30 text-[#39FF14] hover:bg-[#39FF14]/10 transition-colors uppercase bg-transparent">
+                <span>♪</span> PREVIEW TRACK
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen w-full" style={{ background: 'radial-gradient(ellipse 80% 50% at 50% 20%, #0e1028 0%, #080808 60%)' }}>
@@ -286,18 +540,6 @@ export default function SongDetail() {
             <p className="text-sm leading-relaxed font-medium italic" style={{ color: 'rgba(255,255,255,0.45)' }}>
               "{song.description}"
             </p>
-          </div>
-        )}
-
-        {/* Genre tags */}
-        {song.genre.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {song.genre.map(g => (
-              <span key={g} className="pill-badge"
-                style={{ border: `1px solid ${moodColor}20`, color: moodColor, background: `${moodColor}08` }}>
-                {g}
-              </span>
-            ))}
           </div>
         )}
 

@@ -70,3 +70,16 @@ export function keyLabel(rawKey: string): string {
   };
   return arrows[rawKey] ?? rawKey.toUpperCase();
 }
+
+export function getActiveTheme(): 'classic' | 'avant-garde' {
+  if (typeof sessionStorage !== 'undefined') {
+    const val = sessionStorage.getItem('pim_active_theme');
+    if (val === 'classic' || val === 'avant-garde') return val;
+  }
+  if (typeof localStorage !== 'undefined') {
+    const val = localStorage.getItem('pim_intro_type');
+    if (val === 'classic' || val === 'avant-garde') return val;
+  }
+  return 'classic';
+}
+
