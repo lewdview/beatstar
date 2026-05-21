@@ -4,6 +4,8 @@ import { getTotalScore, getTotalPlatinums, getTotalCleared } from "@/game/progre
 import { loadOpts, keyLabel } from "@/lib/options";
 import { audioManager } from "@/game/audio";
 
+let hasPlayedIntroThisSession = false;
+
 export default function Home() {
   const [, setLocation] = useLocation();
   const [blink, setBlink] = useState(true);
@@ -12,8 +14,15 @@ export default function Home() {
   const LANE_COLORS = liveOpts.laneColors;
   const LANE_KEYS   = liveOpts.laneKeys.map(k => keyLabel(k));
 
-  const [showIntro, setShowIntro] = useState(() => !sessionStorage.getItem('intro_seen'));
-  const [introPhase, setIntroPhase] = useState<'prompt'|'booting'|'presented'|'intro'|'intro_2'|'intro3'|'done'>('prompt');
+  const [introType] = useState<'classic' | 'avant-garde'>(() => {
+    const cur = localStorage.getItem('pim_intro_type') || 'classic';
+    const next = cur === 'classic' ? 'avant-garde' : 'classic';
+    localStorage.setItem('pim_intro_type', next);
+    return cur as 'classic' | 'avant-garde';
+  });
+
+  const [showIntro, setShowIntro] = useState(() => !hasPlayedIntroThisSession);
+  const [introPhase, setIntroPhase] = useState<'prompt'|'booting'|'presented'|'intro'|'intro_2'|'intro3'|'climax'|'done'>('prompt');
   const [bootText, setBootText] = useState("");
 
   const startIntroSequence = useCallback(async () => {
@@ -30,37 +39,74 @@ export default function Home() {
       audioManager.loadSfx('intro3')
     ]);
 
-    // Boot sequence effect
-    const lines = [
-      "> INITIATING SECURE CONNECTION...",
-      "> BYPASSING MAINFRAME PROTOCOLS...",
-      "> DECRYPTING AUDIO STEMS...",
-      "> CALIBRATING NEURAL LINK... [OK]"
-    ];
-    for (let i = 0; i < lines.length; i++) {
-      setBootText(lines.slice(0, i+1).join('\n'));
-      audioManager.playSfx('tap_nav', 0.2);
-      await new Promise(r => setTimeout(r, 150 + Math.random() * 200));
-    }
-    await new Promise(r => setTimeout(r, 300));
+    if (introType === 'classic') {
+      // Boot sequence effect
+      const lines = [
+        "> INITIATING SECURE CONNECTION...",
+        "> BYPASSING MAINFRAME PROTOCOLS...",
+        "> DECRYPTING AUDIO STEMS...",
+        "> CALIBRATING NEURAL LINK... [OK]"
+      ];
+      for (let i = 0; i < lines.length; i++) {
+        setBootText(lines.slice(0, i+1).join('\n'));
+        audioManager.playSfx('tap_nav', 0.2);
+        await new Promise(r => setTimeout(r, 150 + Math.random() * 200));
+      }
+      await new Promise(r => setTimeout(r, 300));
 
-    setIntroPhase('presented');
-    audioManager.playSfx('by_th3scr1b3', 0.9);
+      setIntroPhase('presented');
+      audioManager.playSfx('by_th3scr1b3', 0.9);
 
-    setTimeout(() => {
-      const intros = ['intro', 'intro_2', 'intro3'] as const;
-      const pick = intros[Math.floor(Math.random() * intros.length)];
-      setIntroPhase(pick as any);
-      audioManager.playSfx(pick, 0.9);
-      
       setTimeout(() => {
-        setIntroPhase('done');
-        sessionStorage.setItem('intro_seen', 'true');
-        setShowIntro(false);
-        window.dispatchEvent(new Event("intro_finished"));
-      }, 6000); // Wait for the intro sound to finish
-    }, 2500); // Wait for "presented by th3scr1b3"
-  }, [introPhase]);
+        const intros = ['intro', 'intro_2', 'intro3'] as const;
+        const pick = intros[Math.floor(Math.random() * intros.length)];
+        setIntroPhase(pick);
+        audioManager.playSfx(pick, 0.9);
+        
+        setTimeout(() => {
+          setIntroPhase('done');
+          hasPlayedIntroThisSession = true;
+          setShowIntro(false);
+          window.dispatchEvent(new Event("intro_finished"));
+        }, 6000); // Wait for the intro sound to finish
+      }, 2500); // Wait for "presented by th3scr1b3"
+    } else {
+      // Avant-Garde Intro sequence
+      // 1. Booting scan phase
+      await new Promise(r => setTimeout(r, 1800));
+
+      // 2. Presented split-reveal
+      setIntroPhase('presented');
+      audioManager.playSfx('by_th3scr1b3', 0.9);
+      await new Promise(r => setTimeout(r, 2200));
+
+      // 3. Kinetic Letters: P
+      setIntroPhase('intro');
+      audioManager.playSfx('intro', 0.9);
+      await new Promise(r => setTimeout(r, 1400));
+
+      // 4. Kinetic Letters: I
+      setIntroPhase('intro_2');
+      audioManager.playSfx('intro_2', 0.9);
+      await new Promise(r => setTimeout(r, 1400));
+
+      // 5. Kinetic Letters: M
+      setIntroPhase('intro3');
+      audioManager.playSfx('intro3', 0.9);
+      await new Promise(r => setTimeout(r, 1400));
+
+      // 6. Climax: Merged PIM + 3D Grid Ticker
+      setIntroPhase('climax');
+      audioManager.playSfx('fusion', 0.8);
+      await new Promise(r => setTimeout(r, 2600));
+
+      // 7. Done
+      setIntroPhase('done');
+      hasPlayedIntroThisSession = true;
+      setShowIntro(false);
+      window.dispatchEvent(new Event("intro_finished"));
+    }
+  }, [introPhase, introType]);
 
   const navigate = useCallback((path: string) => {
     audioManager.ensureReady().then(() => audioManager.preloadAll());
@@ -94,6 +140,103 @@ export default function Home() {
             filter: blur(0);
           }
         }
+
+        /* Avant-Garde Intro Animations */
+        @keyframes laser-sweep {
+          0% { transform: translateY(-100%); }
+          100% { transform: translateY(100vh); }
+        }
+        @keyframes split-top {
+          0% { transform: translateX(0); opacity: 0; }
+          12% { opacity: 1; }
+          82% { transform: translateX(0); opacity: 1; }
+          100% { transform: translateX(-100%); opacity: 0; }
+        }
+        @keyframes split-bottom {
+          0% { transform: translateX(0); opacity: 0; }
+          12% { opacity: 1; }
+          82% { transform: translateX(0); opacity: 1; }
+          100% { transform: translateX(100%); opacity: 0; }
+        }
+        .split-slide-top {
+          animation: split-top 2.2s cubic-bezier(0.77, 0, 0.175, 1) forwards;
+        }
+        .split-slide-bottom {
+          animation: split-bottom 2.2s cubic-bezier(0.77, 0, 0.175, 1) forwards;
+        }
+
+        @keyframes kinetic-zoom-p {
+          0% { transform: scale(3.5) translate(8vw, -8vh); opacity: 0; filter: blur(20px); }
+          15% { opacity: 0.95; filter: blur(0); }
+          100% { transform: scale(1.1) translate(0, 0); opacity: 0.85; }
+        }
+        @keyframes kinetic-zoom-i {
+          0% { transform: scale(0.2) translate(-20vw, 12vh); opacity: 0; filter: blur(10px); }
+          15% { opacity: 0.95; filter: blur(0); }
+          100% { transform: scale(1.0) translate(0, 0); opacity: 0.85; }
+        }
+        @keyframes kinetic-zoom-m {
+          0% { transform: scale(2.0) translate(25vw, 4vh); opacity: 0; filter: blur(15px); }
+          15% { opacity: 0.95; filter: blur(0); }
+          100% { transform: scale(1.0) translate(0, 0); opacity: 0.85; }
+        }
+
+        @keyframes climax-pim-pulse {
+          0% { transform: scale(0.5); filter: blur(15px); opacity: 0; }
+          12% { transform: scale(1.05); filter: blur(0); opacity: 1; }
+          18% { transform: scale(1.0); }
+          82% { transform: scale(1.0); opacity: 1; }
+          100% { transform: scale(1.6); filter: blur(25px); opacity: 0; }
+        }
+        .climax-pim {
+          animation: climax-pim-pulse 2.6s cubic-bezier(0.19, 1, 0.22, 1) forwards;
+        }
+
+        @keyframes rotate-grid-floor {
+          0% { transform: rotateX(75deg) rotateZ(0deg) translateZ(-50px); }
+          100% { transform: rotateX(75deg) rotateZ(360deg) translateZ(-50px); }
+        }
+        .neon-grid-floor {
+          position: absolute;
+          width: 300%;
+          height: 300%;
+          bottom: -100%;
+          left: -100%;
+          background-image: 
+            linear-gradient(rgba(0, 229, 255, 0.12) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0, 229, 255, 0.12) 1px, transparent 1px);
+          background-size: 60px 60px;
+          background-position: center;
+          transform: rotateX(75deg);
+          transform-origin: center center;
+          animation: rotate-grid-floor 15s linear infinite;
+          mask-image: radial-gradient(circle at center, black 25%, transparent 70%);
+          -webkit-mask-image: radial-gradient(circle at center, black 25%, transparent 70%);
+        }
+
+        @keyframes rise-column {
+          0% { transform: scaleY(0); opacity: 0; }
+          40% { opacity: 0.5; }
+          80% { opacity: 0.5; }
+          100% { transform: scaleY(1); opacity: 0; }
+        }
+
+        @keyframes ticker-slide-left {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        @keyframes ticker-slide-right {
+          0% { transform: translateX(-50%); }
+          100% { transform: translateX(0); }
+        }
+        .ticker-text {
+          display: flex;
+          white-space: nowrap;
+          font-family: monospace;
+          font-size: 9px;
+          letter-spacing: 0.4em;
+          color: rgba(255, 255, 255, 0.25);
+        }
       `}</style>
       {showIntro && (
         <div 
@@ -101,18 +244,55 @@ export default function Home() {
           style={{ background: '#080808', opacity: introPhase === 'done' ? 0 : 1 }}
           onClick={startIntroSequence}
         >
-          {introPhase === 'prompt' && (
+          {introPhase === 'prompt' && introType === 'classic' && (
             <div className="font-mono text-xs tracking-[0.5em] animate-pulse" style={{ color: 'rgba(255,255,255,0.5)' }}>
               TAP TO INITIATE
             </div>
           )}
-          {introPhase === 'booting' && (
+          {introPhase === 'prompt' && introType === 'avant-garde' && (
+            <div className="flex flex-col items-center gap-4 select-none">
+              <div className="w-12 h-12 rounded-full border border-dashed animate-spin flex items-center justify-center" style={{ borderColor: '#FF1493', animationDuration: '8s' }}>
+                <div className="w-6 h-6 rounded-full border border-solid" style={{ borderColor: '#00E5FF' }} />
+              </div>
+              <div className="font-mono text-[9px] tracking-[0.6em] text-center" style={{ color: '#F2F0E8' }}>
+                [ PROTOCOL // PIM.INITIALIZE ]
+              </div>
+              <div className="font-mono text-[8px] tracking-[0.4em] uppercase opacity-40 mt-1 animate-pulse">
+                Click / Tap to engage
+              </div>
+            </div>
+          )}
+
+          {introPhase === 'booting' && introType === 'classic' && (
             <div className="font-mono text-[10px] sm:text-xs text-left w-full max-w-md px-6 leading-relaxed" style={{ color: '#39FF14' }}>
               {bootText.split('\n').map((line, i) => <div key={i}>{line}</div>)}
               <div className="animate-pulse inline-block w-2 h-3 bg-[#39FF14] ml-1 align-middle" />
             </div>
           )}
-          {introPhase === 'presented' && (
+          {introPhase === 'booting' && introType === 'avant-garde' && (
+            <div className="absolute inset-0 flex flex-col justify-between p-12 overflow-hidden select-none font-mono">
+              <div className="absolute top-0 left-0 right-0 h-[2px] bg-cyan-400 opacity-60 pointer-events-none" 
+                   style={{
+                     background: 'linear-gradient(90deg, transparent, #00E5FF, transparent)',
+                     boxShadow: '0 0 15px #00E5FF',
+                     animation: 'laser-sweep 1.8s cubic-bezier(0.77, 0, 0.175, 1) infinite'
+                   }} />
+              <div className="absolute inset-0 pointer-events-none opacity-[0.03] bg-[linear-gradient(rgba(255,255,255,0.8)_50%,transparent_50%)] bg-[length:100%_4px]" />
+              <div className="text-[9px] tracking-[0.4em] text-cyan-400 opacity-60">PIM // INTRO_MATRIX_SEQUENCE</div>
+              
+              <div className="flex flex-col items-center justify-center flex-1 gap-2">
+                <div className="text-3xl font-black tracking-[0.6em] text-[#F2F0E8] animate-pulse">BOOTING</div>
+                <div className="text-[10px] tracking-[0.3em] text-[#FF1493] opacity-80">[ QUANTUM AUDIO STEM COMPILATION ]</div>
+              </div>
+              
+              <div className="flex justify-between text-[8px] tracking-[0.2em] text-[#39FF14] opacity-50">
+                <span>SYSTEM_CHECK: STABLE</span>
+                <span>BYPASS_AUTH: OK</span>
+              </div>
+            </div>
+          )}
+
+          {introPhase === 'presented' && introType === 'classic' && (
             <div className="font-mono text-center px-4 animate-in zoom-in-95 duration-1000 z-10" style={{ transition: 'all 1s cubic-bezier(0.2, 0.8, 0.2, 1)' }}>
               <div className="text-[12px] tracking-[0.8em] mb-4 rewind-flicker" style={{ color: '#FF1493' }}>
                 PRESENTED BY
@@ -122,7 +302,33 @@ export default function Home() {
               </div>
             </div>
           )}
-          {(introPhase === 'intro' || introPhase === 'intro_2' || introPhase === 'intro3') && (
+          {introPhase === 'presented' && introType === 'avant-garde' && (
+            <div className="absolute inset-0 flex items-center justify-center overflow-hidden bg-black select-none font-mono">
+              <div className="absolute inset-0 flex flex-col justify-end items-center pb-2 split-slide-top"
+                   style={{ clipPath: 'inset(0 0 50% 0)' }}>
+                <div className="text-[10px] tracking-[0.8em] mb-6 text-[#FF1493]">
+                  PRESENTED BY
+                </div>
+                <div className="text-5xl sm:text-6xl tracking-[0.4em] font-black text-[#F2F0E8]"
+                     style={{ textShadow: '0 0 25px rgba(242,240,232,0.3)' }}>
+                  TH3SCR1B3
+                </div>
+              </div>
+              <div className="absolute left-[10%] right-[10%] h-[1px] bg-white/20 z-20" />
+              <div className="absolute inset-0 flex flex-col justify-end items-center pb-2 split-slide-bottom"
+                   style={{ clipPath: 'inset(50% 0 0 0)' }}>
+                <div className="text-[10px] tracking-[0.8em] mb-6 text-[#FF1493]">
+                  PRESENTED BY
+                </div>
+                <div className="text-5xl sm:text-6xl tracking-[0.4em] font-black text-[#F2F0E8]"
+                     style={{ textShadow: '0 0 25px rgba(242,240,232,0.3)' }}>
+                  TH3SCR1B3
+                </div>
+              </div>
+            </div>
+          )}
+
+          {introType === 'classic' && (introPhase === 'intro' || introPhase === 'intro_2' || introPhase === 'intro3') && (
             <>
               <div className="absolute inset-0 pointer-events-none mix-blend-screen transition-opacity duration-100"
                 style={{
@@ -133,25 +339,101 @@ export default function Home() {
               />
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden" style={{ perspective: '1200px' }}>
                  <div className="relative flex items-center justify-center w-full h-full animate-in zoom-in-150 ease-out" style={{ transformStyle: 'preserve-3d', animationDuration: '6s' }}>
-                   {/* Back Layer - Neon Green */}
-                   <div className="absolute font-mono font-black text-center mix-blend-screen opacity-60 rewind-flicker" 
-                        style={{ fontSize: '42vw', lineHeight: 0.8, color: '#39FF14', transform: 'scale(1.2) translateZ(-200px)', filter: 'blur(20px)', animationDuration: '0.12s' }}>
-                      PIM
-                   </div>
-                   {/* Middle Layer - Hot Pink */}
-                   <div className="absolute font-mono font-black text-center mix-blend-screen opacity-80 rewind-flicker" 
-                        style={{ fontSize: '41vw', lineHeight: 0.8, color: '#FF1493', transform: 'scale(1.1) translateZ(-100px)', filter: 'blur(10px)', animationDuration: '0.15s' }}>
-                      PIM
-                   </div>
-                   {/* Front Layer - Brilliant White with Cyan Glow */}
-                   <div className="absolute font-mono font-black text-center mix-blend-overlay opacity-100 rewind-flicker" 
-                        style={{ fontSize: '40vw', lineHeight: 0.8, color: '#fff', textShadow: '0 0 30px #fff, 0 0 80px #00E5FF, 0 0 150px #00E5FF' }}>
-                      PIM
-                   </div>
+                    <div className="absolute font-mono font-black text-center mix-blend-screen opacity-60 rewind-flicker" 
+                         style={{ fontSize: '42vw', lineHeight: 0.8, color: '#39FF14', transform: 'scale(1.2) translateZ(-200px)', filter: 'blur(20px)', animationDuration: '0.12s' }}>
+                       PIM
+                    </div>
+                    <div className="absolute font-mono font-black text-center mix-blend-screen opacity-80 rewind-flicker" 
+                         style={{ fontSize: '41vw', lineHeight: 0.8, color: '#FF1493', transform: 'scale(1.1) translateZ(-100px)', filter: 'blur(10px)', animationDuration: '0.15s' }}>
+                       PIM
+                    </div>
+                    <div className="absolute font-mono font-black text-center mix-blend-overlay opacity-100 rewind-flicker" 
+                         style={{ fontSize: '40vw', lineHeight: 0.8, color: '#fff', textShadow: '0 0 30px #fff, 0 0 80px #00E5FF, 0 0 150px #00E5FF' }}>
+                       PIM
+                    </div>
                  </div>
               </div>
               <div className="absolute inset-0 rewind-glitch pointer-events-none opacity-90 mix-blend-screen" />
             </>
+          )}
+
+          {introType === 'avant-garde' && (introPhase === 'intro' || introPhase === 'intro_2' || introPhase === 'intro3' || introPhase === 'climax') && (
+            <div className="absolute inset-0 flex items-center justify-center overflow-hidden bg-[#050505] font-mono select-none">
+              <div className="absolute inset-0 pointer-events-none" style={{
+                backgroundImage: 'linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.01) 1px, transparent 1px)',
+                backgroundSize: '100px 100px'
+              }} />
+
+              {introPhase === 'intro' && (
+                <div className="flex flex-col items-center justify-center w-full h-full relative">
+                  <div className="absolute font-black leading-none text-[#00E5FF] select-none uppercase tracking-tighter"
+                       style={{ fontSize: '75vw', textShadow: '0 0 60px rgba(0,229,255,0.3)', animation: 'kinetic-zoom-p 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards' }}>
+                    P
+                  </div>
+                  <div className="absolute bottom-[20%] text-[10px] tracking-[0.8em] text-[#00E5FF] opacity-60 uppercase animate-pulse">
+                    [ poetry ]
+                  </div>
+                </div>
+              )}
+
+              {introPhase === 'intro_2' && (
+                <div className="flex flex-col items-center justify-center w-full h-full relative">
+                  <div className="absolute font-black leading-none text-[#FF1493] select-none uppercase tracking-tighter"
+                       style={{ fontSize: '75vw', textShadow: '0 0 60px rgba(255,20,147,0.3)', animation: 'kinetic-zoom-i 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards' }}>
+                    I
+                  </div>
+                  <div className="absolute bottom-[20%] text-[10px] tracking-[0.8em] text-[#FF1493] opacity-60 uppercase animate-pulse">
+                    [ in ]
+                  </div>
+                </div>
+              )}
+
+              {introPhase === 'intro3' && (
+                <div className="flex flex-col items-center justify-center w-full h-full relative">
+                  <div className="absolute font-black leading-none text-[#39FF14] select-none uppercase tracking-tighter"
+                       style={{ fontSize: '75vw', textShadow: '0 0 60px rgba(57,255,20,0.3)', animation: 'kinetic-zoom-m 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards' }}>
+                    M
+                  </div>
+                  <div className="absolute bottom-[20%] text-[10px] tracking-[0.8em] text-[#39FF14] opacity-60 uppercase animate-pulse">
+                    [ motion ]
+                  </div>
+                </div>
+              )}
+
+              {introPhase === 'climax' && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <div className="neon-grid-floor" />
+
+                  <div className="absolute bottom-0 left-[20%] w-[2px] h-[70vh] bg-gradient-to-t from-transparent to-[#00E5FF] origin-bottom scale-y-75 opacity-20"
+                       style={{ animation: 'rise-column 2s infinite ease-out' }} />
+                  <div className="absolute bottom-0 right-[25%] w-[2px] h-[85vh] bg-gradient-to-t from-transparent to-[#FF1493] origin-bottom scale-y-90 opacity-25"
+                       style={{ animation: 'rise-column 2.6s 0.4s infinite ease-out' }} />
+                  <div className="absolute bottom-0 left-[45%] w-[3px] h-[60vh] bg-gradient-to-t from-transparent to-[#39FF14] origin-bottom scale-y-50 opacity-15"
+                       style={{ animation: 'rise-column 1.8s 0.8s infinite ease-out' }} />
+
+                  <div className="absolute top-[12%] left-0 w-full overflow-hidden h-6 border-y border-white/5 flex items-center bg-black/40 backdrop-blur-sm">
+                    <div className="ticker-text" style={{ animation: 'ticker-slide-left 12s linear infinite' }}>
+                      {Array.from({ length: 8 }).map((_, idx) => (
+                        <span key={idx}>POETRY IN MOTION {" // "} BY TH3SCR1B3 {" // "}</span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="absolute bottom-[12%] left-0 w-full overflow-hidden h-6 border-y border-white/5 flex items-center bg-black/40 backdrop-blur-sm">
+                    <div className="ticker-text" style={{ animation: 'ticker-slide-right 12s linear infinite' }}>
+                      {Array.from({ length: 8 }).map((_, idx) => (
+                        <span key={idx}>365 DAYS OF LIGHT AND DARK {" // "} COMPANION APPLICATION {" // "}</span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="climax-pim font-black text-center mix-blend-screen text-7xl sm:text-8xl tracking-[0.2em] text-white"
+                       style={{ textShadow: '0 0 20px #fff, 0 0 40px #FF1493, 0 0 80px #00E5FF' }}>
+                    PIM
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}
