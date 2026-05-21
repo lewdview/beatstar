@@ -136,17 +136,17 @@ export default function Home() {
                    {/* Back Layer - Neon Green */}
                    <div className="absolute font-mono font-black text-center mix-blend-screen opacity-60 rewind-flicker" 
                         style={{ fontSize: '42vw', lineHeight: 0.8, color: '#39FF14', transform: 'scale(1.2) translateZ(-200px)', filter: 'blur(20px)', animationDuration: '0.12s' }}>
-                      365
+                      PIM
                    </div>
                    {/* Middle Layer - Hot Pink */}
                    <div className="absolute font-mono font-black text-center mix-blend-screen opacity-80 rewind-flicker" 
                         style={{ fontSize: '41vw', lineHeight: 0.8, color: '#FF1493', transform: 'scale(1.1) translateZ(-100px)', filter: 'blur(10px)', animationDuration: '0.15s' }}>
-                      365
+                      PIM
                    </div>
                    {/* Front Layer - Brilliant White with Cyan Glow */}
                    <div className="absolute font-mono font-black text-center mix-blend-overlay opacity-100 rewind-flicker" 
                         style={{ fontSize: '40vw', lineHeight: 0.8, color: '#fff', textShadow: '0 0 30px #fff, 0 0 80px #00E5FF, 0 0 150px #00E5FF' }}>
-                      365
+                      PIM
                    </div>
                  </div>
               </div>
@@ -204,30 +204,33 @@ export default function Home() {
               lineHeight: 0.8,
               filter: 'drop-shadow(0 0 50px rgba(255,255,255,0.2))',
             }}>
-            365
+            PIM
           </div>
         </div>
 
         {/* Sub label */}
-        <div className="w-full text-center py-4 mb-2">
-          <div className="font-mono text-[11px] font-bold tracking-[0.5em] uppercase" style={{ color: 'rgba(255,255,255,0.4)' }}>
-            DAYS OF <span style={{ color: '#F2F0E8' }}>LIGHT</span> &amp; <span style={{ color: '#FF1493' }}>DARK</span>
+        <div className="w-full text-center py-2 mb-1">
+          <div className="font-mono text-[12px] font-bold tracking-[0.5em] uppercase" style={{ color: '#F2F0E8' }}>
+            POETRY IN MOTION
+          </div>
+          <div className="font-mono text-[9px] font-bold tracking-[0.3em] uppercase mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
+            BY <span style={{ color: '#FF1493' }}>TH3SCR1B3</span>
           </div>
         </div>
 
-        {/* Tagline - poetry in motion (late animated intro) */}
+        {/* Tagline - companion app */}
         <div className="w-full text-center mb-6 opacity-0"
           style={{
             animation: !showIntro ? 'late-tagline 2.2s 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards' : 'none'
           }}>
-          <div className="font-mono text-[9px] tracking-[0.5em] uppercase italic"
+          <div className="font-mono text-[9px] tracking-[0.35em] uppercase italic"
             style={{
-              background: 'linear-gradient(90deg, rgba(255,255,255,0.3) 0%, #FF1493 50%, rgba(255,255,255,0.3) 100%)',
+              background: 'linear-gradient(90deg, rgba(255,255,255,0.3) 0%, #39FF14 50%, rgba(255,255,255,0.3) 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
-              textShadow: '0 0 15px rgba(255,20,147,0.4)',
+              textShadow: '0 0 15px rgba(57,255,20,0.4)',
             }}>
-            poetry in motion
+            a 365 days of light and dark companion app
           </div>
         </div>
 
