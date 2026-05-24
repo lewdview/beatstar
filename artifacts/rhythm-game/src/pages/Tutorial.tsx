@@ -9,7 +9,7 @@ const LANE_KEYS   = () => loadOpts().laneKeys.map(k => keyLabel(k)) as [string, 
 const NOTE_FALL_MS = 1600;
 const HIT_WINDOW_MS = 350;
 
-type NotePhase = "idle" | "falling" | "in-window" | "hit" | "missed";
+type NotePhase = "idle" | "falling" | "in-window" | "holding" | "hit" | "missed";
 
 interface Step {
   id: string;
@@ -17,6 +17,9 @@ interface Step {
   title: string;
   lines: string[];
   practiceKey?: 0 | 1 | 2;
+  practiceType?: "tap" | "hold" | "swipe";
+  swipeDirection?: "up" | "down" | "left" | "right";
+  holdDuration?: number;
 }
 
 const STEPS: Step[] = [
@@ -31,7 +34,7 @@ const STEPS: Step[] = [
       "Press the matching key when a note",
       "reaches the glowing hit line.",
       "",
-      "Let's walk through it.",
+      "Let's walk through the note types.",
     ],
   },
   {
@@ -49,27 +52,56 @@ const STEPS: Step[] = [
   {
     id: "hit-a",
     num: "02",
-    title: "HIT THE NOTE",
-    lines: ["A note is falling in the LEFT lane.", "Press A when it reaches the line."],
+    title: "TAP NOTES",
+    lines: [
+      "TAP NOTES are standard rectangles.",
+      "Press A in the LEFT lane",
+      "exactly when the note overlaps the line.",
+    ],
     practiceKey: 0,
+    practiceType: "tap",
   },
   {
     id: "hit-s",
     num: "03",
-    title: "MID LANE",
-    lines: ["Good. Now the MID lane — press S."],
+    title: "HOLD NOTES",
+    lines: [
+      "HOLD NOTES have long trails.",
+      "Press and HOLD S in the MID lane.",
+      "Keep holding until the tail passes.",
+    ],
     practiceKey: 1,
+    practiceType: "hold",
+    holdDuration: 1500,
   },
   {
     id: "hit-d",
     num: "04",
-    title: "RIGHT LANE",
-    lines: ["Last one. RIGHT lane — press D."],
+    title: "SWIPE NOTES",
+    lines: [
+      "SWIPE NOTES have arrows.",
+      "Press ArrowUp (or Numpad 8)",
+      "when the chevron hits the line in the RIGHT lane.",
+    ],
     practiceKey: 2,
+    practiceType: "swipe",
+    swipeDirection: "up",
+  },
+  {
+    id: "slides",
+    num: "05",
+    title: "SLIDE NOTES",
+    lines: [
+      "Some hold notes bend across lanes.",
+      "Use ArrowLeft/Right to slide with it,",
+      "or press the target lane key directly.",
+      "",
+      "Watch the arrow indicators to guide you.",
+    ],
   },
   {
     id: "timing",
-    num: "05",
+    num: "06",
     title: "TIMING",
     lines: [
       "Earlier is better.",
@@ -82,7 +114,7 @@ const STEPS: Step[] = [
   },
   {
     id: "sync",
-    num: "06",
+    num: "07",
     title: "SYNCING UP",
     lines: [
       "Every device has a tiny gap between",
@@ -97,7 +129,7 @@ const STEPS: Step[] = [
   },
   {
     id: "misses",
-    num: "07",
+    num: "08",
     title: "SIGNAL LOST",
     lines: [
       "Three misses in a row and the track",
@@ -112,7 +144,7 @@ const STEPS: Step[] = [
   },
   {
     id: "ready",
-    num: "08",
+    num: "09",
     title: "YOU'RE READY",
     lines: [
       "Campaign unlocks songs day by day.",
@@ -123,6 +155,7 @@ const STEPS: Step[] = [
   },
 ];
 
+
 export default function Tutorial() {
   const [, setLocation] = useLocation();
   const [step, setStep]       = useState(0);
@@ -130,6 +163,9 @@ export default function Tutorial() {
   const [noteKey, setNoteKey]   = useState(0);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [autoAdvanced, setAutoAdvanced] = useState(0);
+
+  const [holdProgress, setHoldProgress] = useState(0);
+  const holdIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const timerA = useRef<ReturnType<typeof setTimeout> | null>(null);
   const timerB = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -140,9 +176,17 @@ export default function Tutorial() {
 
   const isAvant = getActiveTheme() === 'avant-garde';
 
+  const clearHold = () => {
+    if (holdIntervalRef.current) {
+      clearInterval(holdIntervalRef.current);
+      holdIntervalRef.current = null;
+    }
+  };
+
   const clear = () => {
     if (timerA.current) clearTimeout(timerA.current);
     if (timerB.current) clearTimeout(timerB.current);
+    clearHold();
   };
 
   const advance = useCallback(() => {
@@ -150,6 +194,7 @@ export default function Tutorial() {
     setNotePhase("idle");
     setFeedback(null);
     setAutoAdvanced(0);
+    setHoldProgress(0);
     setStep(s => Math.min(s + 1, STEPS.length - 1));
   }, []);
 
@@ -160,6 +205,7 @@ export default function Tutorial() {
     clear();
     setNotePhase("falling");
     setFeedback(null);
+    setHoldProgress(0);
     setNoteKey(k => k + 1);
 
     timerA.current = setTimeout(() => {
@@ -185,33 +231,98 @@ export default function Tutorial() {
     setNotePhase("idle");
     setFeedback(null);
     setAutoAdvanced(0);
+    setHoldProgress(0);
     const t = setTimeout(() => launchRef.current(0), 700);
-    return () => clearTimeout(t);
+    return () => {
+      clearTimeout(t);
+      clear();
+    };
   }, [step, isPractice]);
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
+    const keys = loadOpts().laneKeys;
+    const targetKeyStr = pKey !== undefined ? keys[pKey] : null;
+
+    const onKeyDown = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
       if (!isPractice && (k === "enter" || k === " ") && step < STEPS.length - 1) {
         if (isAvant) audioManager.playSfx("tap_nav", 0.12);
         advance(); return;
       }
+
       if (isPractice && notePhase === "in-window") {
-        const keys = loadOpts().laneKeys;
-        if (k === keys[pKey!]) {
-          clear();
-          setNotePhase("hit");
-          setFeedback("PERFECT+");
-          if (isAvant) audioManager.playSfx("tap_nav", 0.15);
-          timerA.current = setTimeout(() => advanceRef.current(), 700);
+        const practiceType = cur.practiceType || 'tap';
+
+        if (practiceType === 'tap') {
+          if (k === targetKeyStr) {
+            clear();
+            setNotePhase("hit");
+            setFeedback("PERFECT+");
+            if (isAvant) audioManager.playSfx("tap_nav", 0.15);
+            timerA.current = setTimeout(() => advanceRef.current(), 700);
+          }
+        } else if (practiceType === 'swipe') {
+          const isUp = e.key === "ArrowUp" || e.key === "8";
+          if (isUp) {
+            clear();
+            setNotePhase("hit");
+            setFeedback("PERFECT+");
+            if (isAvant) audioManager.playSfx("tap_nav", 0.15);
+            timerA.current = setTimeout(() => advanceRef.current(), 700);
+          }
+        } else if (practiceType === 'hold') {
+          if (k === targetKeyStr) {
+            clear();
+            setNotePhase("holding");
+            setFeedback("HOLDING...");
+            if (isAvant) audioManager.playSfx("tap_nav", 0.15);
+
+            const dur = cur.holdDuration || 1500;
+            const startT = Date.now();
+            setHoldProgress(0);
+
+            holdIntervalRef.current = setInterval(() => {
+              const elapsed = Date.now() - startT;
+              const prog = Math.min(1, elapsed / dur);
+              setHoldProgress(prog);
+
+              if (prog >= 1) {
+                clearHold();
+                setNotePhase("hit");
+                setFeedback("PERFECT+");
+                if (isAvant) audioManager.playSfx("tap_nav", 0.18);
+                timerA.current = setTimeout(() => advanceRef.current(), 700);
+              }
+            }, 16);
+          }
         }
       }
     };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [step, isPractice, notePhase, pKey, advance, isAvant]);
+
+    const onKeyUp = (e: KeyboardEvent) => {
+      const k = e.key.toLowerCase();
+      if (isPractice && notePhase === "holding" && k === targetKeyStr) {
+        clearHold();
+        setNotePhase("missed");
+        setFeedback("RELEASED EARLY");
+        if (isAvant) audioManager.playSfx("gmeover", 0.5);
+
+        timerA.current = setTimeout(() => {
+          launchRef.current(0);
+        }, 900);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+    };
+  }, [step, isPractice, notePhase, pKey, advance, isAvant, cur]);
 
   useEffect(() => () => clear(), []);
+
 
   const pct = step / (STEPS.length - 1);
 
@@ -379,7 +490,10 @@ export default function Tutorial() {
       {/* Top bar */}
       <div className="flex-shrink-0 flex items-center justify-between px-5 py-3 gap-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
         <button
-          onClick={() => setLocation("/")}
+          onClick={() => {
+            localStorage.setItem("pim_tutorial_completed", "true");
+            setLocation("/");
+          }}
           className="font-mono text-xs tracking-widest transition-colors"
           style={{ color: "rgba(255,255,255,0.25)" }}
           onMouseEnter={e => (e.currentTarget.style.color = "#FF1493")}
@@ -415,8 +529,17 @@ export default function Tutorial() {
           {cur.id === "welcome" && <WelcomeViz />}
           {cur.id === "lanes"   && <LanesViz />}
           {isPractice && pKey !== undefined && (
-            <PracticeViz laneIdx={pKey} notePhase={notePhase} noteKey={noteKey} feedback={feedback} />
+            <PracticeViz
+              laneIdx={pKey}
+              notePhase={notePhase}
+              noteKey={noteKey}
+              feedback={feedback}
+              practiceType={cur.practiceType}
+              swipeDirection={cur.swipeDirection}
+              holdProgress={holdProgress}
+            />
           )}
+          {cur.id === "slides"  && <SlidesViz />}
           {cur.id === "sync"    && <SyncViz />}
           {cur.id === "timing"  && <TimingViz />}
           {cur.id === "misses"  && <MissesViz />}
@@ -442,7 +565,7 @@ export default function Tutorial() {
             color: notePhase === "hit" ? "#39FF14" : notePhase === "missed" ? "#FF1493" : notePhase === "in-window" ? "#F2EDE5" : "rgba(255,255,255,0.2)",
             transition: "color 0.15s",
           }}>
-            {notePhase === "in-window" ? "▼  PRESS NOW" : notePhase === "hit" ? "✦  " + (feedback ?? "HIT") : notePhase === "missed" ? "✗  MISS — TRYING AGAIN" : "WATCH THE NOTE…"}
+            {notePhase === "in-window" ? "▼  PRESS NOW" : notePhase === "holding" ? "▼  HOLD KEY..." : notePhase === "hit" ? "✦  " + (feedback ?? "HIT") : notePhase === "missed" ? "✗  " + (feedback ?? "MISS") : "WATCH THE NOTE…"}
           </div>
         )}
 
@@ -461,10 +584,24 @@ export default function Tutorial() {
 
         {step === STEPS.length - 1 && (
           <div className="flex gap-4">
-            <button onClick={() => setLocation("/campaign")} className="font-mono text-xs font-bold tracking-[0.3em] px-8 py-3" style={{ background: "#39FF14", color: "#080808", border: "none", cursor: "pointer" }}>
+            <button
+              onClick={() => {
+                localStorage.setItem("pim_tutorial_completed", "true");
+                setLocation("/campaign");
+              }}
+              className="font-mono text-xs font-bold tracking-[0.3em] px-8 py-3"
+              style={{ background: "#39FF14", color: "#080808", border: "none", cursor: "pointer" }}
+            >
               ▶ CAMPAIGN
             </button>
-            <button onClick={() => setLocation("/songs")} className="font-mono text-xs tracking-[0.3em] px-8 py-3" style={{ border: "1px solid rgba(255,255,255,0.2)", color: "#F2EDE5", background: "transparent", cursor: "pointer" }}>
+            <button
+              onClick={() => {
+                localStorage.setItem("pim_tutorial_completed", "true");
+                setLocation("/songs");
+              }}
+              className="font-mono text-xs tracking-[0.3em] px-8 py-3"
+              style={{ border: "1px solid rgba(255,255,255,0.2)", color: "#F2EDE5", background: "transparent", cursor: "pointer" }}
+            >
               FREE PLAY
             </button>
           </div>
@@ -587,13 +724,43 @@ interface PracticeVizProps {
   noteKey: number;
   feedback: string | null;
   isAvant?: boolean;
+  practiceType?: "tap" | "hold" | "swipe";
+  swipeDirection?: "up" | "down" | "left" | "right";
+  holdProgress?: number;
 }
-function PracticeViz({ laneIdx, notePhase, noteKey, feedback, isAvant }: PracticeVizProps) {
+
+function PracticeViz({
+  laneIdx,
+  notePhase,
+  noteKey,
+  feedback,
+  isAvant,
+  practiceType = "tap",
+  swipeDirection = "up",
+  holdProgress = 0,
+}: PracticeVizProps) {
   const c = LANE_COLORS()[laneIdx];
   const animating = notePhase === "falling" || notePhase === "in-window";
   const hitLine = notePhase === "in-window";
+  const isHolding = notePhase === "holding";
   const isHit = notePhase === "hit";
   const isMiss = notePhase === "missed";
+
+  const isSwipe = practiceType === "swipe";
+  const isHold = practiceType === "hold";
+
+  const renderNoteInner = (color: string) => {
+    if (isSwipe) {
+      return (
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{
+          transform: `rotate(${swipeDirection === 'up' ? -90 : swipeDirection === 'down' ? 90 : swipeDirection === 'left' ? 180 : 0}deg)`
+        }}>
+          <path d="M5 12h14M12 5l7 7-7 7" />
+        </svg>
+      );
+    }
+    return <div style={{ width: 4, height: 4, background: color }} />;
+  };
 
   if (isAvant) {
     return (
@@ -641,7 +808,56 @@ function PracticeViz({ laneIdx, notePhase, noteKey, feedback, isAvant }: Practic
                     justifyContent: "center"
                   }}
                 >
-                  <div style={{ width: 4, height: 4, background: lc }} />
+                  {isHold && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        bottom: 12,
+                        left: 2, right: 2,
+                        height: 120,
+                        background: `linear-gradient(to top, ${lc}80, ${lc}20)`,
+                        borderLeft: `1px solid ${lc}`,
+                        borderRight: `1px solid ${lc}`,
+                        borderTop: `2px solid ${lc}`,
+                        boxShadow: `0 0 8px ${lc}40`
+                      }}
+                    />
+                  )}
+                  {renderNoteInner(lc)}
+                </div>
+              )}
+
+              {/* holding note stationary at hit line with shrinking tail */}
+              {active && isHolding && (
+                <div
+                  style={{
+                    position: "absolute",
+                    left: 6, right: 6,
+                    bottom: 32,
+                    height: 14,
+                    border: `2px solid ${lc}`,
+                    background: `${lc}60`,
+                    boxShadow: `0 0 20px ${lc}`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center"
+                  }}
+                >
+                  <div
+                    style={{
+                      position: "absolute",
+                      bottom: 12,
+                      left: 2, right: 2,
+                      height: 120 * (1 - holdProgress),
+                      background: `linear-gradient(to top, ${lc}80, ${lc}20)`,
+                      borderLeft: `1px solid ${lc}`,
+                      borderRight: `1px solid ${lc}`,
+                      borderTop: `2px solid ${lc}`,
+                      boxShadow: `0 0 8px ${lc}40`
+                    }}
+                  />
+                  <div className="absolute inset-0 animate-pulse bg-white/20" />
+                  {renderNoteInner("#ffffff")}
                 </div>
               )}
 
@@ -661,7 +877,7 @@ function PracticeViz({ laneIdx, notePhase, noteKey, feedback, isAvant }: Practic
               {/* key label */}
               <div className="font-mono font-bold absolute" style={{
                 bottom: 8, left: 0, right: 0, textAlign: "center", fontSize: 13,
-                color: active ? (isHit ? lc : isMiss ? "#FF1493" : hitLine ? "#fff" : `${lc}99`) : "rgba(255,255,255,0.15)",
+                color: active ? (isHit ? lc : isMiss ? "#FF1493" : (hitLine || isHolding) ? "#fff" : `${lc}99`) : "rgba(255,255,255,0.15)",
                 transition: "color 0.15s",
               }}>
                 {LANE_KEYS()[i]}
@@ -686,8 +902,8 @@ function PracticeViz({ laneIdx, notePhase, noteKey, feedback, isAvant }: Practic
             {/* hit line */}
             <div style={{
               position: "absolute", bottom: 28, left: 0, right: 0, height: 2,
-              background: active ? (hitLine ? lc : `${lc}50`) : "rgba(255,255,255,0.08)",
-              boxShadow: active && hitLine ? `0 0 12px ${lc}` : "none",
+              background: active ? (hitLine || isHolding ? lc : `${lc}50`) : "rgba(255,255,255,0.08)",
+              boxShadow: active && (hitLine || isHolding) ? `0 0 12px ${lc}` : "none",
               transition: "all 0.15s",
             }} />
 
@@ -704,8 +920,59 @@ function PracticeViz({ laneIdx, notePhase, noteKey, feedback, isAvant }: Practic
                   background: lc,
                   boxShadow: `0 0 14px ${lc}`,
                   animation: `tutfall ${NOTE_FALL_MS}ms linear forwards`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center"
                 }}
-              />
+              >
+                {isHold && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      bottom: 16,
+                      left: 2, right: 2,
+                      height: 100,
+                      background: `linear-gradient(to top, ${lc}80, ${lc}20)`,
+                      borderLeft: `1px solid ${lc}`,
+                      borderRight: `1px solid ${lc}`,
+                      borderTop: `2px solid ${lc}`,
+                    }}
+                  />
+                )}
+                {renderNoteInner("#ffffff")}
+              </div>
+            )}
+
+            {/* holding note stationary at hit line with shrinking tail */}
+            {active && isHolding && (
+              <div
+                style={{
+                  position: "absolute",
+                  left: 6, right: 6,
+                  bottom: 28,
+                  height: 18,
+                  borderRadius: 4,
+                  background: lc,
+                  boxShadow: `0 0 20px ${lc}`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center"
+                }}
+              >
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: 16,
+                    left: 2, right: 2,
+                    height: 100 * (1 - holdProgress),
+                    background: `linear-gradient(to top, ${lc}80, ${lc}20)`,
+                    borderLeft: `1px solid ${lc}`,
+                    borderRight: `1px solid ${lc}`,
+                    borderTop: `2px solid ${lc}`,
+                  }}
+                />
+                {renderNoteInner("#ffffff")}
+              </div>
             )}
 
             {/* hit flash */}
@@ -720,7 +987,7 @@ function PracticeViz({ laneIdx, notePhase, noteKey, feedback, isAvant }: Practic
             {/* key label */}
             <div className="font-mono font-bold absolute" style={{
               bottom: 6, left: 0, right: 0, textAlign: "center", fontSize: 13,
-              color: active ? (isHit ? lc : isMiss ? "#FF1493" : hitLine ? "#fff" : `${lc}99`) : "rgba(255,255,255,0.15)",
+              color: active ? (isHit ? lc : isMiss ? "#FF1493" : hitLine || isHolding ? "#fff" : `${lc}99`) : "rgba(255,255,255,0.15)",
               transition: "color 0.15s",
             }}>
               {LANE_KEYS()[i]}
@@ -732,6 +999,117 @@ function PracticeViz({ laneIdx, notePhase, noteKey, feedback, isAvant }: Practic
         @keyframes tutfall { from{top:-22px} to{top:calc(100% - 50px)} }
         @keyframes tutflash { from{opacity:1} to{opacity:0} }
       `}</style>
+    </div>
+  );
+}
+
+function SlidesViz({ isAvant }: VizProps) {
+  const colors = LANE_COLORS();
+  
+  if (isAvant) {
+    return (
+      <div className="flex gap-4 p-4 border border-zinc-900 bg-black/45 relative">
+        <div className="absolute top-0 left-0 w-1.5 h-1.5 border-t border-l border-[#39FF14]/50" />
+        <div className="absolute bottom-0 right-0 w-1.5 h-1.5 border-b border-r border-[#39FF14]/50" />
+        {colors.map((c, i) => (
+          <div key={i} style={{ width: 44, height: 90, border: `1px solid ${i === 1 || i === 2 ? c + '30' : 'rgba(255,255,255,0.03)'}`, background: `${c}02`, position: "relative", overflow: "hidden" }}>
+            <div style={{ position: "absolute", bottom: 16, left: 0, right: 0, height: 1, background: i === 1 || i === 2 ? c : 'rgba(255,255,255,0.1)', opacity: 0.6 }} />
+            
+            {i === 1 && (
+              <div style={{
+                position: "absolute",
+                bottom: 16,
+                left: 12,
+                width: 20,
+                height: 45,
+                background: `linear-gradient(to top, ${c}80, ${c}20)`,
+                borderLeft: `1px solid ${c}`,
+                borderTopLeftRadius: 4,
+                opacity: 0.8
+              }} />
+            )}
+
+            {i === 2 && (
+              <div style={{
+                position: "absolute",
+                bottom: 45,
+                left: 12,
+                width: 20,
+                height: 45,
+                background: `linear-gradient(to top, ${c}20, ${c}80)`,
+                borderRight: `1px solid ${c}`,
+                borderTopRightRadius: 4,
+                opacity: 0.8
+              }} />
+            )}
+          </div>
+        ))}
+        
+        <svg className="absolute inset-0 pointer-events-none" width="100%" height="100%">
+          <path
+            d="M 94 61 Q 110 40 148 29"
+            fill="none"
+            stroke={colors[1]}
+            strokeWidth="10"
+            strokeLinecap="round"
+            opacity="0.4"
+            style={{ strokeDasharray: "4 2" }}
+          />
+          <path
+            d="M 112 48 L 122 43 L 112 38 Z"
+            fill="#39FF14"
+            opacity="0.8"
+            className="animate-bounce"
+            style={{ transform: "rotate(15deg)", transformOrigin: "112px 48px" }}
+          />
+        </svg>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex gap-3">
+      {colors.map((c, i) => (
+        <div key={i} style={{ width: 48, height: 80, border: `1px solid ${i === 1 || i === 2 ? c + '22' : 'rgba(255,255,255,0.04)'}`, position: "relative", overflow: "hidden" }}>
+          <div style={{ position: "absolute", bottom: 12, left: 0, right: 0, height: 1, background: i === 1 || i === 2 ? c : 'rgba(255,255,255,0.1)', opacity: 0.4 }} />
+          
+          {i === 1 && (
+            <div style={{
+              position: "absolute",
+              bottom: 12,
+              left: 14,
+              width: 20,
+              height: 40,
+              background: `linear-gradient(to top, ${c}77, ${c}11)`,
+              borderLeft: `1px solid ${c}`,
+              opacity: 0.7
+            }} />
+          )}
+
+          {i === 2 && (
+            <div style={{
+              position: "absolute",
+              bottom: 40,
+              left: 14,
+              width: 20,
+              height: 40,
+              background: `linear-gradient(to top, ${c}11, ${c}77)`,
+              borderRight: `1px solid ${c}`,
+              opacity: 0.7
+            }} />
+          )}
+        </div>
+      ))}
+      <svg className="absolute inset-0 pointer-events-none" width="100%" height="100%" style={{ position: "absolute", top: 0, left: 0 }}>
+        <path
+          d="M 98 55 Q 112 38 144 26"
+          fill="none"
+          stroke={colors[1]}
+          strokeWidth="8"
+          opacity="0.3"
+          style={{ strokeDasharray: "3 2" }}
+        />
+      </svg>
     </div>
   );
 }

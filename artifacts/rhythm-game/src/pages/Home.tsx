@@ -33,6 +33,17 @@ export default function Home() {
   const [bootText, setBootText] = useState("");
   const [isIntroTransition, setIsIntroTransition] = useState(false);
   const [currentTime, setCurrentTime] = useState("");
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    if (!showIntro) {
+      const completed = localStorage.getItem("pim_tutorial_completed");
+      if (!completed) {
+        setShowOnboarding(true);
+      }
+    }
+  }, [showIntro]);
+
 
   useEffect(() => {
     const updateClock = () => {
@@ -1039,6 +1050,54 @@ export default function Home() {
           TH3SCR1B3.ART
         </a>
       </div>
+
+      {showOnboarding && (
+        <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/85 backdrop-blur-md p-6">
+          <div className="relative max-w-md w-full border border-[#00E5FF]/45 bg-zinc-950/90 p-8 rounded-lg shadow-[0_0_30px_rgba(0,229,255,0.15)] font-mono text-left">
+            {/* corner markers */}
+            <div className="absolute top-0 left-0 w-2.5 h-2.5 border-t-2 border-l-2 border-[#00E5FF]" />
+            <div className="absolute top-0 right-0 w-2.5 h-2.5 border-t-2 border-r-2 border-[#00E5FF]" />
+            <div className="absolute bottom-0 left-0 w-2.5 h-2.5 border-b-2 border-l-2 border-[#00E5FF]" />
+            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 border-b-2 border-r-2 border-[#00E5FF]" />
+
+            <div className="text-xs text-red-500 font-bold tracking-[0.4em] mb-2 uppercase flex items-center gap-2">
+              <span className="inline-block w-2.5 h-2.5 bg-red-600 animate-ping rounded-full" />
+              [ SYSTEM_WARNING: CALIBRATION_REQUIRED ]
+            </div>
+
+            <h3 className="text-lg font-bold text-white tracking-widest uppercase mb-4">
+              FIRST TIME ACCESS DETECTED
+            </h3>
+
+            <p className="text-xs text-white/70 leading-relaxed mb-6 tracking-wide">
+              Your neural link latency has not been calibrated. It is highly recommended to run the 
+              RHYTHM ENGINE TUTORIAL to explain Tap, Hold, and Swipe note types and adjust audio offset.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-4">
+              <button
+                onClick={() => {
+                  try { audioManager.playSfx("tap_nav", 0.15); } catch(e){}
+                  setLocation("/tutorial");
+                }}
+                className="flex-1 font-mono text-xs font-bold tracking-[0.2em] py-3 bg-[#39FF14] text-black hover:bg-[#39FF14]/90 hover:shadow-[0_0_15px_rgba(57,255,20,0.3)] transition-all text-center uppercase cursor-pointer"
+              >
+                ▶ RUN CALIBRATION
+              </button>
+              <button
+                onClick={() => {
+                  try { audioManager.playSfx("tap_nav", 0.12); } catch(e){}
+                  localStorage.setItem("pim_tutorial_completed", "true");
+                  setShowOnboarding(false);
+                }}
+                className="flex-1 font-mono text-xs tracking-[0.2em] py-3 border border-white/20 text-white/50 hover:text-white hover:border-white transition-all text-center uppercase cursor-pointer"
+              >
+                [ BYPASS ]
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
     </>
   );
