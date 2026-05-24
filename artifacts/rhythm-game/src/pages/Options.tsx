@@ -228,7 +228,7 @@ export default function Options() {
     setOpts(o => ({ ...o, laneColors: newColors }));
   }
 
-  function toggle(k: "missSystem" | "hudMisses" | "comboDisplay" | "judgmentText" | "useLocalFiles") {
+  function toggle(k: "missSystem" | "hudMisses" | "comboDisplay" | "judgmentText" | "useLocalFiles" | "bgMusic") {
     const v = !opts[k];
     localStorage.setItem(`opt_${k}`, String(v));
     setOpts(o => ({ ...o, [k]: v }));
@@ -236,6 +236,9 @@ export default function Options() {
     // Clear catalog cache if we toggled the local files switch
     if (k === "useLocalFiles") {
       clearCatalogCache();
+    }
+    if (k === "bgMusic") {
+      window.dispatchEvent(new Event("bgmusic_toggle"));
     }
   }
 
@@ -596,6 +599,7 @@ export default function Options() {
           <SectionLabel label="GAMEPLAY" sub="Mechanics & display" isAvant={isAvant} />
           <div style={{ border: isAvant ? "1px solid rgba(57,255,20,0.2)" : "2px solid rgba(255,255,255,0.08)", background: isAvant ? "rgba(5,5,5,0.4)" : "transparent" }}>
             {([
+              { key: "bgMusic",      label: "BACKGROUND MUSIC", sub: "Ambient music loop in menus" },
               { key: "missSystem",   label: "MISS SYSTEM",   sub: "3 strikes trigger SIGNAL LOST" },
               { key: "hudMisses",    label: "HUD MISSES",    sub: "Miss pips shown in HUD" },
               { key: "comboDisplay", label: "COMBO DISPLAY", sub: "Combo counter" },

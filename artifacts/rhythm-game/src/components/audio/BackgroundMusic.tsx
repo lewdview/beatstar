@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import { useLocation } from "wouter";
 import { audioManager } from "@/game/audio";
+import { loadOpts } from "@/lib/options";
 
 /**
  * BackgroundMusic — persistent ambient music for menu screens.
@@ -21,6 +22,13 @@ export default function BackgroundMusic() {
   const fadeIntervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   const [introDone, setIntroDone] = useState(() => !!sessionStorage.getItem("intro_seen"));
+  const [bgMusicEnabled, setBgMusicEnabled] = useState(() => loadOpts().bgMusic);
+  
+  useEffect(() => {
+    const onToggle = () => setBgMusicEnabled(loadOpts().bgMusic);
+    window.addEventListener("bgmusic_toggle", onToggle);
+    return () => window.removeEventListener("bgmusic_toggle", onToggle);
+  }, []);
   
   useEffect(() => {
     const onIntroDone = () => setIntroDone(true);
@@ -62,8 +70,9 @@ export default function BackgroundMusic() {
     setStarted((prev) => {
       if (prev) return prev;
       
+      const { bgMusic } = loadOpts();
       const audio = audioRef.current;
-      if (audio) {
+      if (audio && bgMusic) {
         audio.preload = "auto";
         audio.load();
         audio.volume = 0;
@@ -92,8 +101,8 @@ export default function BackgroundMusic() {
 
     clearInterval(fadeIntervalRef.current);
 
-    if (isSilentRoute) {
-      // Immediate stop on silent routes to prevent leaking on iOS
+    if (isSilentRoute || !bgMusicEnabled) {
+      // Immediate stop on silent routes or when bgMusic is disabled
       audio.pause();
       audio.volume = 0;
       clearInterval(fadeIntervalRef.current);
@@ -117,7 +126,7 @@ export default function BackgroundMusic() {
     }
 
     return () => clearInterval(fadeIntervalRef.current);
-  }, [isSilentRoute, started]);
+  }, [isSilentRoute, started, bgMusicEnabled]);
 
   return null;
 }

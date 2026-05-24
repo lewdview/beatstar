@@ -8,6 +8,7 @@ export type GameOpts = {
   laneColors: [string, string, string];
   useLocalFiles: boolean;
   noteGenerationSource: 'auto' | 'lyrics' | 'bpm';
+  bgMusic: boolean;
 };
 
 export const DEFAULT_OPTS: GameOpts = {
@@ -20,6 +21,7 @@ export const DEFAULT_OPTS: GameOpts = {
   laneColors: ["#FF1493", "#00E5FF", "#39FF14"],
   useLocalFiles: false,
   noteGenerationSource: "auto",
+  bgMusic: false,
 };
 
 export function loadOpts(): GameOpts {
@@ -46,6 +48,7 @@ export function loadOpts(): GameOpts {
       const v = localStorage.getItem("opt_noteGenerationSource");
       return (v === "lyrics" || v === "bpm" || v === "auto") ? v : "auto";
     })(),
+    bgMusic: bool("opt_bgMusic", false),
   };
 }
 
