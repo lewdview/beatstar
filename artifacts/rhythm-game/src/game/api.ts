@@ -135,6 +135,9 @@ function buildGameSong(r: any, useLocal = false): GameSong {
 
   let audioUrl = r.storedAudioUrl;
   let coverArt = r.coverArt || null;
+  if (coverArt) {
+    coverArt = coverArt.replace(/\.png$/i, '.jpg');
+  }
 
   if (useLocal) {
     const LOCAL_BASE = '/@fs/Volumes/extremeUno/th3scr1b3-365-warp/365-releases/';
