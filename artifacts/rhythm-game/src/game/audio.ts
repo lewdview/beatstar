@@ -155,7 +155,7 @@ export class AudioManager {
   /** Lazy-init the AudioContext. Safe to call multiple times. */
   async init(): Promise<void> {
     if (!this.ctx) {
-      this.ctx = new AudioContext();
+      this.ctx = new AudioContext({ latencyHint: 'interactive' });
       this.masterGain = this.ctx.createGain();
       this.masterGain.gain.value = 0.7;
       this.masterGain.connect(this.ctx.destination);

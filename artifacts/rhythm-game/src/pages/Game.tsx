@@ -2461,7 +2461,7 @@ export default function Game() {
       // ── Web Audio frequency-band routing ──────────────────────
       // Lane 0 (A) → bass  · Lane 1 (S) → mids  · Lane 2 (D) → treble
       try {
-        const actx = new AudioContext();
+        const actx = new AudioContext({ latencyHint: 'interactive' });
         audioCtxRef.current = actx;
         await actx.resume();
         const src = actx.createMediaElementSource(audio);
@@ -3100,6 +3100,12 @@ export default function Game() {
                       c.height = w.clientHeight;
                     }
                   }
+                  // Resume AudioContext during user gesture!
+                  if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+                    await audioCtxRef.current.resume();
+                  }
+                  await audioManager.ensureReady();
+
                   phaseRef.current = "playing";
                   setPhase("playing");
                   rafRef.current = requestAnimationFrame(() => drawRef.current?.());
