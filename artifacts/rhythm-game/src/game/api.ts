@@ -108,7 +108,17 @@ export async function loadCatalog(): Promise<GameSong[]> {
 
 export async function getSongById(id: string): Promise<GameSong | null> {
   const catalog = await loadCatalog();
-  return catalog.find((s) => s.id === id) ?? null;
+  const exact = catalog.find((s) => s.id === id);
+  if (exact) return exact;
+
+  // Robust fallback: extract the day number (e.g., 'card-50' -> 50, 'day-050' -> 50)
+  const match = id.match(/\d+/);
+  if (match) {
+    const dayNum = parseInt(match[0], 10);
+    const foundByDay = catalog.find((s) => s.day === dayNum);
+    if (foundByDay) return foundByDay;
+  }
+  return null;
 }
 
 function buildGameSong(r: any, useLocal = false): GameSong {
