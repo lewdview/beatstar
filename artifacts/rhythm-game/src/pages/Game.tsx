@@ -118,6 +118,7 @@ interface NoteState {
   currentLane: number; // For slide notes: tracking which lane the player is currently holding
   originLane: number;  // The lane that started this hold interaction
   visualLane: number;  // For slide notes: tracking smoothly animated visual lane position
+  autoplayedBySurge?: boolean;
 }
 interface LanePress {
   pressed: boolean;
@@ -531,8 +532,6 @@ export default function Game() {
   const releaseLane = useCallback(
     (lane: number) => {
       if (phaseRef.current !== "playing") return;
-      const isSurge = puRef.current.active === "SURGE" && getT() < puRef.current.endTime;
-      if (isSurge) return;
       const ns = notesRef.current.find(
         (n) =>
           n.note.type === "hold" &&
@@ -541,6 +540,8 @@ export default function Game() {
           !n.hit,
       );
       if (!ns) return;
+      const isSurge = puRef.current.active === "SURGE" && getT() < puRef.current.endTime;
+      if (isSurge || ns.autoplayedBySurge) return;
 
       // If it's a slide note, it must end in the targetLane
       if (ns.note.targetLane !== undefined && ns.currentLane !== ns.note.targetLane) {
@@ -762,6 +763,7 @@ export default function Game() {
         if (ns.holdActive && ns.note.time >= rewindTo - 0.5) {
           ns.holdActive = false;
           ns.holdProgress = 0;
+          ns.autoplayedBySurge = false;
         }
       });
       gsRef.current.combo = 0;
@@ -1249,12 +1251,16 @@ export default function Game() {
       const isSurge = puRef.current.active === "SURGE" && t < puRef.current.endTime;
       if (note.type === "hold" && !ns.hit && !ns.missed && !ns.holdActive && isSurge && t >= note.time) {
         ns.holdActive = true;
+        ns.autoplayedBySurge = true;
         ns.currentLane = note.lane;
         ns.originLane = note.lane;
         audioManager.playSfx("tap_nav", 0.12);
       }
 
       if (ns.holdActive) {
+        if (isSurge) {
+          ns.autoplayedBySurge = true;
+        }
         ns.holdProgress = Math.min(
           1,
           (t - note.time) / (note.holdDuration || 0.5),
@@ -1264,7 +1270,7 @@ export default function Game() {
         }
       }
 
-      if (ns.holdActive && ns.holdProgress >= 1 && isSurge) {
+      if (ns.holdActive && ns.holdProgress >= 1 && (isSurge || ns.autoplayedBySurge)) {
         ns.hit = true;
         ns.holdActive = false;
         const gs = gsRef.current;
@@ -1279,6 +1285,8 @@ export default function Game() {
         ];
         dirty = true;
       }
+
+      if (ns.hit) continue;
 
       // Miss detection — skip entirely during rewind (notes travel backwards; no new misses)
       if (!isRewinding && phaseRef.current === "playing") {
