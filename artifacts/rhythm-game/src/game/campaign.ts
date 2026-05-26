@@ -6,21 +6,24 @@ export interface ChapterMeta {
   diff: 'EASY' | 'MEDIUM' | 'HARD' | 'BRUTAL';
   dc: string;
   platNeeded: number;
+  mapX: number;
+  mapY: number;
+  mood: 'light' | 'dark';
 }
 
 export const CHAPTERS: ChapterMeta[] = [
-  { month: 1,  name: 'JANUARY',   sub: 'GATEWAY SIGNAL',   diff: 'EASY',   dc: '#39FF14', platNeeded: 2  },
-  { month: 2,  name: 'FEBRUARY',  sub: 'EMERGENCE',         diff: 'EASY',   dc: '#39FF14', platNeeded: 2  },
-  { month: 3,  name: 'MARCH',     sub: 'STATIC RISE',       diff: 'EASY',   dc: '#39FF14', platNeeded: 3  },
-  { month: 4,  name: 'APRIL',     sub: 'FREQUENCY',         diff: 'MEDIUM', dc: '#00E5FF', platNeeded: 3  },
-  { month: 5,  name: 'MAY',       sub: 'SIGNAL SURGE',      diff: 'MEDIUM', dc: '#00E5FF', platNeeded: 3  },
-  { month: 6,  name: 'JUNE',      sub: 'INTERFERENCE',      diff: 'MEDIUM', dc: '#00E5FF', platNeeded: 4  },
-  { month: 7,  name: 'JULY',      sub: 'WAVELENGTH',        diff: 'HARD',   dc: '#E5B800', platNeeded: 4  },
-  { month: 8,  name: 'AUGUST',    sub: 'RESONANCE',         diff: 'HARD',   dc: '#E5B800', platNeeded: 5  },
-  { month: 9,  name: 'SEPTEMBER', sub: 'DISTORTION',        diff: 'HARD',   dc: '#E5B800', platNeeded: 5  },
-  { month: 10, name: 'OCTOBER',   sub: 'THRESHOLD',         diff: 'BRUTAL', dc: '#FF1493', platNeeded: 5  },
-  { month: 11, name: 'NOVEMBER',  sub: 'FRACTURE',          diff: 'BRUTAL', dc: '#FF1493', platNeeded: 6  },
-  { month: 12, name: 'DECEMBER',  sub: 'TRANSMISSION END',  diff: 'BRUTAL', dc: '#FF1493', platNeeded: 7  },
+  { month: 1,  name: 'JANUARY',   sub: 'GATEWAY SIGNAL',   diff: 'EASY',   dc: '#39FF14', platNeeded: 2, mapX: 18, mapY: 50, mood: 'light' },
+  { month: 2,  name: 'FEBRUARY',  sub: 'EMERGENCE',         diff: 'EASY',   dc: '#39FF14', platNeeded: 2, mapX: 26, mapY: 32, mood: 'light' },
+  { month: 3,  name: 'MARCH',     sub: 'STATIC RISE',       diff: 'EASY',   dc: '#39FF14', platNeeded: 3, mapX: 38, mapY: 18, mood: 'light' },
+  { month: 4,  name: 'APRIL',     sub: 'FREQUENCY',         diff: 'MEDIUM', dc: '#00E5FF', platNeeded: 3, mapX: 52, mapY: 28, mood: 'dark'  },
+  { month: 5,  name: 'MAY',       sub: 'SIGNAL SURGE',      diff: 'MEDIUM', dc: '#00E5FF', platNeeded: 3, mapX: 64, mapY: 15, mood: 'light' },
+  { month: 6,  name: 'JUNE',      sub: 'INTERFERENCE',      diff: 'MEDIUM', dc: '#00E5FF', platNeeded: 4, mapX: 76, mapY: 30, mood: 'dark'  },
+  { month: 7,  name: 'JULY',      sub: 'WAVELENGTH',        diff: 'HARD',   dc: '#E5B800', platNeeded: 4, mapX: 84, mapY: 50, mood: 'light' },
+  { month: 8,  name: 'AUGUST',    sub: 'RESONANCE',         diff: 'HARD',   dc: '#E5B800', platNeeded: 5, mapX: 76, mapY: 70, mood: 'light' },
+  { month: 9,  name: 'SEPTEMBER', sub: 'DISTORTION',        diff: 'HARD',   dc: '#E5B800', platNeeded: 5, mapX: 64, mapY: 85, mood: 'dark'  },
+  { month: 10, name: 'OCTOBER',   sub: 'THRESHOLD',         diff: 'BRUTAL', dc: '#FF1493', platNeeded: 5, mapX: 52, mapY: 72, mood: 'dark'  },
+  { month: 11, name: 'NOVEMBER',  sub: 'FRACTURE',          diff: 'BRUTAL', dc: '#FF1493', platNeeded: 6, mapX: 38, mapY: 85, mood: 'dark'  },
+  { month: 12, name: 'DECEMBER',  sub: 'TRANSMISSION END',  diff: 'BRUTAL', dc: '#FF1493', platNeeded: 7, mapX: 26, mapY: 68, mood: 'dark'  },
 ];
 
 /**
