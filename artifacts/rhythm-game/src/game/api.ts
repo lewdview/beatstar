@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { loadOpts } from '@/lib/options';
+import dayFileMap from './day_file_map.json';
 
 const RELEASE_DATA_URL = 'https://th3scr1b3.art/release-data.json';
 
@@ -143,25 +144,57 @@ function buildGameSong(r: any, useLocal = false): GameSong {
 
   const difficultyLevel = calcDifficulty(bpm, valence, notes.length, duration);
 
+  const dayStr = String(r.day);
+  const mapped = (dayFileMap as any)[dayStr];
+
   let audioUrl = r.storedAudioUrl;
   let coverArt = r.coverArt || null;
   if (coverArt) {
     coverArt = coverArt.replace(/\.png$/i, '.jpg');
   }
 
+  const SUPABASE_BASE = 'https://pznmptudgicrmljjafex.supabase.co/storage/v1/object/public/releaseready/';
+  const LOCAL_BASE = '/@fs/Volumes/extremeUno/th3scr1b3-365-warp/365-releases/';
+
   if (useLocal) {
-    const LOCAL_BASE = '/@fs/Volumes/extremeUno/th3scr1b3-365-warp/365-releases/';
-    if (r.manifestAudioPath) {
-      audioUrl = LOCAL_BASE + decodeURIComponent(r.manifestAudioPath);
-    } else if (r.fileName && r.date) {
-      // Fallback if manifestAudioPath isn't present
-      const monthStr = new Date(r.date).toLocaleString('en-US', { month: 'long' }).toLowerCase();
-      audioUrl = LOCAL_BASE + `audio/${monthStr}/${decodeURIComponent(r.fileName)}`;
+    if (mapped && mapped.audio) {
+      audioUrl = LOCAL_BASE + mapped.audio;
+    } else {
+      if (r.manifestAudioPath) {
+        audioUrl = LOCAL_BASE + decodeURIComponent(r.manifestAudioPath);
+      } else if (r.fileName && r.date) {
+        const parts = r.date.split('-');
+        const monthNum = parseInt(parts[1], 10);
+        const months = [
+          'january', 'february', 'march', 'april', 'may', 'june',
+          'july', 'august', 'september', 'october', 'november', 'december'
+        ];
+        const monthStr = months[monthNum - 1];
+        audioUrl = LOCAL_BASE + `audio/${monthStr}/${decodeURIComponent(r.fileName)}`;
+      }
     }
-    if (coverArt && coverArt.includes('/releaseready/')) {
-      const parts = coverArt.split('/releaseready/');
-      if (parts.length > 1) {
-        coverArt = LOCAL_BASE + decodeURIComponent(parts[1]);
+
+    if (mapped && mapped.cover) {
+      coverArt = LOCAL_BASE + mapped.cover;
+    } else {
+      if (coverArt && coverArt.includes('/releaseready/')) {
+        const parts = coverArt.split('/releaseready/');
+        if (parts.length > 1) {
+          coverArt = LOCAL_BASE + decodeURIComponent(parts[1]);
+        }
+      }
+    }
+  } else {
+    // Online mode: Correct URLs using database-storage mappings
+    if (mapped) {
+      if (mapped.audio) {
+        audioUrl = SUPABASE_BASE + encodeURIComponent(mapped.audio).replace(/%2F/g, '/');
+      }
+      if (mapped.cover) {
+        coverArt = SUPABASE_BASE + encodeURIComponent(mapped.cover).replace(/%2F/g, '/');
+      } else if (r.day >= 143 && r.day <= 151) {
+        // May 23-31 covers are missing entirely
+        coverArt = null;
       }
     }
   }
