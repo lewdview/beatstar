@@ -146,18 +146,18 @@ export default function Results() {
     Promise.all([getSongById(songId), loadCatalog()])
       .then(([s, catalog]) => {
         setSong(s);
-        if (s) {
-          const month = new Date(s.date).getMonth() + 1;
+        if (s && s.date) {
+          const month = parseInt(s.date.split('-')[1], 10);
           setChapterMonth(month);
           const sorted = [...catalog].sort((a, b) => a.day - b.day);
           const idx = sorted.findIndex(c => c.id === s.id);
           const nextReleased = sorted.slice(idx + 1).find(c => !isSongTimeLocked(c));
-          if (nextReleased) {
-            const cMonth = new Date(nextReleased.date).getMonth() + 1;
-            const monthSongs = sorted.filter(c => new Date(c.date).getMonth() + 1 === cMonth);
+          if (nextReleased && nextReleased.date) {
+            const cMonth = parseInt(nextReleased.date.split('-')[1], 10);
+            const monthSongs = sorted.filter(c => c.date && parseInt(c.date.split('-')[1], 10) === cMonth);
             const bonusStart = monthSongs.length - 5;
             const cidx = monthSongs.findIndex(c => c.id === nextReleased.id);
-            if (cidx >= bonusStart) {
+            if (monthSongs.length > 5 && cidx >= bonusStart) {
               const regularIds = monthSongs.slice(0, bonusStart).map(c => c.id);
               if (getChapterPlatinums(regularIds) >= (CHAPTER_PLAT_NEEDED[cMonth] ?? 5))
                 setNextSong(nextReleased);
@@ -458,7 +458,7 @@ export default function Results() {
               {/* Title & score */}
               <div className="text-center mt-2">
                 <div className="font-mono font-bold" style={{ fontSize: 'clamp(28px,8vw,36px)', color: 'rgba(255,255,255,0.2)', letterSpacing: '0.05em', textDecoration: 'line-through' }}>
-                  {result.score.toLocaleString()}
+                  {(result?.score ?? 0).toLocaleString()}
                 </div>
                 <div className="font-mono text-xs text-[#FF1493] mt-2 tracking-[0.2em] uppercase font-bold">
                   {song?.title ?? `TRANSMISSION ${songId}`}
@@ -578,7 +578,7 @@ export default function Results() {
             </div>
             <div className="text-center">
               <div className="font-mono font-bold" style={{ fontSize: 'clamp(28px,8vw,40px)', color: 'rgba(255,255,255,0.15)', letterSpacing: '0.03em', textDecoration: 'line-through' }}>
-                {result.score.toLocaleString()}
+                {(result?.score ?? 0).toLocaleString()}
               </div>
               <div className="font-mono text-xs mt-1" style={{ color: 'rgba(255,255,255,0.25)', letterSpacing: '0.2em' }}>
                 {song?.title ?? `TRANSMISSION ${songId}`}

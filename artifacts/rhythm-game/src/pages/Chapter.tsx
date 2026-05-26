@@ -36,12 +36,12 @@ export default function Chapter() {
   useEffect(() => {
     loadCatalog().then(catalog => {
       const filtered = catalog
-        .filter(s => parseInt(s.date.split('-')[1], 10) === monthNum)
+        .filter(s => s.date && parseInt(s.date.split('-')[1], 10) === monthNum)
         .sort((a, b) => a.day - b.day);
       setSongs(filtered);
       setLoading(false);
 
-      // Stop preview on song load
+      // Stop any existing preview on song list change
       if (previewRef.current) {
         previewRef.current.pause();
         setPreviewing(false);
@@ -59,18 +59,20 @@ export default function Chapter() {
       }
 
       // Otherwise, default select to player's active level (first uncleared unlocked level)
-      const regularSongsList = filtered.slice(0, -5);
-      const bonusSongsList = filtered.slice(-5);
+      const regularSongsList = filtered.length > 5 ? filtered.slice(0, -5) : filtered;
+      const bonusSongsList = filtered.length > 5 ? filtered.slice(-5) : [];
       const plats = getChapterPlatinums(regularSongsList.map(s => s.id));
-      const bUnlocked = plats >= meta.platNeeded;
+      const bUnlocked = filtered.length > 5 ? (plats >= meta.platNeeded) : true;
       
-      const hasClearedLocal = (song: GameSong) => {
+      const hasClearedLocal = (song?: GameSong) => {
+        if (!song) return false;
         const medalVal = getMedalForSong(song.id);
         const scoreVal = getHighScore(song.id);
         return (medalVal && medalVal !== '') || scoreVal > 0;
       };
 
       const isUnlockedLocal = (idx: number) => {
+        if (idx < 0) return false;
         if (idx < regularSongsList.length) {
           if (idx === 0) return true;
           return hasClearedLocal(regularSongsList[idx - 1]);
@@ -104,12 +106,13 @@ export default function Chapter() {
     );
   }
 
-  const regularSongs  = songs.slice(0, -5);
-  const bonusSongs    = songs.slice(-5);
+  const regularSongs  = songs.length > 5 ? songs.slice(0, -5) : songs;
+  const bonusSongs    = songs.length > 5 ? songs.slice(-5) : [];
   const platinums     = getChapterPlatinums(regularSongs.map(s => s.id));
-  const bonusUnlocked = platinums >= meta.platNeeded;
+  const bonusUnlocked = songs.length > 5 ? (platinums >= meta.platNeeded) : true;
 
-  const hasCleared = (song: GameSong) => {
+  const hasCleared = (song?: GameSong) => {
+    if (!song) return false;
     const medal = getMedalForSong(song.id);
     const score = getHighScore(song.id);
     return (medal && medal !== '') || score > 0;
@@ -118,6 +121,7 @@ export default function Chapter() {
   const clearsCount = regularSongs.filter(s => hasCleared(s)).length;
 
   const isUnlocked = (idx: number) => {
+    if (idx < 0) return false;
     if (idx < regularSongs.length) {
       if (idx === 0) return true;
       return hasCleared(regularSongs[idx - 1]);

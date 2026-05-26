@@ -125,12 +125,13 @@ export default function Campaign() {
       // 1. Calculate raw metadata stats for all chapters
       const data = CHAPTERS.map((meta, idx) => {
         const songs = catalog.filter(s => {
+          if (!s.date) return false;
           const parts = s.date.split('-');
-          return parseInt(parts[1], 10) === meta.month;
+          return parts.length > 1 && parseInt(parts[1], 10) === meta.month;
         }).sort((a, b) => a.day - b.day);
 
-        const regularIds = songs.slice(0, -5).map(s => s.id);
-        const bonusCount = Math.min(5, Math.max(0, songs.length - regularIds.length));
+        const regularIds = songs.length > 5 ? songs.slice(0, -5).map(s => s.id) : songs.map(s => s.id);
+        const bonusCount = songs.length > 5 ? 5 : 0;
         const platinums  = getChapterPlatinums(regularIds);
         const cleared    = getChapterCleared(regularIds);
         

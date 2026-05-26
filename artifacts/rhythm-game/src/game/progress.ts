@@ -44,12 +44,22 @@ export function getTotalPlatinums(): number {
 }
 
 export function getTotalCleared(): number {
-  let count = 0;
+  const cleared = new Set<string>();
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (key?.startsWith('medal_') && localStorage.getItem(key) && localStorage.getItem(key) !== '') count++;
+    if (key?.startsWith('medal_')) {
+      const val = localStorage.getItem(key);
+      if (val && val !== '') {
+        cleared.add(key.substring(6));
+      }
+    } else if (key?.startsWith('hs_')) {
+      const val = parseInt(localStorage.getItem(key) ?? '0', 10);
+      if (val > 0) {
+        cleared.add(key.substring(3));
+      }
+    }
   }
-  return count;
+  return cleared.size;
 }
 
 export function getChapterPlatinums(songIds: string[]): number {
@@ -59,7 +69,8 @@ export function getChapterPlatinums(songIds: string[]): number {
 export function getChapterCleared(songIds: string[]): number {
   return songIds.filter(id => {
     const m = getMedalForSong(id);
-    return m && m !== '';
+    const hs = getHighScore(id);
+    return (m && m !== '') || hs > 0;
   }).length;
 }
 
