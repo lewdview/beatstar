@@ -47,6 +47,43 @@ export default function Chapter() {
         setPreviewing(false);
         setPreviewProg(0);
       }
+
+      // Check if we have a last played stage to restore focus
+      const lastSongId = sessionStorage.getItem("campaign_last_song_id");
+      if (lastSongId) {
+        const idx = filtered.findIndex(s => s.id === lastSongId);
+        if (idx !== -1) {
+          setSelectedIdx(idx);
+          return;
+        }
+      }
+
+      // Otherwise, default select to player's active level (first uncleared unlocked level)
+      const regularSongsList = filtered.slice(0, -5);
+      const bonusSongsList = filtered.slice(-5);
+      const plats = getChapterPlatinums(regularSongsList.map(s => s.id));
+      const bUnlocked = plats >= meta.platNeeded;
+      
+      const hasClearedLocal = (song: GameSong) => {
+        const medalVal = getMedalForSong(song.id);
+        const scoreVal = getHighScore(song.id);
+        return (medalVal && medalVal !== '') || scoreVal > 0;
+      };
+
+      const isUnlockedLocal = (idx: number) => {
+        if (idx < regularSongsList.length) {
+          if (idx === 0) return true;
+          return hasClearedLocal(regularSongsList[idx - 1]);
+        } else {
+          if (!bUnlocked) return false;
+          const bonusIdx = idx - regularSongsList.length;
+          if (bonusIdx === 0) return true;
+          return hasClearedLocal(bonusSongsList[bonusIdx - 1]);
+        }
+      };
+
+      const defaultIdx = filtered.findIndex((s, idx) => isUnlockedLocal(idx) && !hasClearedLocal(s));
+      setSelectedIdx(defaultIdx !== -1 ? defaultIdx : 0);
     });
   }, [monthNum]);
 
@@ -176,6 +213,7 @@ export default function Chapter() {
     }
     
     audioManager.playSfx('tap_nav', 0.4);
+    sessionStorage.setItem(`campaign_last_song_id`, selectedSong.id);
     sessionStorage.setItem(`game_origin_${selectedSong.id}`, `chapter/${monthNum}`);
     sessionStorage.setItem(`diff_override_${selectedSong.id}`, String(difficultyLevel));
 

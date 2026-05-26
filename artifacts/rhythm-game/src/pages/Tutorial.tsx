@@ -148,7 +148,7 @@ const STEPS: Step[] = [
     title: "YOU'RE READY",
     lines: [
       "Campaign unlocks songs day by day.",
-      "Free Play lets you browse all 365.",
+      "Award Play lets you browse all 365.",
       "",
       "Good luck.",
     ],
@@ -470,7 +470,7 @@ export default function Tutorial() {
                 className="font-mono text-xs tracking-[0.3em] px-8 py-3.5 border border-zinc-700 text-[#00E5FF] bg-black/45 hover:bg-[#00E5FF]/10 hover:border-[#00E5FF] hover:shadow-[0_0_20px_rgba(0,229,255,0.2)] transition-all duration-150"
                 onMouseEnter={() => audioManager.playSfx("tap_nav", 0.08)}
               >
-                SYS_FREEPLAY
+                AWARD PLAY
               </button>
             </div>
           )}
@@ -602,7 +602,7 @@ export default function Tutorial() {
               className="font-mono text-xs tracking-[0.3em] px-8 py-3"
               style={{ border: "1px solid rgba(255,255,255,0.2)", color: "#F2EDE5", background: "transparent", cursor: "pointer" }}
             >
-              FREE PLAY
+              AWARD PLAY
             </button>
           </div>
         )}

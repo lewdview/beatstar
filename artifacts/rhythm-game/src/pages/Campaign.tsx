@@ -248,7 +248,7 @@ export default function Campaign() {
             ? "font-mono text-[10px] tracking-[0.25em] text-[#39FF14] border border-[#39FF14]/30 px-4 py-1.5 hover:bg-[#39FF14]/10 transition-colors"
             : "neon-btn-outline text-xs px-4 py-1.5 tracking-widest"}
         >
-          FREE PLAY →
+          AWARD PLAY →
         </button>
       </header>
 

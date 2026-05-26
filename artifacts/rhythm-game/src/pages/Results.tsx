@@ -528,7 +528,7 @@ export default function Results() {
               }}
                 className="w-full py-3.5 font-mono font-bold text-xs tracking-[0.2em] transition-all bg-transparent border border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700"
                 onMouseEnter={() => audioManager.playSfx('tap_nav', 0.08)}>
-                ← {fromFreePlayFail ? 'BACK TO SYSTEM' : 'RETURN TO CHAPTER'}
+                ← {fromFreePlayFail ? 'BACK TO AWARD PLAY' : 'BACK TO LEVEL PATH'}
               </button>
             </div>
           </div>
@@ -640,7 +640,7 @@ export default function Results() {
               style={{ border: '2px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.35)', background: 'transparent', minHeight: 48 }}
               onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.6)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)'; }}
               onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.35)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}>
-              ← {fromFreePlayFail ? 'BACK TO FREE PLAY' : 'BACK TO CHAPTER'}
+              ← {fromFreePlayFail ? 'BACK TO AWARD PLAY' : 'BACK TO LEVEL PATH'}
             </button>
           </div>
         </div>
@@ -699,7 +699,7 @@ export default function Results() {
           {/* Top telemetry bar */}
           <div className="w-full flex items-center justify-between mb-8 results-fade-in">
             <span className="font-mono text-[10px] text-[#39FF14] tracking-[0.3em] font-bold">
-              [ TRANSMISSION_DECODED ]
+              {fromFreePlay ? '[ TRANSMISSION_DECODED ]' : '[ CAMPAIGN_MISSION_ACQUIRED ]'}
             </span>
             <div className="flex-1 h-px bg-[#39FF14]/20 mx-4" />
             {isNew && (phase === 'stats' || phase === 'actions') && (
@@ -736,7 +736,9 @@ export default function Results() {
 
           {/* Score Counter Dashboard */}
           <div className="text-center mb-5 results-fade-in w-full" style={{ animationDelay: '0.3s' }}>
-            <div className="font-mono text-[9px] text-[#39FF14]/50 tracking-[0.35em] mb-1">SIGNAL_OUTPUT_VAL</div>
+            <div className="font-mono text-[9px] text-[#39FF14]/50 tracking-[0.35em] mb-1">
+              {fromFreePlay ? 'SIGNAL_OUTPUT_VAL' : 'CAMPAIGN_DISPATCH_VAL'}
+            </div>
             <div className="font-mono font-bold tabular-nums text-[#39FF14]" data-testid="text-final-score"
               style={{ fontSize: 'clamp(38px, 10vw, 50px)', lineHeight: 1.1, textShadow: '0 0 15px rgba(57,255,20,0.2)' }}>
               {scoreVal.toLocaleString()}
@@ -822,7 +824,7 @@ export default function Results() {
           {/* Action buttons */}
           {phase === 'actions' && (
             <div className="w-full stats-slide-up flex flex-col gap-2.5" style={{ animationDelay: '0.15s' }}>
-              {nextSong ? (
+              {fromFreePlay && nextSong ? (
                 <div className="mb-2">
                   <div className="font-mono text-[9px] mb-1 px-1 text-zinc-500 tracking-[0.25em]">
                     QUEUE_NEXT // DAY_{nextSong.day}
@@ -843,7 +845,7 @@ export default function Results() {
                 }}
                   className="w-full py-4 mb-1 font-mono font-bold text-sm tracking-[0.3em] transition-all bg-zinc-950 border border-[#39FF14] text-[#39FF14] hover:bg-[#39FF14]/10 hover:shadow-[0_0_15px_rgba(57,255,20,0.2)]"
                   onMouseEnter={() => audioManager.playSfx('tap_nav', 0.08)}>
-                  ← {fromFreePlay ? '[ RETURN TO SYSTEM ]' : '[ RETURN TO CHAPTER ]'}
+                  ← {fromFreePlay ? '[ RETURN TO AWARD PLAY ]' : '[ CONTINUE TO LEVEL PATH ]'}
                 </button>
               )}
               <div className="flex gap-2">
@@ -862,7 +864,7 @@ export default function Results() {
                   }}
                   className="flex-1 py-3 font-mono font-bold text-xs tracking-[0.2em] transition-all bg-transparent border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-600"
                   onMouseEnter={() => audioManager.playSfx('tap_nav', 0.08)}>
-                  {fromFreePlay ? '⌂ SYSTEM_HOME' : '◈ CAMPAIGN_INDEX'}
+                  {fromFreePlay ? '⌂ AWARD PLAY' : '◈ CAMPAIGN_INDEX'}
                 </button>
               </div>
             </div>
@@ -894,7 +896,7 @@ export default function Results() {
         <div className="w-full flex items-center gap-0 mb-6 results-fade-in">
           <div className="font-mono font-bold text-xs px-3 py-1.5 tracking-[0.4em]"
             style={{ color: '#080808', background: '#F2F0E8' }}>
-            TRANSMISSION COMPLETE
+            {fromFreePlay ? 'TRANSMISSION COMPLETE' : 'CAMPAIGN MISSION COMPLETED'}
           </div>
           <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.1)' }} />
           {isNew && (phase === 'stats' || phase === 'actions') && (
@@ -1004,7 +1006,7 @@ export default function Results() {
         {/* ── Action Buttons ── */}
         {phase === 'actions' && (
           <div className="w-full stats-slide-up" style={{ animationDelay: '0.15s' }}>
-            {nextSong ? (
+            {fromFreePlay && nextSong ? (
               <div className="mb-2">
                 <div className="font-mono text-xs mb-1.5 px-1" style={{ color: 'rgba(255,255,255,0.2)', letterSpacing: '0.3em' }}>
                   NEXT — DAY {nextSong.day}
@@ -1023,7 +1025,7 @@ export default function Results() {
                 style={{ border: '3px solid #F2F0E8', color: '#080808', background: '#F2F0E8', boxShadow: '6px 6px 0 rgba(255,255,255,0.15)', minHeight: 48 }}
                 onMouseEnter={e => { const el = e.currentTarget; el.style.boxShadow = '3px 3px 0 rgba(255,255,255,0.15)'; el.style.transform = 'translate(3px,3px)'; }}
                 onMouseLeave={e => { const el = e.currentTarget; el.style.boxShadow = '6px 6px 0 rgba(255,255,255,0.15)'; el.style.transform = ''; }}>
-                ← {fromFreePlay ? 'BACK TO FREE PLAY' : 'BACK TO CHAPTER'}
+                ← {fromFreePlay ? 'BACK TO AWARD PLAY' : 'CONTINUE TO LEVEL PATH'}
               </button>
             )}
             <div className="flex gap-2">
@@ -1040,7 +1042,7 @@ export default function Results() {
                 style={{ border: '2px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.5)', background: 'transparent', minHeight: 48 }}
                 onMouseEnter={e => { e.currentTarget.style.color = '#39FF14'; e.currentTarget.style.borderColor = '#39FF14'; }}
                 onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.5)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; }}>
-                {fromFreePlay ? '⌂ HOME' : '◈ CAMPAIGN'}
+                {fromFreePlay ? '⌂ AWARD PLAY' : '◈ CAMPAIGN INDEX'}
               </button>
             </div>
           </div>
