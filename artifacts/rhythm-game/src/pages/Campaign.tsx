@@ -381,7 +381,7 @@ export default function Campaign() {
           </div>
 
           {/* RIGHT PANEL: Telemetry Detail Sidebar */}
-          <div className="w-full lg:w-[360px] flex-shrink-0 flex flex-col justify-between border-t lg:border-t-0 lg:border-l p-6 lg:p-8"
+          <div className="w-full lg:w-[360px] flex-shrink-0 flex flex-col justify-between border-t lg:border-t-0 lg:border-l px-6 pt-6 pb-32 lg:p-8"
             style={{
               background: isAvant ? 'rgba(5,5,5,0.85)' : 'rgba(8,8,12,0.55)',
               borderColor: isAvant ? 'rgba(57,255,20,0.2)' : 'rgba(255,255,255,0.06)',
@@ -488,7 +488,7 @@ export default function Campaign() {
                   </div>
 
                   {/* Bottom play action panel */}
-                  <div className="space-y-4 mt-8">
+                  <div className="space-y-4 mt-8 hidden lg:block">
                     {/* Enter Sector CTA */}
                     <button
                       disabled={!selectedSector.unlocked}
@@ -526,6 +526,55 @@ export default function Campaign() {
               <span>SCORE: {totals.score.toLocaleString()}</span>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* Mobile floating play button */}
+      {selectedSector && (
+        <div
+          className="lg:hidden fixed bottom-0 left-0 right-0 z-30 p-4 border-t"
+          style={{
+            borderColor: isAvant ? 'rgba(57,255,20,0.2)' : 'rgba(255,255,255,0.06)',
+            background: isAvant ? 'rgba(5,5,5,0.95)' : 'rgba(8,8,12,0.9)',
+            backdropFilter: 'blur(16px)',
+            boxShadow: '0 -10px 30px rgba(0,0,0,0.5)',
+            paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))',
+          }}
+        >
+          <div className="flex flex-col gap-2">
+            <div className="flex justify-between items-center font-mono text-[9px] tracking-wider mb-1">
+              <span className="font-bold text-white uppercase">
+                {selectedSector.meta.name}
+              </span>
+              <span style={{ color: isAvant ? '#39FF14' : selectedSector.meta.dc }}>
+                {selectedSector.cleared} / {selectedSector.regularIds.length} DECODED
+              </span>
+            </div>
+            <button
+              disabled={!selectedSector.unlocked}
+              onClick={handleEnterSector}
+              className={`w-full py-4 font-mono font-bold text-xs tracking-[0.3em] border transition-all uppercase flex items-center justify-center gap-2 ${
+                selectedSector.unlocked
+                  ? (isAvant
+                    ? "border-[#39FF14] text-[#39FF14] bg-[#39FF14]/10 hover:bg-[#39FF14]/20"
+                    : "neon-btn text-white"
+                  )
+                  : "border-zinc-800 bg-zinc-950/20 text-zinc-600 cursor-not-allowed"
+              }`}
+            >
+              {selectedSector.unlocked ? (
+                <>
+                  <Play size={10} className="fill-current" />
+                  [ ENGAGE SECTOR ]
+                </>
+              ) : (
+                <>
+                  <Lock size={10} />
+                  [ SIGNAL BLOCKED ]
+                </>
+              )}
+            </button>
           </div>
         </div>
       )}

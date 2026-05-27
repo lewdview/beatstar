@@ -5,6 +5,7 @@ import {
   degradeRarity, upgradeRarity, getEchoSpawnChance, getEffectiveBurnYield,
   getPityFloor, RC1_TEST_MODE, TOKEN_PACK_COST, TARGETED_PULL_COST, RARITY_UPGRADE_COST,
   RC1_DAILY_STANDARD_LIMIT, RC1_DAILY_PREMIUM_LIMIT,
+  MINTABLE_CAPS, NFT_MINT_COSTS,
   type Rarity, type ModifierContext
 } from "./gameLogic.ts";
 
@@ -13,9 +14,40 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-function getSupplyCap(rarity: string) {
-  const caps: Record<string, number> = { mythic: 1, legendary: 2, rare: 10, uncommon: 20, common: 50 };
-  return caps[rarity] || 50;
+function getSupplyCap(rarity: string, cardDay: number, currentDay: number): number {
+  if (rarity === 'mythic') return 1;
+
+  const age = Math.max(0, currentDay - cardDay);
+
+  if (age >= 180) {
+    const caps: Record<string, number> = {
+      mythic: 1,
+      legendary: 5,
+      rare: 50,
+      uncommon: 500,
+      common: 1000
+    };
+    return caps[rarity] || 1000;
+  } else if (age >= 30) {
+    const caps: Record<string, number> = {
+      mythic: 1,
+      legendary: 3,
+      rare: 35,
+      uncommon: 250,
+      common: 500
+    };
+    return caps[rarity] || 250;
+  } else {
+    // Launch Week
+    const caps: Record<string, number> = {
+      mythic: 1,
+      legendary: 2,
+      rare: 15,
+      uncommon: 100,
+      common: 250
+    };
+    return caps[rarity] || 250;
+  }
 }
 
 /** Log a telemetry event (fire-and-forget). */
@@ -62,7 +94,7 @@ async function generateCards(svc: any, userId: string, packType: string, count: 
           owner_id: userId, card_id: `card-${echo.source_day}`, rarity: echoRarity,
           source: `pack_${packType}`, is_echo: true, echo_generation: echo.generation || 1,
           echo_source_day: echo.source_day, edition: supplyData || 1,
-          max_supply: getSupplyCap(echoRarity), proof: null, claimed_at: new Date().toISOString()
+          max_supply: getSupplyCap(echoRarity, echo.source_day, today), proof: null, claimed_at: new Date().toISOString()
         });
         // Track echo pull
         await svc.from('profiles').update({
@@ -75,7 +107,7 @@ async function generateCards(svc: any, userId: string, packType: string, count: 
 
     // Normal roll
     let { rarity, proof } = getRarityRoll(packType, ctx, adminConfig);
-    let max_supply = getSupplyCap(rarity);
+    let max_supply = getSupplyCap(rarity, day, today);
     let card_id_rarity = `${day}-${rarity}`;
     let edition = 1;
     let downgradeAttempts = 0;
@@ -85,7 +117,7 @@ async function generateCards(svc: any, userId: string, packType: string, count: 
       edition = data || 1;
       if (edition <= max_supply) break;
       rarity = degradeRarity(rarity as Rarity, 1);
-      max_supply = getSupplyCap(rarity);
+      max_supply = getSupplyCap(rarity, day, today);
       card_id_rarity = `${day}-${rarity}`;
       downgradeAttempts++;
     }
@@ -232,7 +264,7 @@ serve(async (req) => {
         if (profile?.last_claim_day >= claimDay) throw new Error('Already claimed today');
 
         const rarityRoll = rollDailyClaimRarity(adminConfig);
-        const max_supply = getSupplyCap(rarityRoll);
+        const max_supply = getSupplyCap(rarityRoll, claimDay, today);
         const { data: supplyData } = await svc.rpc('increment_supply', { p_card_id_rarity: `${day}-${rarityRoll}` });
 
         const newCard = {
@@ -408,7 +440,7 @@ serve(async (req) => {
         const card = {
           owner_id: user.id, card_id: `card-${day}`, rarity, source: 'targeted_pull',
           is_echo: false, echo_generation: 0, echo_source_day: null,
-          edition: supplyData || 1, max_supply: getSupplyCap(rarity), proof,
+          edition: supplyData || 1, max_supply: getSupplyCap(rarity, day, today), proof,
           claimed_at: new Date().toISOString()
         };
         await svc.from('vault_collections').insert(card);
@@ -470,7 +502,7 @@ serve(async (req) => {
         const fusedCard = {
           owner_id: user.id, card_id: baseCardId, rarity: newRarity, source: 'fusion',
           is_echo: false, echo_generation: 0, echo_source_day: null,
-          edition: supplyData || 1, max_supply: getSupplyCap(newRarity),
+          edition: supplyData || 1, max_supply: getSupplyCap(newRarity, day, today),
           claimed_at: new Date().toISOString()
         };
         await svc.from('vault_collections').insert(fusedCard);
@@ -481,11 +513,92 @@ serve(async (req) => {
       }
 
       // ═══════════════════════════════════════════════════════════
-      // NFT MINT (scaffolded — disabled in RC1)
+      // NFT MINT (RC1 production simulation)
       // ═══════════════════════════════════════════════════════════
       case 'requestNftMint': {
-        if (RC1_TEST_MODE) throw new Error('NFT minting is disabled in RC1 test mode');
-        throw new Error('NFT minting not yet implemented');
+        const { cardOwnedId } = payload;
+        if (!cardOwnedId) throw new Error('Card ID is required');
+
+        // 1. Fetch card and verify ownership
+        const { data: card, error: cardErr } = await supabaseClient
+          .from('vault_collections')
+          .select('*')
+          .eq('id', cardOwnedId)
+          .eq('owner_id', user.id)
+          .single();
+        if (cardErr || !card) throw new Error('Card not found or not owned');
+
+        // 2. Verify blockchain status
+        if (card.blockchain_status === 'minted' || card.blockchain_status === 'pending') {
+          throw new Error('Card is already minted or pending');
+        }
+
+        const rarity = card.rarity as Rarity;
+
+        // 3. Verify card is mintable
+        const maxMintable = MINTABLE_CAPS[rarity] ?? 0;
+        if (maxMintable <= 0) {
+          throw new Error(`${rarity.toUpperCase()} cards are not mintable`);
+        }
+
+        // 4. Verify global mint limit has not been exceeded
+        const { count: mintedCount, error: countErr } = await svc
+          .from('vault_collections')
+          .select('*', { count: 'exact', head: true })
+          .eq('card_id', card.card_id)
+          .eq('rarity', card.rarity)
+          .in('blockchain_status', ['minted', 'pending']);
+        if (countErr) throw new Error(`Verification error: ${countErr.message}`);
+        
+        if (mintedCount !== null && mintedCount >= maxMintable) {
+          throw new Error(`Max mint limit of ${maxMintable} copies reached for this card`);
+        }
+
+        // 5. Check user tokens
+        const mintCost = NFT_MINT_COSTS[rarity] ?? 0;
+        const { data: profile } = await svc.from('profiles').select('tokens').eq('id', user.id).single();
+        if (!profile || (profile.tokens ?? 0) < mintCost) {
+          throw new Error('Insufficient V⚡');
+        }
+
+        // 6. Deduct tokens
+        if (mintCost > 0) {
+          try {
+            await svc.rpc('decrement_tokens', { user_uuid: user.id, amount: mintCost });
+          } catch {
+            throw new Error('Insufficient V⚡');
+          }
+        }
+
+        // 7. Generate mock Base mainnet TX hash
+        const txHash = '0x' + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+
+        // 8. Update database record
+        const { error: updateErr } = await svc
+          .from('vault_collections')
+          .update({
+            blockchain_status: 'minted',
+            fingerprint: txHash
+          })
+          .eq('id', cardOwnedId);
+        if (updateErr) {
+          // Refund tokens on failure
+          if (mintCost > 0) {
+            await svc.rpc('increment_tokens', { user_uuid: user.id, amount: mintCost });
+          }
+          throw new Error(`Minting failed: ${updateErr.message}`);
+        }
+
+        // 9. Telemetry
+        await logTelemetry(svc, 'nft_mint', user.id, {
+          cardId: card.card_id,
+          rarity: card.rarity,
+          cost: mintCost,
+          txHash
+        });
+
+        return new Response(JSON.stringify({ success: true, txHash }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
       // ═══════════════════════════════════════════════════════════

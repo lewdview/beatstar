@@ -256,6 +256,12 @@ export default function Game() {
   const rewindAnimRef = useRef<{ wallStart: number; fromT: number; toT: number } | null>(null);
   const drawRef = useRef<(() => void) | null>(null);
 
+  // Refs for tracking active listeners, nodes and timers to prevent memory leaks
+  const audioSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const audioFiltersRef = useRef<BiquadFilterNode[]>([]);
+  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const loadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [phase, setPhase] = useState<typeof phaseRef.current>("loading");
   const [countdown, setCountdown] = useState(3);
   const [displayGs, setDisplayGs] = useState<GameState>(gsRef.current);
@@ -2240,6 +2246,9 @@ export default function Game() {
     }
     let cancelled = false;
     let audio: HTMLAudioElement | null = null;
+    let onProgress: (() => void) | null = null;
+    let onCanPlay: (() => void) | null = null;
+    let onError: (() => void) | null = null;
 
     const init = async () => {
       setLoadMsg("FETCHING TRANSMISSION...");
@@ -2400,7 +2409,7 @@ export default function Game() {
       audio.crossOrigin = "anonymous";
       audio.preload = "auto";
       audioRef.current = audio;
-      audio.addEventListener("progress", () => {
+      onProgress = () => {
         if (!audio?.duration) return;
         const buf = audio.buffered;
         if (buf.length)
@@ -2410,7 +2419,8 @@ export default function Game() {
               Math.round((buf.end(buf.length - 1) / audio.duration) * 100),
             ),
           );
-      });
+      };
+      audio.addEventListener("progress", onProgress);
       audio.src = song.audioUrl;
       audio.load();
       await new Promise<void>((resolve) => {
@@ -2418,10 +2428,18 @@ export default function Game() {
           resolve();
           return;
         }
-        audio!.addEventListener("canplay", () => resolve(), { once: true });
-        audio!.addEventListener("error", () => resolve(), { once: true });
-        setTimeout(resolve, 15000);
+        onCanPlay = () => resolve();
+        onError = () => resolve();
+        audio!.addEventListener("canplay", onCanPlay, { once: true });
+        audio!.addEventListener("error", onError, { once: true });
+        loadTimeoutRef.current = setTimeout(resolve, 15000);
       });
+      if (onCanPlay) audio.removeEventListener("canplay", onCanPlay);
+      if (onError) audio.removeEventListener("error", onError);
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = null;
+      }
       if (cancelled) return;
 
       // ── Audio unlock (mobile autoplay policy) ─────────────────────────────
@@ -2446,14 +2464,17 @@ export default function Game() {
       setCountdown(count);
       audioManager.playSfx('countdown', 0.7);
       await new Promise<void>((resolve) => {
-        const tick = setInterval(() => {
+        countdownIntervalRef.current = setInterval(() => {
           count--;
           if (count > 0) {
             setCountdown(count);
             audioManager.playSfx('countdown', 0.7);
           }
           else {
-            clearInterval(tick);
+            if (countdownIntervalRef.current) {
+              clearInterval(countdownIntervalRef.current);
+              countdownIntervalRef.current = null;
+            }
             setCountdown(0);
             // "GO!" stinger
             audioManager.playSfx('select_start_song', 0.8);
@@ -2473,17 +2494,20 @@ export default function Game() {
         audioCtxRef.current = actx;
         await actx.resume();
         const src = actx.createMediaElementSource(audio);
+        audioSourceRef.current = src;
         const bandDefs: { type: BiquadFilterType; freq: number; Q: number }[] =
           [
             { type: "lowpass", freq: 300, Q: 0.8 },
             { type: "bandpass", freq: 1200, Q: 0.7 },
             { type: "highpass", freq: 3200, Q: 0.8 },
           ];
+        const filters: BiquadFilterNode[] = [];
         laneGainsRef.current = bandDefs.map(({ type, freq, Q }) => {
           const f = actx.createBiquadFilter();
           f.type = type;
           f.frequency.value = freq;
           f.Q.value = Q;
+          filters.push(f);
           const g = actx.createGain();
           g.gain.value = 1.0;
           src.connect(f);
@@ -2491,6 +2515,7 @@ export default function Game() {
           g.connect(actx.destination);
           return g;
         });
+        audioFiltersRef.current = filters;
         laneSilenced.current = [false, false, false];
       } catch {
         // CORS or browser restriction — fall back to direct playback (no muting)
@@ -2532,15 +2557,53 @@ export default function Game() {
       cancelAnimationFrame(rafRef.current);
       if (audio) {
         audio.pause();
+        if (onProgress) audio.removeEventListener("progress", onProgress);
+        if (onCanPlay) audio.removeEventListener("canplay", onCanPlay);
+        if (onError) audio.removeEventListener("error", onError);
         audio.src = "";
+        try { audio.load(); } catch {}
       }
       audioRef.current = null;
+
+      // Clear timers
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
+      }
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = null;
+      }
+
       laneRestoreTimers.current.forEach(clearTimeout);
+
+      // Disconnect Web Audio nodes to prevent memory retention
+      if (audioSourceRef.current) {
+        try { audioSourceRef.current.disconnect(); } catch {}
+        audioSourceRef.current = null;
+      }
+      if (audioFiltersRef.current) {
+        audioFiltersRef.current.forEach(f => {
+          try { f.disconnect(); } catch {}
+        });
+        audioFiltersRef.current = [];
+      }
+      if (laneGainsRef.current) {
+        laneGainsRef.current.forEach(gain => {
+          try { gain.disconnect(); } catch {}
+        });
+        laneGainsRef.current = [];
+      }
       if (audioCtxRef.current) {
-        audioCtxRef.current.close();
+        try { audioCtxRef.current.close(); } catch {}
         audioCtxRef.current = null;
       }
-      laneGainsRef.current = [];
+
+      // Clear image / pattern cache elements
+      coverImgRef.current = null;
+      coverBlurRef.current = null;
+      scanPatternRef.current = null;
+
       laneSilenced.current = [false, false, false];
     };
   }, [songId, draw, setLocation]);

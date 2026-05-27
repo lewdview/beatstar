@@ -4,7 +4,7 @@ export type ProofType = 'proof_of_first' | 'heard_first' | null;
 // ═══════════════════════════════════════════════════════════════
 // RC1 TEST MODE FLAG
 // ═══════════════════════════════════════════════════════════════
-export const RC1_TEST_MODE = true;
+export const RC1_TEST_MODE = false;
 
 export interface ModifierContext {
   streak: number;
@@ -419,11 +419,20 @@ export const TOKEN_PACK_COST = 275;
 export const TARGETED_PULL_COST = 500;
 export const RARITY_UPGRADE_COST = 150;
 
-// NFT mint costs (scaffolded, not active in RC1)
+// NFT mint costs
 export const NFT_MINT_COSTS: Record<Rarity, number> = {
   common: 0,     // Not mintable
-  uncommon: 0,   // Not mintable
+  uncommon: 0,   // Free to mint
   rare: 300,
   legendary: 600,
   mythic: 1200,
+};
+
+// NFT mintable supply caps
+export const MINTABLE_CAPS: Record<Rarity, number> = {
+  common: 0,
+  uncommon: 50,
+  rare: 25,
+  legendary: 3,
+  mythic: 1,
 };

@@ -89,12 +89,33 @@ export default function Chapter() {
     });
   }, [monthNum]);
 
+  const onTimeUpdate = () => {
+    const audio = previewRef.current;
+    if (audio && audio.duration) {
+      setPreviewProg(audio.currentTime / audio.duration);
+    }
+  };
+
+  const onEnded = () => {
+    setPreviewing(false);
+    setPreviewProg(0);
+  };
+
+  const cleanupPreview = () => {
+    const audio = previewRef.current;
+    if (audio) {
+      audio.pause();
+      audio.removeEventListener('timeupdate', onTimeUpdate);
+      audio.removeEventListener('ended', onEnded);
+      audio.src = '';
+      try { audio.load(); } catch {}
+    }
+  };
+
   useEffect(() => {
     return () => {
-      if (previewRef.current) {
-        previewRef.current.pause();
-        previewRef.current = null;
-      }
+      cleanupPreview();
+      previewRef.current = null;
     };
   }, []);
 
@@ -176,45 +197,26 @@ export default function Chapter() {
       return;
     }
 
-    if (!previewRef.current) {
-      const audio = new Audio(selectedSong.audioUrl);
-      audio.volume = 0.4;
-      audio.addEventListener('timeupdate', () => {
-        if (audio.duration) setPreviewProg(audio.currentTime / audio.duration);
-      });
-      audio.addEventListener('ended', () => {
-        setPreviewing(false);
-        setPreviewProg(0);
-      });
-      previewRef.current = audio;
-    } else if (previewRef.current.src !== selectedSong.audioUrl) {
-      previewRef.current.pause();
-      const audio = new Audio(selectedSong.audioUrl);
-      audio.volume = 0.4;
-      audio.addEventListener('timeupdate', () => {
-        if (audio.duration) setPreviewProg(audio.currentTime / audio.duration);
-      });
-      audio.addEventListener('ended', () => {
-        setPreviewing(false);
-        setPreviewProg(0);
-      });
-      previewRef.current = audio;
+    cleanupPreview();
+
+    const audio = new Audio(selectedSong.audioUrl);
+    audio.volume = 0.4;
+    audio.addEventListener('timeupdate', onTimeUpdate);
+    audio.addEventListener('ended', onEnded);
+    previewRef.current = audio;
+
+    if (audio.currentTime < 1) {
+      audio.currentTime = (selectedSong.duration * 0.15);
     }
 
-    if (previewRef.current.currentTime < 1) {
-      previewRef.current.currentTime = (selectedSong.duration * 0.15);
-    }
-
-    previewRef.current.play().catch(() => {});
+    audio.play().catch(() => {});
     setPreviewing(true);
   };
 
   const handlePlay = () => {
     if (isPlayLocked || !selectedSong) return;
-    if (previewRef.current) {
-      previewRef.current.pause();
-      setPreviewing(false);
-    }
+    cleanupPreview();
+    setPreviewing(false);
     
     audioManager.playSfx('tap_nav', 0.4);
     sessionStorage.setItem(`campaign_last_song_id`, selectedSong.id);
@@ -466,7 +468,7 @@ export default function Chapter() {
         </div>
 
         {/* Right Column: Milestones and Selected level detail */}
-        <div className="w-full lg:w-[40%] flex flex-col gap-6 lg:sticky lg:top-20 lg:h-[calc(100vh-120px)] lg:overflow-y-auto pr-1">
+        <div className="w-full lg:w-[40%] flex flex-col gap-6 lg:sticky lg:top-20 lg:h-[calc(100vh-120px)] lg:overflow-y-auto pr-1 pb-32 lg:pb-0">
           
           {/* Visual Milestone Rewards Section */}
           <div className={isAvant ? 'border border-[#39FF14]/25 bg-black/60 p-4' : 'glass-panel p-4 rounded-xl'}
@@ -656,7 +658,7 @@ export default function Chapter() {
                   </div>
                 )}
 
-                <div className="flex gap-2">
+                <div className="flex gap-2 hidden lg:flex">
                   <button onClick={handlePlay}
                     disabled={isPlayLocked}
                     className={`flex-1 py-3 text-xs tracking-[0.3em] font-black border uppercase transition-all rounded cursor-pointer ${
@@ -685,6 +687,72 @@ export default function Chapter() {
           )}
         </div>
       </div>
+
+      {/* Mobile floating play button */}
+      {selectedSong && (
+        <div
+          className="lg:hidden fixed bottom-0 left-0 right-0 z-30 p-4 border-t"
+          style={{
+            borderColor: isAvant ? 'rgba(57,255,20,0.2)' : 'rgba(255,255,255,0.06)',
+            background: isAvant ? 'rgba(5,5,5,0.95)' : 'rgba(8,8,12,0.9)',
+            backdropFilter: 'blur(16px)',
+            boxShadow: '0 -10px 30px rgba(0,0,0,0.5)',
+            paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))',
+          }}
+        >
+          <div className="flex flex-col gap-2">
+            {/* Song info brief */}
+            <div className="flex justify-between items-center font-mono text-[9px] tracking-wider mb-1">
+              <div className="text-left truncate max-w-[70%]">
+                <span className="font-bold text-white uppercase block truncate">
+                  {selectedSong.title}
+                </span>
+                <span className="text-zinc-500 text-[8px] block truncate">
+                  BY {selectedSong.artist}
+                </span>
+              </div>
+              <div className="text-right flex-shrink-0" style={{ color: selectedSong.mood === 'light' ? '#39FF14' : '#FF1493' }}>
+                LVL {difficultyLevel}
+              </div>
+            </div>
+
+            {/* Warnings overlay inside floating bar if locked */}
+            {isPlayLocked && (
+              <div className="p-1.5 border border-[#FF3800]/30 bg-[#FF3800]/10 text-center rounded text-[8px] font-mono text-[#FF3800] uppercase mb-1">
+                {isTimeLocked 
+                  ? '🔒 CHRONO TIME LOCK' 
+                  : isBonusLocked 
+                    ? `🔒 NEED ${meta.platNeeded} PLATINUMS (HAVE ${platinums})` 
+                    : '🔒 TRANSMISSION LOCKED'}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                onClick={handlePlay}
+                disabled={isPlayLocked}
+                className={`flex-1 py-4 text-xs tracking-[0.3em] font-black border uppercase transition-all rounded cursor-pointer ${
+                  !isPlayLocked
+                    ? (isAvant ? 'border-[#39FF14] bg-[#39FF14] text-black hover:bg-[#39FF14]/90' : 'border-[#fff] bg-[#fff] text-black hover:bg-white/90')
+                    : 'border-white/10 bg-white/5 text-white/20 cursor-not-allowed'
+                }`}
+                style={!isPlayLocked ? { boxShadow: `0 4px 12px ${isAvant ? '#39FF14' : meta.dc}30` } : {}}
+              >
+                {isPlayLocked ? '🔒 LOCKED' : '▶ START'}
+              </button>
+              
+              {isUnlocked(songs.indexOf(selectedSong)) && (
+                <button
+                  onClick={() => setLocation(`/song/${selectedSong.id}?from=chapter/${monthNum}`)}
+                  className="py-4 px-4 text-xs font-mono border border-white/10 hover:border-white/30 text-white/60 hover:text-white rounded cursor-pointer bg-transparent"
+                >
+                  CODEX
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
