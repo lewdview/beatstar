@@ -80,7 +80,9 @@ async function generateCards(svc: any, userId: string, packType: string, count: 
   const days = drawCardDays(packType, count, today, missedDays);
   const cards = [];
 
-  for (const day of days) {
+  for (let cIdx = 0; cIdx < count; cIdx++) {
+    let day = days[cIdx];
+
     // Echo pool draw
     if (packType !== 'free' && echoChance > 0 && Math.random() * 100 < echoChance) {
       const { data: echoPool } = await svc.from('echo_pool').select('*').limit(50);
@@ -105,33 +107,75 @@ async function generateCards(svc: any, userId: string, packType: string, count: 
       }
     }
 
-    // Normal roll
-    let { rarity, proof } = getRarityRoll(packType, ctx, adminConfig);
-    let max_supply = getSupplyCap(rarity, day, today);
-    let card_id_rarity = `${day}-${rarity}`;
-    let edition = 1;
-    let downgradeAttempts = 0;
+    // Normal roll with retry for fully minted-out days
+    let rolledCard = null;
+    let rollAttempts = 0;
 
-    while (downgradeAttempts < 5) {
+    while (rollAttempts < 5) {
+      let { rarity, proof } = getRarityRoll(packType, ctx, adminConfig);
+      let max_supply = getSupplyCap(rarity, day, today);
+      let card_id_rarity = `${day}-${rarity}`;
+      let edition = 1;
+      let downgradeAttempts = 0;
+      let isSoldOut = false;
+
+      while (downgradeAttempts < 5) {
+        // Query current supply first to avoid wasting/incrementing a sold-out rarity
+        const { data: supplyRow } = await svc.from('global_supply').select('supply').eq('card_id_rarity', card_id_rarity).maybeSingle();
+        const currentSupply = supplyRow?.supply || 0;
+
+        if (currentSupply < max_supply) {
+          const { data } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity });
+          edition = data || 1;
+          break;
+        }
+
+        const nextRarity = degradeRarity(rarity as Rarity, 1);
+        if (nextRarity === rarity) {
+          // At common floor and still sold out
+          isSoldOut = true;
+          break;
+        }
+
+        rarity = nextRarity;
+        max_supply = getSupplyCap(rarity, day, today);
+        card_id_rarity = `${day}-${rarity}`;
+        downgradeAttempts++;
+      }
+
+      if (!isSoldOut) {
+        let ultra_reward = null;
+        if (Math.random() < ultraRewardChance) {
+          ultra_reward = { type: 'custom_song', label: 'Custom Theme', description: 'You unlocked an ultra-rare secret theme!' };
+        }
+        rolledCard = {
+          owner_id: userId, card_id: `card-${day}`, rarity, source: `pack_${packType}`,
+          is_echo: false, echo_generation: 0, echo_source_day: null,
+          edition, max_supply, proof, ultra_reward, claimed_at: new Date().toISOString()
+        };
+        break;
+      }
+
+      // If fully sold out for this day, draw a new random day and retry the roll
+      day = drawCardDays(packType, 1, today, missedDays)[0];
+      rollAttempts++;
+    }
+
+    // Fallback safety net
+    if (!rolledCard) {
+      const rarity: Rarity = 'common';
+      const max_supply = getSupplyCap(rarity, day, today);
+      const card_id_rarity = `${day}-${rarity}`;
       const { data } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity });
-      edition = data || 1;
-      if (edition <= max_supply) break;
-      rarity = degradeRarity(rarity as Rarity, 1);
-      max_supply = getSupplyCap(rarity, day, today);
-      card_id_rarity = `${day}-${rarity}`;
-      downgradeAttempts++;
+      const edition = data || 1;
+      rolledCard = {
+        owner_id: userId, card_id: `card-${day}`, rarity, source: `pack_${packType}`,
+        is_echo: false, echo_generation: 0, echo_source_day: null,
+        edition, max_supply, proof: null, ultra_reward: null, claimed_at: new Date().toISOString()
+      };
     }
 
-    let ultra_reward = null;
-    if (Math.random() < ultraRewardChance) {
-      ultra_reward = { type: 'custom_song', label: 'Custom Theme', description: 'You unlocked an ultra-rare secret theme!' };
-    }
-
-    cards.push({
-      owner_id: userId, card_id: `card-${day}`, rarity, source: `pack_${packType}`,
-      is_echo: false, echo_generation: 0, echo_source_day: null,
-      edition, max_supply, proof, ultra_reward, claimed_at: new Date().toISOString()
-    });
+    cards.push(rolledCard);
   }
 
   const { error } = await svc.from('vault_collections').insert(cards);
@@ -263,13 +307,40 @@ serve(async (req) => {
         const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', user.id).single();
         if (profile?.last_claim_day >= claimDay) throw new Error('Already claimed today');
 
-        const rarityRoll = rollDailyClaimRarity(adminConfig);
-        const max_supply = getSupplyCap(rarityRoll, claimDay, today);
-        const { data: supplyData } = await svc.rpc('increment_supply', { p_card_id_rarity: `${day}-${rarityRoll}` });
+        let rarityRoll = rollDailyClaimRarity(adminConfig);
+        let max_supply = getSupplyCap(rarityRoll, claimDay, today);
+        let card_id_rarity = `${claimDay}-${rarityRoll}`;
+        let edition = 1;
+        let downgradeAttempts = 0;
+
+        while (downgradeAttempts < 5) {
+          // Check current supply first
+          const { data: supplyRow } = await svc.from('global_supply').select('supply').eq('card_id_rarity', card_id_rarity).maybeSingle();
+          const currentSupply = supplyRow?.supply || 0;
+
+          if (currentSupply < max_supply) {
+            const { data } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity });
+            edition = data || 1;
+            break;
+          }
+
+          const nextRarity = degradeRarity(rarityRoll as Rarity, 1);
+          if (nextRarity === rarityRoll) {
+            // common floor and still sold out, increment anyway
+            const { data } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity });
+            edition = data || 1;
+            break;
+          }
+
+          rarityRoll = nextRarity;
+          max_supply = getSupplyCap(rarityRoll, claimDay, today);
+          card_id_rarity = `${claimDay}-${rarityRoll}`;
+          downgradeAttempts++;
+        }
 
         const newCard = {
           owner_id: user.id, card_id: `card-${claimDay}`, rarity: rarityRoll,
-          source: 'daily_claim', is_echo: false, edition: supplyData || 1,
+          source: 'daily_claim', is_echo: false, edition,
           max_supply, claimed_at: new Date().toISOString()
         };
         const { error: insErr } = await svc.from('vault_collections').insert(newCard);
@@ -434,13 +505,40 @@ serve(async (req) => {
         };
 
         let { rarity, proof } = getRarityRoll('taste', ctx, adminConfig);
-        const card_id_rarity = `${day}-${rarity}`;
-        const { data: supplyData } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity });
+        let max_supply = getSupplyCap(rarity, day, today);
+        let card_id_rarity = `${day}-${rarity}`;
+        let edition = 1;
+        let downgradeAttempts = 0;
+
+        while (downgradeAttempts < 5) {
+          // Check current supply first
+          const { data: supplyRow } = await svc.from('global_supply').select('supply').eq('card_id_rarity', card_id_rarity).maybeSingle();
+          const currentSupply = supplyRow?.supply || 0;
+
+          if (currentSupply < max_supply) {
+            const { data } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity });
+            edition = data || 1;
+            break;
+          }
+
+          const nextRarity = degradeRarity(rarity as Rarity, 1);
+          if (nextRarity === rarity) {
+            // common floor and still sold out, increment anyway
+            const { data } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity });
+            edition = data || 1;
+            break;
+          }
+
+          rarity = nextRarity;
+          max_supply = getSupplyCap(rarity, day, today);
+          card_id_rarity = `${day}-${rarity}`;
+          downgradeAttempts++;
+        }
 
         const card = {
           owner_id: user.id, card_id: `card-${day}`, rarity, source: 'targeted_pull',
           is_echo: false, echo_generation: 0, echo_source_day: null,
-          edition: supplyData || 1, max_supply: getSupplyCap(rarity, day, today), proof,
+          edition, max_supply, proof,
           claimed_at: new Date().toISOString()
         };
         await svc.from('vault_collections').insert(card);
