@@ -1,3 +1,71 @@
-<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="180" height="180" rx="36" fill="#FF3C00"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <!-- Definitions for gradients and shadows -->
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#140e0a"/>
+      <stop offset="100%" stop-color="#050302"/>
+    </linearGradient>
+    
+    <!-- Neon Border/Text Gradient -->
+    <linearGradient id="accent-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ff6600"/>
+      <stop offset="100%" stop-color="#ff1a00"/>
+    </linearGradient>
+    
+    <!-- Sub-glow/Reflect Gradient -->
+    <linearGradient id="glow-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffb800"/>
+      <stop offset="100%" stop-color="#ff3800"/>
+    </linearGradient>
+
+    <!-- Drop Shadow / Glow Filter -->
+    <filter id="neon-glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="16" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background Base Icon Plate -->
+  <rect x="24" y="24" width="464" height="464" rx="96" fill="url(#bg-grad)" stroke="#000" stroke-width="12" />
+  
+  <!-- Outer Glow Ring/Frame -->
+  <rect x="36" y="36" width="440" height="440" rx="84" fill="none" stroke="url(#accent-grad)" stroke-width="8" opacity="0.9" filter="url(#neon-glow)" />
+
+  <!-- Dynamic Accent Slice at bottom right -->
+  <path d="M 400 480 L 480 400 L 480 440 A 40 40 0 0 1 440 480 Z" fill="#ffb800" stroke="#000" stroke-width="4" />
+
+  <!-- Styled text "PIM" -->
+  <g transform="translate(256, 276)" filter="url(#neon-glow)">
+    <text
+      x="0"
+      y="0"
+      text-anchor="middle"
+      dominant-baseline="middle"
+      fill="url(#glow-grad)"
+      font-family="'Impact', 'Arial Black', 'Helvetica Neue', sans-serif"
+      font-size="180"
+      font-weight="900"
+      letter-spacing="-6"
+      stroke="#000"
+      stroke-width="16"
+      stroke-linejoin="miter"
+      paint-order="stroke fill"
+    >PIM</text>
+  </g>
+
+  <!-- Small tech-label "NEURAL LINK" at the bottom -->
+  <text
+    x="256"
+    y="405"
+    text-anchor="middle"
+    fill="rgba(255,255,255,0.4)"
+    font-family="'JetBrains Mono', 'Courier New', monospace"
+    font-size="20"
+    font-weight="bold"
+    letter-spacing="8"
+  >CORE_ENGINE</text>
 </svg>
