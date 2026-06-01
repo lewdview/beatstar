@@ -1,0 +1,137 @@
+{
+  "free": {
+    "category": "free",
+    "label": "DAILY FREE PACK",
+    "description": "A free 1-card pack, available daily",
+    "icon": "🎁",
+    "accent": "#ffffff",
+    "gradient": "linear-gradient(160deg, #111111 0%, #333333 40%, #222222 100%)",
+    "rates": [60, 25, 12, 3, 0],
+    "tiers": [
+      { "size": "single", "cardCount": 1, "price": "FREE", "priceValue": 0 }
+    ]
+  },
+  "taste": {
+    "category": "taste",
+    "label": "TASTE PACK",
+    "description": "Any card up to today",
+    "icon": "🎧",
+    "accent": "#4ade80",
+    "gradient": "linear-gradient(160deg, #1a2e2a 0%, #2d4840 40%, #1a3530 100%)",
+    "rates": [60, 25, 12, 3, 0],
+    "tiers": [
+      { "size": "single", "cardCount": 2, "price": "$0.25", "priceValue": 0.25 },
+      { "size": "triple", "cardCount": 5, "price": "$1.00", "priceValue": 1.00 },
+      { "size": "bulk", "cardCount": 15, "price": "$2.50", "priceValue": 2.50 }
+    ]
+  },
+  "light": {
+    "category": "light",
+    "label": "LIGHT PACK",
+    "description": "Only light mood tracks",
+    "icon": "☀️",
+    "accent": "#fbbf24",
+    "gradient": "linear-gradient(160deg, #2a2810 0%, #4a4218 40%, #352e0d 100%)",
+    "filter": "light",
+    "rates": [60, 25, 12, 3, 0],
+    "tiers": [
+      { "size": "single", "cardCount": 2, "price": "$0.25", "priceValue": 0.25 },
+      { "size": "triple", "cardCount": 5, "price": "$1.00", "priceValue": 1.00 },
+      { "size": "bulk", "cardCount": 15, "price": "$2.50", "priceValue": 2.50 }
+    ]
+  },
+  "dark": {
+    "category": "dark",
+    "label": "DARK PACK",
+    "description": "Only dark mood tracks",
+    "icon": "🌙",
+    "accent": "#8b5cf6",
+    "gradient": "linear-gradient(160deg, #1a1530 0%, #2d2050 40%, #201540 100%)",
+    "filter": "dark",
+    "rates": [60, 25, 12, 3, 0],
+    "tiers": [
+      { "size": "single", "cardCount": 2, "price": "$0.25", "priceValue": 0.25 },
+      { "size": "triple", "cardCount": 5, "price": "$1.00", "priceValue": 1.00 },
+      { "size": "bulk", "cardCount": 15, "price": "$2.50", "priceValue": 2.50 }
+    ]
+  },
+  "miss_out": {
+    "category": "miss_out",
+    "label": "MISS OUT PACK",
+    "description": "Past daily cards you didn't claim — always includes the daily drop banner",
+    "icon": "⏳",
+    "accent": "#f97316",
+    "gradient": "linear-gradient(160deg, #2a1a10 0%, #4a2a18 40%, #35200d 100%)",
+    "filter": "past_unclaimed",
+    "rates": [55, 25, 14, 6, 0],
+    "tiers": [
+      { "size": "single", "cardCount": 2, "price": "$1.00", "priceValue": 1.00 },
+      { "size": "triple", "cardCount": 5, "price": "$2.00", "priceValue": 2.00 }
+    ]
+  },
+  "month": {
+    "category": "month",
+    "label": "MONTH PACK",
+    "description": "Cards from a completed month",
+    "icon": "📅",
+    "accent": "#06b6d4",
+    "gradient": "linear-gradient(160deg, #0a2030 0%, #1a3848 40%, #0d2838 100%)",
+    "rates": [60, 25, 12, 3, 0],
+    "tiers": [
+      { "size": "single", "cardCount": 2, "price": "$0.25", "priceValue": 0.25 },
+      { "size": "triple", "cardCount": 5, "price": "$1.00", "priceValue": 1.00 }
+    ]
+  },
+  "special_picks": {
+    "category": "special_picks",
+    "label": "SPECIAL PICKS",
+    "description": "Curated weekly set — every card drops at Rare or higher",
+    "icon": "⭐",
+    "accent": "#ec4899",
+    "gradient": "linear-gradient(160deg, #2a1025 0%, #4a1840 40%, #351030 100%)",
+    "rates": [50, 27, 16, 7, 0],
+    "tiers": [
+      { "size": "single", "cardCount": 2, "price": "$0.25", "priceValue": 0.25 },
+      { "size": "triple", "cardCount": 5, "price": "$1.00", "priceValue": 1.00 }
+    ]
+  },
+  "prophecy": {
+    "category": "prophecy",
+    "label": "PROPHECY PULL",
+    "description": "Contains 1 unreleased future track",
+    "icon": "🔮",
+    "accent": "#a78bfa",
+    "gradient": "linear-gradient(160deg, #1a1040 0%, #2d1860 40%, #201050 100%)",
+    "filter": "future",
+    "rates": [63, 22, 10, 5, 0],
+    "tiers": [
+      { "size": "single", "cardCount": 1, "price": "$5.00", "priceValue": 5.00 }
+    ]
+  },
+  "alpha": {
+    "category": "alpha",
+    "label": "ALPHA ROLL",
+    "description": "Contains 1 archival past track",
+    "icon": "🎲",
+    "accent": "#ef4444",
+    "gradient": "linear-gradient(160deg, #2a1010 0%, #4a1818 40%, #351010 100%)",
+    "filter": "past",
+    "rates": [43, 30, 20, 5, 2],
+    "tiers": [
+      { "size": "single", "cardCount": 1, "price": "$1.00", "priceValue": 1.00 }
+    ]
+  },
+  "vault_token": {
+    "category": "vault_token",
+    "label": "VAULT PACK",
+    "description": "Premium 3-card pack • token holders only",
+    "icon": "⚡",
+    "accent": "#ff9900",
+    "gradient": "linear-gradient(160deg, #1a1000 0%, #332200 50%, #1a0f00 100%)",
+    "filter": "past",
+    "rates": [30, 28, 25, 14, 3],
+    "tiers": [
+      { "size": "single", "cardCount": 3, "price": "275 V⚡", "priceValue": 0 }
+    ]
+  }
+}

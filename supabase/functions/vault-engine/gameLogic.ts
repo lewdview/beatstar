@@ -1,3 +1,5 @@
+import packData from "./packs.json" assert { type: "json" };
+
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'legendary' | 'mythic';
 export type ProofType = 'proof_of_first' | 'heard_first' | null;
 
@@ -273,19 +275,11 @@ export function getCardMood(dayNum: number): 'light' | 'dark' {
 }
 
 export function getRarityRoll(packCategory: string, ctx?: ModifierContext, adminConfig?: any): { rarity: Rarity; proof: ProofType } {
-  // Hardcoded defaults matching frontend if admin_config isn't present
-  const ROLL_RATES: Record<string, number[]> = {
-    free:           [60, 25, 12, 3],
-    taste:          [60, 25, 12, 3],
-    light:          [60, 25, 12, 3],
-    dark:           [60, 25, 12, 3],
-    month:          [60, 25, 12, 3],
-    miss_out:       [55, 25, 14, 6],
-    special_picks:  [50, 27, 16, 7],
-    prophecy:       [63, 22, 10, 5],
-    alpha:          [43, 30, 20, 5, 2],
-    vault_token:    [30, 28, 25, 14, 3],
-  };
+  // Loaded dynamically from packs.json configuration
+  const ROLL_RATES: Record<string, number[]> = {};
+  for (const key of Object.keys(packData)) {
+    ROLL_RATES[key] = (packData as any)[key].rates;
+  }
 
   const PROOF_RATES: Record<string, number> = {
     prophecy: 3,
