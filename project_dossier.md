@@ -535,3 +535,14 @@ Utilizing the gameplay telemetry records, the system will support asynchronous p
 - **Replay Ghosts**: Recreating another player's notes hit/miss timeline on the canvas as a semi-transparent runner.
 - **Lane Heatmaps**: Rendering visual indicators showing where players struggle on specific notes.
 - **Spectral Skill Fingerprints**: Fingerprinting player accuracy profiles to generate matches for asynchronous PvP challenges.
+
+### 6. The Living Vault Ecosystem Spec (Fragmented Cards & Hidden Paths)
+The background rendering ecosystem evolves into an interactive, visual representation of the player's collection status:
+- **Fragmented Card Shards**: 
+  - For songs where the player has accrued $< 10$ fragments, the vault background displays floating, glitching HSL card fragments drifting along parallax vectors.
+  - The physical alignment and glowing transparency of these shards scale dynamically with the user's current fragment count (`fragmentCount / 10`). At $9$ fragments, the card is visually assembled but flickering; upon decrypting the $10\text{th}$ fragment, it crystallizes into a solid card model on the shelves.
+- **Hidden Neural Pathways**:
+  - The background camera tracks along branching concrete corridors in the Vault.
+  - Owning key legendary cards, event credentials, or reaching high prestige milestone scores unlocks "security overrides."
+  - When overrides occur, hidden hydraulic doors slides open in the canvas background, displaying secret server wings, locked audio chambers, or portal Deep Links to secret avant-garde levels.
+
