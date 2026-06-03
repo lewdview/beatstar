@@ -739,6 +739,14 @@ serve(async (req) => {
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
+      case 'logClientTelemetry': {
+        const { eventType, payload: eventPayload } = payload;
+        if (!eventType) throw new Error('Missing event type');
+        await logTelemetry(svc, eventType, user.id, eventPayload || {});
+        return new Response(JSON.stringify({ success: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
       case 'payVoyeurFee': {
         const { amount } = payload;
         if (!amount || amount <= 0) throw new Error("Invalid amount");
