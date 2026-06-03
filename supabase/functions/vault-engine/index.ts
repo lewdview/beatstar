@@ -744,6 +744,13 @@ serve(async (req) => {
 
       case 'updateAdminConfig': {
         const { config, passphrase } = payload;
+        const ALLOWED_ADMINS = [
+          '5393bcd0-df3a-4d2c-a81d-8fb1433df7fb', // lewd.view@gmail.com
+          'fa1d9176-b55e-4301-bda1-057cd66201a0'  // bmeason@gmail.com
+        ];
+        if (!user || !ALLOWED_ADMINS.includes(user.id)) {
+          throw new Error("Unauthorized: Only the system owner can update global configurations.");
+        }
         if (passphrase !== 'th3scr1b3') throw new Error("Unauthorized");
         const { error } = await svc.from('admin_config').upsert({ id: 1, config, updated_at: new Date().toISOString() });
         if (error) throw new Error(error.message);
@@ -751,7 +758,153 @@ serve(async (req) => {
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
+      case 'redeemBonusCode': {
+        const { code } = payload;
+        if (!code) throw new Error('Missing code');
+        const cleanCode = code.toUpperCase().trim();
 
+        // 1. Fetch promo/bonus code
+        const { data: promo, error: promoErr } = await svc
+          .from('bonus_codes')
+          .select('*')
+          .eq('code', cleanCode)
+          .single();
+
+        if (promoErr || !promo) {
+          throw new Error('Invalid bonus code');
+        }
+
+        if (promo.use_count >= promo.max_uses) {
+          throw new Error('Code has reached maximum usage limit');
+        }
+
+        if (promo.expires_at && new Date(promo.expires_at) < new Date()) {
+          throw new Error('Code has expired');
+        }
+
+        // 2. Check if user already redeemed
+        const { data: existing } = await svc
+          .from('bonus_code_redemptions')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('code', promo.code)
+          .maybeSingle();
+
+        if (existing) {
+          throw new Error('You have already redeemed this code');
+        }
+
+        // 3. Process Reward
+        let rewardResult: any = null;
+
+        if (promo.reward_type === 'tokens') {
+          const { data: profile } = await svc.from('profiles').select('tokens, tokens_earned_total').eq('id', user.id).single();
+          const tokenAmt = parseInt(promo.reward_value, 10) || 0;
+          await svc.from('profiles').update({
+            tokens: (profile?.tokens || 0) + tokenAmt,
+            tokens_earned_total: (profile?.tokens_earned_total || 0) + tokenAmt
+          }).eq('id', user.id);
+          rewardResult = { tokensGranted: tokenAmt };
+        } 
+        else if (promo.reward_type === 'card') {
+          const parts = promo.reward_value.split('-');
+          const claimDay = parseInt(parts[1], 10) || 1;
+          const rarityRoll = parts[2] || 'common';
+          const max_supply = getSupplyCap(rarityRoll as any, claimDay, today);
+          const card_id_rarity = `${claimDay}-${rarityRoll}`;
+
+          const { data: editionData } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity });
+          const edition = editionData || 1;
+
+          const newCard = {
+            owner_id: user.id,
+            card_id: `card-${claimDay}`,
+            rarity: rarityRoll,
+            source: 'promo_code',
+            is_echo: false,
+            edition,
+            max_supply,
+            claimed_at: new Date().toISOString()
+          };
+          const { error: insErr } = await svc.from('vault_collections').insert(newCard);
+          if (insErr) throw new Error(`Failed to claim card reward: ${insErr.message}`);
+          rewardResult = { card: newCard };
+        } 
+        else if (promo.reward_type === 'background_skin') {
+          const { data: profile } = await svc.from('profiles').select('unlocked_skins').eq('id', user.id).single();
+          const oldSkins = profile?.unlocked_skins || [];
+          if (!oldSkins.includes(promo.reward_value)) {
+            const newSkins = [...oldSkins, promo.reward_value];
+            await svc.from('profiles').update({ unlocked_skins: newSkins }).eq('id', user.id);
+          }
+          rewardResult = { skinUnlocked: promo.reward_value };
+        } 
+        else if (promo.reward_type === 'pack') {
+          const packType = promo.reward_value;
+          const count = packType === 'vault_token' ? 3 : 2;
+
+          const { data: profile } = await svc.from('profiles').select('*').eq('id', user.id).single();
+          const { count: collSize } = await svc.from('vault_collections').select('*', { count: 'exact', head: true }).eq('owner_id', user.id);
+
+          const now = new Date();
+          const ctx: ModifierContext = {
+            streak: profile?.streak_count || 0,
+            collectionSize: collSize || 0,
+            totalPulls: profile?.total_pulls || 0,
+            pullsSinceRarePlus: profile?.pulls_since_rare_plus || 0,
+            isFirstPack: (profile?.total_pulls || 0) === 0,
+            currentHour: now.getUTCHours(),
+            currentMinute: now.getUTCMinutes(),
+            currentDayOfWeek: now.getUTCDay(),
+            currentVaultDay: today,
+          };
+
+          const generatedCards = await generateCards(svc, user.id, packType, count, today, ctx);
+
+          let newTotalPulls = (profile?.total_pulls || 0) + count;
+          let newPullsSinceRarePlus = profile?.pulls_since_rare_plus || 0;
+          let newPityCounter = profile?.pity_counter || 0;
+
+          for (const card of generatedCards) {
+            if (['rare', 'legendary', 'mythic'].includes(card.rarity)) {
+              newPullsSinceRarePlus = 0;
+              newPityCounter = 0;
+            } else {
+              newPullsSinceRarePlus++;
+              newPityCounter++;
+            }
+          }
+
+          await svc.from('profiles').update({
+            total_pulls: newTotalPulls,
+            pulls_since_rare_plus: newPullsSinceRarePlus,
+            pity_counter: newPityCounter,
+          }).eq('id', user.id);
+
+          rewardResult = { cards: generatedCards };
+        }
+        else {
+          throw new Error('Unsupported reward type');
+        }
+
+        // 4. Log redemption in mapping & increment global count
+        await svc.from('bonus_code_redemptions').insert({ user_id: user.id, code: promo.code });
+        await svc.from('bonus_codes').update({ use_count: (promo.use_count || 0) + 1 }).eq('code', promo.code);
+
+        // 5. Telemetry
+        await logTelemetry(svc, 'bonus_code_redeem', user.id, {
+          code: promo.code,
+          rewardType: promo.reward_type,
+          rewardValue: promo.reward_value
+        });
+
+        return new Response(JSON.stringify({ 
+          success: true, 
+          rewardType: promo.reward_type,
+          rewardValue: promo.reward_value,
+          result: rewardResult
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
 
       case 'payVoyeurFee': {
         const { amount } = payload;
