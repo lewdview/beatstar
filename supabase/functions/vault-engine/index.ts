@@ -212,6 +212,18 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
+    // Allow telemetry logging without full auth (e.g. for guest funnel tracking)
+    if (action === 'logClientTelemetry') {
+      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+      if (!serviceKey) throw new Error('Missing service key');
+      const svc = createClient(Deno.env.get('SUPABASE_URL') || '', serviceKey);
+      const { eventType, payload: eventPayload } = payload;
+      if (!eventType) throw new Error('Missing event type');
+      await logTelemetry(svc, eventType, user?.id || null, eventPayload || {});
+      return new Response(JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     if (!user || authErr) {
       if (!authHeader) throw new Error('Not authenticated: Missing Authorization Header');
       throw new Error(`Not authenticated: ${authErr?.message || 'Invalid or Expired Token'}`);
@@ -739,13 +751,7 @@ serve(async (req) => {
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
-      case 'logClientTelemetry': {
-        const { eventType, payload: eventPayload } = payload;
-        if (!eventType) throw new Error('Missing event type');
-        await logTelemetry(svc, eventType, user.id, eventPayload || {});
-        return new Response(JSON.stringify({ success: true }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-      }
+
 
       case 'payVoyeurFee': {
         const { amount } = payload;
