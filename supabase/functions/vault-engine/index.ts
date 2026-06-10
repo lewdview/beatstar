@@ -398,16 +398,19 @@ serve(async (req) => {
           cost = 0; // All packs free in RC1
         }
 
+        const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', user.id).single();
+
         if (cost > 0) {
-          try { await svc.rpc('decrement_tokens', { user_uuid: user.id, amount: cost }); }
-          catch { throw new Error("Insufficient V⚡"); }
+          if (!profile || (profile.tokens || 0) < cost) {
+            throw new Error("Insufficient V⚡");
+          }
+          const { error: decErr } = await svc.rpc('decrement_tokens', { user_uuid: user.id, amount: cost });
+          if (decErr) throw new Error("Insufficient V⚡: " + decErr.message);
         }
 
         // vault_token is excluded — already gated by V⚡ token cost
         const PREMIUM_PACKS = ['prophecy', 'alpha', 'special_picks'];
         const isPremium = PREMIUM_PACKS.includes(packType);
-
-        const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', user.id).single();
 
         // Free pack: enforce one per day
         if (packType === 'free') {
@@ -503,10 +506,13 @@ serve(async (req) => {
         const { day } = payload;
         if (!day || day < 1 || day > 365) throw new Error('Invalid day');
         const cost = adminConfig?.targetedPullCost || TARGETED_PULL_COST;
-        try { await svc.rpc('decrement_tokens', { user_uuid: user.id, amount: cost }); }
-        catch { throw new Error("Insufficient V⚡"); }
 
         const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', user.id).single();
+        if (!profile || (profile.tokens || 0) < cost) {
+          throw new Error("Insufficient V⚡");
+        }
+        const { error: decErr } = await svc.rpc('decrement_tokens', { user_uuid: user.id, amount: cost });
+        if (decErr) throw new Error("Insufficient V⚡: " + decErr.message);
         const now = new Date();
         const ctx: ModifierContext = {
           streak: profile?.streak_count || 0, collectionSize: 0,
@@ -571,8 +577,12 @@ serve(async (req) => {
         if (card.rarity === 'legendary' || card.rarity === 'mythic') throw new Error('Card already at max upgradeable tier');
 
         const cost = adminConfig?.rarityUpgradeCost || RARITY_UPGRADE_COST;
-        try { await svc.rpc('decrement_tokens', { user_uuid: user.id, amount: cost }); }
-        catch { throw new Error("Insufficient V⚡"); }
+        const { data: profile } = await supabaseClient.from('profiles').select('tokens').eq('id', user.id).single();
+        if (!profile || (profile.tokens || 0) < cost) {
+          throw new Error("Insufficient V⚡");
+        }
+        const { error: decErr } = await svc.rpc('decrement_tokens', { user_uuid: user.id, amount: cost });
+        if (decErr) throw new Error("Insufficient V⚡: " + decErr.message);
 
         const newRarity = upgradeRarity(card.rarity as Rarity);
         await svc.from('vault_collections').update({ rarity: newRarity }).eq('id', cardOwnedId);
@@ -673,11 +683,8 @@ serve(async (req) => {
 
         // 6. Deduct tokens
         if (mintCost > 0) {
-          try {
-            await svc.rpc('decrement_tokens', { user_uuid: user.id, amount: mintCost });
-          } catch {
-            throw new Error('Insufficient V⚡');
-          }
+          const { error: decErr } = await svc.rpc('decrement_tokens', { user_uuid: user.id, amount: mintCost });
+          if (decErr) throw new Error("Insufficient V⚡: " + decErr.message);
         }
 
         // 7. Generate mock Base mainnet TX hash
@@ -909,8 +916,15 @@ serve(async (req) => {
       case 'payVoyeurFee': {
         const { amount } = payload;
         if (!amount || amount <= 0) throw new Error("Invalid amount");
-        try { await svc.rpc('decrement_tokens', { user_uuid: user.id, amount }); }
-        catch { throw new Error("Insufficient V⚡"); }
+        
+        const { data: profile } = await svc.from('profiles').select('tokens').eq('id', user.id).single();
+        if (!profile || (profile.tokens || 0) < amount) {
+          throw new Error("Insufficient V⚡");
+        }
+        
+        const { error: decErr } = await svc.rpc('decrement_tokens', { user_uuid: user.id, amount });
+        if (decErr) throw new Error("Insufficient V⚡: " + decErr.message);
+
         return new Response(JSON.stringify({ success: true }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
