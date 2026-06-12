@@ -2081,7 +2081,7 @@ export default function Game() {
       window.removeEventListener("keyup", onUp);
     };
   }, [hitLane, releaseLane, moveHold, getT]);
-
+  // NOTE: Keep touch, swipe, and hold note mechanics in sync with artifacts/beatstar-vault/src/pages/GamePlay.tsx
   const touchStartPos = useRef<Record<number, { x: number, y: number, lane: number, startLane: number }>>({});
 
   // ── Gesture Lock (Prevent mobile browser back/forward swipe) ──
