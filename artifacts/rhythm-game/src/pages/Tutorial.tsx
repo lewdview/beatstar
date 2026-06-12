@@ -454,6 +454,7 @@ export default function Tutorial() {
             <div className="flex gap-4">
               <button
                 onClick={() => {
+                  localStorage.setItem("pim_tutorial_completed", "true");
                   audioManager.playSfx("tap_nav", 0.15);
                   setLocation("/campaign");
                 }}
@@ -464,6 +465,7 @@ export default function Tutorial() {
               </button>
               <button
                 onClick={() => {
+                  localStorage.setItem("pim_tutorial_completed", "true");
                   audioManager.playSfx("tap_nav", 0.15);
                   setLocation("/songs");
                 }}
