@@ -119,6 +119,7 @@ interface NoteState {
   originLane: number;  // The lane that started this hold interaction
   visualLane: number;  // For slide notes: tracking smoothly animated visual lane position
   autoplayedBySurge?: boolean;
+  touchId?: number;    // Associates this hold note with the active touch event tracking it
 }
 interface LanePress {
   pressed: boolean;
@@ -461,7 +462,7 @@ export default function Game() {
   }, []);
 
   const hitLane = useCallback(
-    (lane: number, direction?: Note['swipeDirection']) => {
+    (lane: number, direction?: Note['swipeDirection'], touchId?: number) => {
       if (phaseRef.current !== "playing") return;
       restoreLane(lane);
       const t = getT();
@@ -502,6 +503,7 @@ export default function Game() {
         ns.holdActive = true;
         ns.currentLane = lane;
         ns.originLane = lane;
+        ns.touchId = touchId;
       } else ns.hit = true;
 
       const gs = gsRef.current;
@@ -535,17 +537,8 @@ export default function Game() {
     [getT, calcScore, checkPowerUps, syncDisplay, restoreLane, triggerHitFx],
   );
 
-  const releaseLane = useCallback(
-    (lane: number) => {
-      if (phaseRef.current !== "playing") return;
-      const ns = notesRef.current.find(
-        (n) =>
-          n.note.type === "hold" &&
-          n.holdActive &&
-          n.currentLane === lane &&
-          !n.hit,
-      );
-      if (!ns) return;
+  const completeHoldNote = useCallback(
+    (ns: NoteState) => {
       const isSurge = puRef.current.active === "SURGE" && getT() < puRef.current.endTime;
       if (isSurge || ns.autoplayedBySurge) return;
 
@@ -579,7 +572,6 @@ export default function Game() {
             { type: "SHIELDED", lane: ns.currentLane, id: ++jCounter.current, ts: Date.now() },
           ];
           syncDisplay();
-          return;
         } else {
           // Did not finish the slide
           ns.holdActive = false;
@@ -595,8 +587,8 @@ export default function Game() {
 
           muteLane(ns.note.lane);
           syncDisplay();
-          return;
         }
+        return;
       }
 
       ns.hit = true;
@@ -615,7 +607,23 @@ export default function Game() {
       }
       syncDisplay();
     },
-    [calcScore, checkPowerUps, syncDisplay, muteLane, triggerHitFx],
+    [getT, calcScore, checkPowerUps, syncDisplay, muteLane, triggerHitFx]
+  );
+
+  const releaseLane = useCallback(
+    (lane: number) => {
+      if (phaseRef.current !== "playing") return;
+      const ns = notesRef.current.find(
+        (n) =>
+          n.note.type === "hold" &&
+          n.holdActive &&
+          n.currentLane === lane &&
+          !n.hit,
+      );
+      if (!ns) return;
+      completeHoldNote(ns);
+    },
+    [completeHoldNote],
   );
 
   const moveHold = useCallback(
@@ -631,38 +639,42 @@ export default function Game() {
       if (!ns) return;
 
       // Move the interaction to the new lane if it's a slide note
-      if (ns.note.targetLane !== undefined && toLane === ns.note.targetLane) {
+      if (ns.note.targetLane !== undefined) {
+        const reachedTarget = toLane === ns.note.targetLane && ns.currentLane !== ns.note.targetLane;
         ns.currentLane = toLane;
-        audioManager.playSfx("hidden_secret_found", 0.3);
 
-        // ── Slide success particle effect ──
-        const canvas = canvasRef.current;
-        if (canvas) {
-          const W = canvas.width;
-          const H = canvas.height;
-          const hitY = H * HIT_RATIO;
-          const { x: lx, w: lw } = laneAt(toLane, 1, W);
-          const cx = lx + lw / 2;
-          const lc = getDifficultyLaneColor(laneColorsRef.current[toLane], songRef.current?.difficultyLevel ?? 5);
-          const particles: HitParticle[] = [];
-          for (let i = 0; i < 6; i++) {
-            const angle = (Math.random() - 0.5) * Math.PI;
-            const speed = 40 + Math.random() * 60;
-            particles.push({
-              vx: Math.cos(angle) * speed,
-              vy: Math.sin(angle) * speed - 20,
-              size: 2 + Math.random() * 3,
+        if (reachedTarget) {
+          audioManager.playSfx("hidden_secret_found", 0.3);
+
+          // ── Slide success particle effect ──
+          const canvas = canvasRef.current;
+          if (canvas) {
+            const W = canvas.width;
+            const H = canvas.height;
+            const hitY = H * HIT_RATIO;
+            const { x: lx, w: lw } = laneAt(toLane, 1, W);
+            const cx = lx + lw / 2;
+            const lc = getDifficultyLaneColor(laneColorsRef.current[toLane], songRef.current?.difficultyLevel ?? 5);
+            const particles: HitParticle[] = [];
+            for (let i = 0; i < 6; i++) {
+              const angle = (Math.random() - 0.5) * Math.PI;
+              const speed = 40 + Math.random() * 60;
+              particles.push({
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed - 20,
+                size: 2 + Math.random() * 3,
+              });
+            }
+            hitFxRef.current.push({
+              lane: toLane,
+              startMs: Date.now(),
+              cx,
+              cy: hitY,
+              color: lc,
+              kind: "GOOD", // Use GOOD kind for a subtler effect
+              particles,
             });
           }
-          hitFxRef.current.push({
-            lane: toLane,
-            startMs: Date.now(),
-            cx,
-            cy: hitY,
-            color: lc,
-            kind: "GOOD", // Use GOOD kind for a subtler effect
-            particles,
-          });
         }
       }
     },
@@ -1276,7 +1288,11 @@ export default function Game() {
         }
       }
 
-      if (ns.holdActive && ns.holdProgress >= 1 && (isSurge || ns.autoplayedBySurge)) {
+      const isPressed = ns.touchId !== undefined
+        ? touchStartPos.current[ns.touchId] !== undefined
+        : laneRef.current[Math.round(ns.currentLane)]?.pressed;
+
+      if (ns.holdActive && ns.holdProgress >= 1 && (isSurge || ns.autoplayedBySurge || isPressed)) {
         ns.hit = true;
         ns.holdActive = false;
         const gs = gsRef.current;
@@ -2066,7 +2082,7 @@ export default function Game() {
     };
   }, [hitLane, releaseLane, moveHold, getT]);
 
-  const touchStartPos = useRef<Record<number, { x: number, y: number, lane: number }>>({});
+  const touchStartPos = useRef<Record<number, { x: number, y: number, lane: number, startLane: number }>>({});
 
   // ── Gesture Lock (Prevent mobile browser back/forward swipe) ──
   useEffect(() => {
@@ -2103,15 +2119,14 @@ export default function Game() {
       const rect = canvas.getBoundingClientRect();
       for (let i = 0; i < e.changedTouches.length; i++) {
         const touch = e.changedTouches[i];
-        const lane = Math.floor(
+        const rawLane = Math.floor(
           ((touch.clientX - rect.left) / rect.width) * LANE_COUNT,
         );
-        if (lane >= 0 && lane < LANE_COUNT) {
-          laneRef.current[lane].pressed = true;
-          laneRef.current[lane].touchId = touch.identifier;
-          touchStartPos.current[touch.identifier] = { x: touch.clientX, y: touch.clientY, lane };
-          hitLane(lane);
-        }
+        const lane = Math.max(0, Math.min(LANE_COUNT - 1, rawLane));
+        laneRef.current[lane].pressed = true;
+        laneRef.current[lane].touchId = touch.identifier;
+        touchStartPos.current[touch.identifier] = { x: touch.clientX, y: touch.clientY, lane, startLane: lane };
+        hitLane(lane, undefined, touch.identifier);
       }
     },
     [hitLane],
@@ -2125,9 +2140,10 @@ export default function Game() {
       const rect = canvas.getBoundingClientRect();
       for (let i = 0; i < e.changedTouches.length; i++) {
         const touch = e.changedTouches[i];
-        const newLane = Math.floor(
+        const rawLane = Math.floor(
           ((touch.clientX - rect.left) / rect.width) * LANE_COUNT,
         );
+        const newLane = Math.max(0, Math.min(LANE_COUNT - 1, rawLane));
 
         // Swipe detection while moving
         const start = touchStartPos.current[touch.identifier];
@@ -2147,18 +2163,16 @@ export default function Game() {
             const bucket = Math.round(normAngle / (Math.PI / 4)) % 8;
             const swipeDir = dirs[bucket];
 
-            // Only trigger if we haven't already swiped for this touch?
-            // Actually, for multiple swipes it's tricky.
-            // Let's see if there's a swipe note to hit
+            // Search for candidate note using both startLane and current lane
             const t = getT();
             const cand = notesRef.current.find(n =>
               !n.hit && !n.missed && n.note.type === 'swipe' &&
               n.note.swipeDirection === swipeDir &&
-              n.note.lane === start.lane &&
+              (n.note.lane === start.startLane || n.note.lane === start.lane) &&
               Math.abs(n.note.time - t) < missWindow(songRef.current?.difficultyLevel ?? 5)
             );
             if (cand) {
-              hitLane(start.lane, swipeDir);
+              hitLane(cand.note.lane, swipeDir, touch.identifier);
               // Reset start pos so we don't double-trigger
               start.x = touch.clientX;
               start.y = touch.clientY;
@@ -2174,14 +2188,56 @@ export default function Game() {
               laneRef.current[newLane].pressed = true;
               laneRef.current[newLane].touchId = touch.identifier;
               if (start) start.lane = newLane;
-              moveHold(l, newLane);
+
+              // Directly track and update active hold notes by touchId
+              const ns = notesRef.current.find(
+                (n) => n.note.type === "hold" && n.holdActive && n.touchId === touch.identifier && !n.hit
+              );
+              if (ns && ns.note.targetLane !== undefined) {
+                const reachedTarget = newLane === ns.note.targetLane && ns.currentLane !== ns.note.targetLane;
+                ns.currentLane = newLane;
+
+                if (reachedTarget) {
+                  audioManager.playSfx("hidden_secret_found", 0.3);
+
+                  // ── Slide success particle effect ──
+                  const canvas = canvasRef.current;
+                  if (canvas) {
+                    const W = canvas.width;
+                    const H = canvas.height;
+                    const hitY = H * HIT_RATIO;
+                    const { x: lx, w: lw } = laneAt(newLane, 1, W);
+                    const cx = lx + lw / 2;
+                    const lc = getDifficultyLaneColor(laneColorsRef.current[newLane], songRef.current?.difficultyLevel ?? 5);
+                    const particles: HitParticle[] = [];
+                    for (let i = 0; i < 6; i++) {
+                      const angle = (Math.random() - 0.5) * Math.PI;
+                      const speed = 40 + Math.random() * 60;
+                      particles.push({
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed - 20,
+                        size: 2 + Math.random() * 3,
+                      });
+                    }
+                    hitFxRef.current.push({
+                      lane: newLane,
+                      startMs: Date.now(),
+                      cx,
+                      cy: hitY,
+                      color: lc,
+                      kind: "GOOD",
+                      particles,
+                    });
+                  }
+                }
+              }
               break;
             }
           }
         }
       }
     },
-    [moveHold, getT, hitLane],
+    [getT, hitLane],
   );
 
   const releaseTouchById = useCallback(
@@ -2191,11 +2247,16 @@ export default function Game() {
         if (laneRef.current[lane].touchId === identifier) {
           laneRef.current[lane].pressed = false;
           laneRef.current[lane].touchId = undefined;
-          releaseLane(lane);
         }
       }
+      const ns = notesRef.current.find(
+        (n) => n.note.type === "hold" && n.holdActive && n.touchId === identifier && !n.hit
+      );
+      if (ns) {
+        completeHoldNote(ns);
+      }
     },
-    [releaseLane],
+    [completeHoldNote],
   );
 
   const onTouchEnd = useCallback(
