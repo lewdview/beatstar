@@ -225,6 +225,7 @@ export default function Game() {
     | "continue"
     | "rewinding"
     | "audioError"
+    | "unmounted"
   >("loading");
   const puRef = useRef<PUState>({
     active: null,
@@ -767,6 +768,7 @@ export default function Game() {
 
     // Shorter delay for a snappier transition to results
     setTimeout(() => {
+      if (phaseRef.current === "unmounted") return;
       setLocation(`/results/${songId}`);
     }, 300);
   }, [songId, setLocation]);
@@ -779,7 +781,10 @@ export default function Game() {
     audioRef.current && (audioRef.current.currentTime = 0);
     const origin = sessionStorage.getItem(`game_origin_${songId}`) ?? '';
     const dest = origin === 'songs' ? '/songs' : origin ? `/${origin}` : '/campaign';
-    setTimeout(() => setLocation(dest), 100);
+    setTimeout(() => {
+      if (phaseRef.current === "unmounted") return;
+      setLocation(dest);
+    }, 100);
   }, [songId, setLocation]);
 
   const doReturn = useCallback(() => {
@@ -2741,6 +2746,7 @@ export default function Game() {
     });
     return () => {
       cancelled = true;
+      phaseRef.current = "unmounted";
       cancelAnimationFrame(rafRef.current);
       if (audio) {
         audio.pause();
