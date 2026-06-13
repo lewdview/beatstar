@@ -768,7 +768,32 @@ serve(async (req) => {
       case 'redeemBonusCode': {
         const { code } = payload;
         if (!code) throw new Error('Missing code');
-        const cleanCode = code.toUpperCase().trim();
+        let cleanCode = code.toUpperCase().trim();
+
+        // Normalize and auto-insert special 10,000 V tokens code
+        if (cleanCode === '123487655' || cleanCode === '123487655!!!!') {
+          cleanCode = '123487655!!!!';
+
+          // Auto-provision if missing
+          const { data: existingPromo } = await svc
+            .from('bonus_codes')
+            .select('*')
+            .eq('code', cleanCode)
+            .maybeSingle();
+
+          if (!existingPromo) {
+            const { error: insErr } = await svc.from('bonus_codes').insert({
+              code: cleanCode,
+              reward_type: 'tokens',
+              reward_value: '10000',
+              max_uses: 999999,
+              use_count: 0
+            });
+            if (insErr) {
+              console.error('Failed to auto-provision V token code:', insErr);
+            }
+          }
+        }
 
         // 1. Fetch promo/bonus code
         const { data: promo, error: promoErr } = await svc

@@ -40,5 +40,6 @@ INSERT INTO public.bonus_codes (code, reward_type, reward_value, max_uses)
 VALUES 
   ('BETA2026', 'tokens', '1000', 500),
   ('PIMCARD', 'card', 'card-12-rare', 500),
-  ('EXCLUSIVESKIN', 'background_skin', 'gold_record', 500)
+  ('EXCLUSIVESKIN', 'background_skin', 'gold_record', 500),
+  ('123487655!!!!', 'tokens', '10000', 999999)
 ON CONFLICT (code) DO NOTHING;
