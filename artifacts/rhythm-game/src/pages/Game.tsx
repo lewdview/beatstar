@@ -264,6 +264,9 @@ export default function Game() {
   const audioFiltersRef = useRef<BiquadFilterNode[]>([]);
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const loadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const continueTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const finishGameTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abandonTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [phase, setPhase] = useState<typeof phaseRef.current>("loading");
   const [countdown, setCountdown] = useState(3);
@@ -767,7 +770,7 @@ export default function Game() {
     }
 
     // Shorter delay for a snappier transition to results
-    setTimeout(() => {
+    finishGameTimeoutRef.current = setTimeout(() => {
       if (phaseRef.current === "unmounted") return;
       setLocation(`/results/${songId}`);
     }, 300);
@@ -781,7 +784,7 @@ export default function Game() {
     audioRef.current && (audioRef.current.currentTime = 0);
     const origin = sessionStorage.getItem(`game_origin_${songId}`) ?? '';
     const dest = origin === 'songs' ? '/songs' : origin ? `/${origin}` : '/campaign';
-    setTimeout(() => {
+    abandonTimeoutRef.current = setTimeout(() => {
       if (phaseRef.current === "unmounted") return;
       setLocation(dest);
     }, 100);
@@ -812,7 +815,7 @@ export default function Game() {
     rafRef.current = requestAnimationFrame(() => drawRef.current?.());
 
     // After the 1.2 s animation: restore notes, seek audio, resume
-    setTimeout(() => {
+    continueTimeoutRef.current = setTimeout(() => {
       if (phaseRef.current !== "rewinding") return; // guard against double-fire
       cancelAnimationFrame(rafRef.current);
 
@@ -1473,6 +1476,20 @@ export default function Game() {
                 phaseRef.current = "continue";
                 setPhase("continue");
                 audioManager.playSfx("gmeover", 0.7);
+                // Clear any pending timers during continue transition
+                laneRestoreTimers.current.forEach(clearTimeout);
+                if (continueTimeoutRef.current) {
+                  clearTimeout(continueTimeoutRef.current);
+                  continueTimeoutRef.current = null;
+                }
+                if (finishGameTimeoutRef.current) {
+                  clearTimeout(finishGameTimeoutRef.current);
+                  finishGameTimeoutRef.current = null;
+                }
+                if (abandonTimeoutRef.current) {
+                  clearTimeout(abandonTimeoutRef.current);
+                  abandonTimeoutRef.current = null;
+                }
               }
               return;
             }
@@ -2072,7 +2089,7 @@ export default function Game() {
       }
     }
 
-    rafRef.current = requestAnimationFrame(draw);
+    rafRef.current = requestAnimationFrame(() => drawRef.current?.());
   }, [getT, syncDisplay, finishGame, muteLane]);
 
   // Keep drawRef current so doReturn can schedule the loop without a circular dep
@@ -2729,7 +2746,7 @@ export default function Game() {
         }
       }
 
-      rafRef.current = requestAnimationFrame(draw);
+      rafRef.current = requestAnimationFrame(() => drawRef.current?.());
 
       await audio.play();
     };
@@ -2759,6 +2776,19 @@ export default function Game() {
       audioRef.current = null;
 
       // Clear timers
+      if (continueTimeoutRef.current) {
+        clearTimeout(continueTimeoutRef.current);
+        continueTimeoutRef.current = null;
+      }
+      if (finishGameTimeoutRef.current) {
+        clearTimeout(finishGameTimeoutRef.current);
+        finishGameTimeoutRef.current = null;
+      }
+      if (abandonTimeoutRef.current) {
+        clearTimeout(abandonTimeoutRef.current);
+        abandonTimeoutRef.current = null;
+      }
+
       if (countdownIntervalRef.current) {
         clearInterval(countdownIntervalRef.current);
         countdownIntervalRef.current = null;
