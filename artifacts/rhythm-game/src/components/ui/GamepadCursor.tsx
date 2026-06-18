@@ -13,6 +13,7 @@ export default function GamepadCursor() {
   const activeRef = useRef(false);
   const animationFrameId = useRef<number | null>(null);
   const prevButtons = useRef<boolean[]>([]);
+  const lastHoveredElRef = useRef<Element | null>(null);
 
   // Disable gamepad cursor completely on gameplay pages
   const isPlaying = location.startsWith("/play/");
@@ -42,6 +43,18 @@ export default function GamepadCursor() {
         document.querySelectorAll(".gamepad-hover").forEach((el) => {
           el.classList.remove("gamepad-hover");
         });
+
+        // Dispatch mouseleave on last hovered element to clean up any visual popups
+        if (lastHoveredElRef.current) {
+          lastHoveredElRef.current.dispatchEvent(new MouseEvent("mouseleave", {
+            bubbles: false,
+            cancelable: true,
+            clientX: posRef.current.x,
+            clientY: posRef.current.y,
+          }));
+          lastHoveredElRef.current = null;
+        }
+
         setHoveredElement(null);
       }
     };
@@ -99,6 +112,46 @@ export default function GamepadCursor() {
         const y = posRef.current.y;
         const el = document.elementFromPoint(x, y);
 
+        // Edge Scrolling (pushing against the scroll direction at top/bottom/left/right of screen)
+        const edgeThreshold = 45;
+        const edgeScrollSpeed = 14;
+        let edgeScrollY = 0;
+        if (posRef.current.y > window.innerHeight - edgeThreshold && ay > 0.1) {
+          edgeScrollY = ay * edgeScrollSpeed;
+        } else if (posRef.current.y < edgeThreshold && ay < -0.1) {
+          edgeScrollY = ay * edgeScrollSpeed;
+        }
+        let edgeScrollX = 0;
+        if (posRef.current.x > window.innerWidth - edgeThreshold && ax > 0.1) {
+          edgeScrollX = ax * edgeScrollSpeed;
+        } else if (posRef.current.x < edgeThreshold && ax < -0.1) {
+          edgeScrollX = ax * edgeScrollSpeed;
+        }
+
+        if (edgeScrollY !== 0 || edgeScrollX !== 0) {
+          let scrollTarget = el;
+          while (scrollTarget && scrollTarget !== document.body) {
+            const style = window.getComputedStyle(scrollTarget);
+            const isScrollableY =
+              scrollTarget.scrollHeight > scrollTarget.clientHeight &&
+              (style.overflowY === "auto" || style.overflowY === "scroll");
+            const isScrollableX =
+              scrollTarget.scrollWidth > scrollTarget.clientWidth &&
+              (style.overflowX === "auto" || style.overflowX === "scroll");
+
+            if (isScrollableY || isScrollableX) {
+              break;
+            }
+            scrollTarget = scrollTarget.parentElement;
+          }
+          const container = scrollTarget || window;
+          container.scrollBy({
+            top: edgeScrollY,
+            left: edgeScrollX,
+            behavior: "auto",
+          });
+        }
+
         // Find closest interactive element
         const interactiveEl = el?.closest(
           "button, a, input, select, textarea, [role='button'], .cursor-pointer"
@@ -133,8 +186,43 @@ export default function GamepadCursor() {
           }
         }
 
-        // 3. Dispatch simulated mousemove to update standard React hover / JS state
+        // 3. Dispatch simulated mousemove and hover transition events to update standard React hover / JS state
         if (el) {
+          if (el !== lastHoveredElRef.current) {
+            const prevEl = lastHoveredElRef.current;
+            if (prevEl) {
+              prevEl.dispatchEvent(new MouseEvent("mouseout", {
+                bubbles: true,
+                cancelable: true,
+                clientX: posRef.current.x,
+                clientY: posRef.current.y,
+                relatedTarget: el,
+              }));
+              prevEl.dispatchEvent(new MouseEvent("mouseleave", {
+                bubbles: false,
+                cancelable: true,
+                clientX: posRef.current.x,
+                clientY: posRef.current.y,
+                relatedTarget: el,
+              }));
+            }
+            el.dispatchEvent(new MouseEvent("mouseover", {
+              bubbles: true,
+              cancelable: true,
+              clientX: posRef.current.x,
+              clientY: posRef.current.y,
+              relatedTarget: prevEl,
+            }));
+            el.dispatchEvent(new MouseEvent("mouseenter", {
+              bubbles: false,
+              cancelable: true,
+              clientX: posRef.current.x,
+              clientY: posRef.current.y,
+              relatedTarget: prevEl,
+            }));
+            lastHoveredElRef.current = el;
+          }
+
           el.dispatchEvent(new MouseEvent("mousemove", {
             bubbles: true,
             cancelable: true,
@@ -233,6 +321,15 @@ export default function GamepadCursor() {
       window.removeEventListener("mousemove", handleMouseMove);
       document.body.classList.remove("gamepad-cursor-active");
       if (hoveredElement) hoveredElement.classList.remove("gamepad-hover");
+      if (lastHoveredElRef.current) {
+        lastHoveredElRef.current.dispatchEvent(new MouseEvent("mouseleave", {
+          bubbles: false,
+          cancelable: true,
+          clientX: posRef.current.x,
+          clientY: posRef.current.y,
+        }));
+        lastHoveredElRef.current = null;
+      }
     };
   }, [isPlaying, hoveredElement]);
 

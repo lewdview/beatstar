@@ -274,12 +274,43 @@ export default function Game() {
   const [displayJudge, setDisplayJudge] = useState<JudgmentDisplay[]>([]);
   const [bufferPct, setBufferPct] = useState(0);
   const [loadMsg, setLoadMsg] = useState("FETCHING TRANSMISSION...");
-  const [puDisplay, setPuDisplay] = useState<{
-    label: string;
-    color: string;
-    multiplier: number;
-    progress: number;
-  } | null>(null);
+  const puPanelRef = useRef<HTMLDivElement | null>(null);
+  const puTextRef = useRef<HTMLDivElement | null>(null);
+  const puBarRef = useRef<HTMLDivElement | null>(null);
+  const gamepadRafRef = useRef<number | null>(null);
+
+  const updatePuDisplayDOM = useCallback((
+    displayData: {
+      label: string;
+      color: string;
+      multiplier: number;
+      progress: number;
+    } | null
+  ) => {
+    const panel = puPanelRef.current;
+    const textEl = puTextRef.current;
+    const barEl = puBarRef.current;
+    if (!panel) return;
+
+    if (!displayData) {
+      panel.style.display = "none";
+      return;
+    }
+
+    panel.style.display = "flex";
+    if (textEl) {
+      textEl.innerText = `${displayData.label} ×${displayData.multiplier}`;
+      textEl.style.color = displayData.color;
+      textEl.style.border = `2px solid ${displayData.color}`;
+      textEl.style.background = `${displayData.color}18`;
+      textEl.style.textShadow = `0 0 20px ${displayData.color}`;
+      textEl.style.boxShadow = `0 0 30px ${displayData.color}40`;
+    }
+    if (barEl) {
+      barEl.style.width = `${displayData.progress * 100}%`;
+      barEl.style.background = displayData.color;
+    }
+  }, []);
   const [missCount, setMissCount] = useState(0);
   const [continueCountdown, setContinueCountdown] = useState(10);
   const [opts, setOpts] = useState<GameOpts>(loadOpts);
@@ -367,7 +398,7 @@ export default function Game() {
             label: finalLabel,
             duration: pw.duration,
           });
-          setPuDisplay({
+          updatePuDisplayDOM({
             label: finalLabel,
             color: pw.color,
             multiplier: pw.multiplier,
@@ -578,11 +609,16 @@ export default function Game() {
           shieldChargesRef.current--;
           const activeLabel = `SIGNAL LOCK (SHIELD x${shieldChargesRef.current})`;
           puRef.current.label = activeLabel;
-          setPuDisplay((prev) => prev ? { ...prev, label: activeLabel } : null);
+          updatePuDisplayDOM({
+            label: activeLabel,
+            color: puRef.current.color,
+            multiplier: puRef.current.multiplier,
+            progress: (puRef.current.endTime - getT()) / puRef.current.duration,
+          });
           if (shieldChargesRef.current <= 0) {
             puRef.current.endTime = 0;
             puRef.current.active = null;
-            setPuDisplay(null);
+            updatePuDisplayDOM(null);
           }
           audioManager.playSfx("tap_nav", 0.35);
           triggerHitFx(ns.currentLane, "SHIELDED");
@@ -611,7 +647,7 @@ export default function Game() {
           // Deactivate power up on combo break
           puRef.current.active = null;
           puRef.current.endTime = 0;
-          setPuDisplay(null);
+          updatePuDisplayDOM(null);
           puRef.current.triggered.clear();
 
           muteLane(ns.note.lane);
@@ -897,7 +933,7 @@ export default function Game() {
 
     // Power-up display sync
     if (pu.active && t < pu.endTime) {
-      setPuDisplay({
+      updatePuDisplayDOM({
         label: pu.label,
         color: pu.color,
         multiplier: pu.multiplier,
@@ -905,7 +941,7 @@ export default function Game() {
       });
     } else if (pu.active && t >= pu.endTime) {
       pu.active = null;
-      setPuDisplay(null);
+      updatePuDisplayDOM(null);
     }
 
     const puActive = !!(pu.active && t < pu.endTime);
@@ -1411,11 +1447,16 @@ export default function Game() {
             shieldChargesRef.current--;
             const activeLabel = `SIGNAL LOCK (SHIELD x${shieldChargesRef.current})`;
             puRef.current.label = activeLabel;
-            setPuDisplay((prev) => prev ? { ...prev, label: activeLabel } : null);
+            updatePuDisplayDOM({
+              label: activeLabel,
+              color: puRef.current.color,
+              multiplier: puRef.current.multiplier,
+              progress: (puRef.current.endTime - t) / puRef.current.duration,
+            });
             if (shieldChargesRef.current <= 0) {
               puRef.current.endTime = 0;
               puRef.current.active = null;
-              setPuDisplay(null);
+              updatePuDisplayDOM(null);
             }
             audioManager.playSfx("tap_nav", 0.35);
             triggerHitFx(note.lane, "SHIELDED");
@@ -1446,7 +1487,7 @@ export default function Game() {
             // Deactivate power up on combo break
             puRef.current.active = null;
             puRef.current.endTime = 0;
-            setPuDisplay(null);
+            updatePuDisplayDOM(null);
             puRef.current.triggered.clear();
 
             jRef.current = [
@@ -2303,7 +2344,7 @@ export default function Game() {
     const pollGamepad = () => {
       if (!active) return;
       if (!getTRef.current) {
-        requestAnimationFrame(pollGamepad);
+        gamepadRafRef.current = requestAnimationFrame(pollGamepad);
         return;
       }
 
@@ -2312,7 +2353,7 @@ export default function Game() {
       const gp = gamepads.find(g => g !== null);
       if (!gp) {
         gamepadConnectedRef.current = false;
-        requestAnimationFrame(pollGamepad);
+        gamepadRafRef.current = requestAnimationFrame(pollGamepad);
         return;
       }
       gamepadConnectedRef.current = true;
@@ -2457,13 +2498,16 @@ export default function Game() {
         prevGamepadLanePressedRef.current = [false, false, false];
       }
 
-      requestAnimationFrame(pollGamepad);
+      gamepadRafRef.current = requestAnimationFrame(pollGamepad);
     };
 
-    requestAnimationFrame(pollGamepad);
+    gamepadRafRef.current = requestAnimationFrame(pollGamepad);
 
     return () => {
       active = false;
+      if (gamepadRafRef.current) {
+        cancelAnimationFrame(gamepadRafRef.current);
+      }
     };
   }, []);
   // NOTE: Keep touch, swipe, and hold note mechanics in sync with artifacts/beatstar-vault/src/pages/GamePlay.tsx
@@ -3071,7 +3115,6 @@ export default function Game() {
   // ── render ──
   const gs = displayGs;
   const song = songRef.current;
-  const puColor = puDisplay?.color ?? "#E5B800";
   const comboColor =
     gs.combo < 10
       ? "#888"
@@ -3447,36 +3490,40 @@ export default function Game() {
           />
 
           {/* Power-up banner */}
-          {puDisplay && (
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 pointer-events-none">
-              <div
-                className="font-mono font-bold text-base px-5 py-2 tracking-[0.3em]"
-                style={{
-                  color: puColor,
-                  border: `2px solid ${puColor}`,
-                  background: `${puColor}18`,
-                  textShadow: `0 0 20px ${puColor}`,
-                  boxShadow: `0 0 30px ${puColor}40`,
-                  clipPath:
-                    "polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)",
-                }}
-              >
-                {puDisplay.label} ×{puDisplay.multiplier}
-              </div>
-              <div
-                className="w-36 h-1"
-                style={{ background: "rgba(255,255,255,0.08)" }}
-              >
-                <div
-                  className="h-full"
-                  style={{
-                    width: `${puDisplay.progress * 100}%`,
-                    background: puColor,
-                  }}
-                />
-              </div>
+          <div
+            ref={puPanelRef}
+            className="absolute top-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 pointer-events-none"
+            style={{ display: 'none' }}
+          >
+            <div
+              ref={puTextRef}
+              className="font-mono font-bold text-base px-5 py-2 tracking-[0.3em]"
+              style={{
+                color: "#E5B800",
+                border: "2px solid #E5B800",
+                background: "#E5B80018",
+                textShadow: "0 0 20px #E5B800",
+                boxShadow: "0 0 30px #E5B80040",
+                clipPath:
+                  "polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)",
+              }}
+            >
+              FEVER ×2
             </div>
-          )}
+            <div
+              className="w-36 h-1"
+              style={{ background: "rgba(255,255,255,0.08)" }}
+            >
+              <div
+                ref={puBarRef}
+                className="h-full"
+                style={{
+                  width: "0%",
+                  background: "#E5B800",
+                }}
+              />
+            </div>
+          </div>
 
           {/* Judgment text — per-lane, moved up above the hit zone */}
           {opts.judgmentText && displayJudge.map((j) => {
