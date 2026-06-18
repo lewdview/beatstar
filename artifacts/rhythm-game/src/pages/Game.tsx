@@ -1294,13 +1294,18 @@ export default function Game() {
       ctx.shadowColor = "transparent";
 
       // Key label — below the baseline (lower half of key)
-      const fs = Math.max(12, Math.floor(btnH * 0.13));
+      // When a gamepad is connected show controller button glyphs instead of keyboard keys
+      const GAMEPAD_LANE_GLYPHS: [string, string, string] = ['\u25A1', '\u25B3', '\u25CB']; // □ △ ○  (X, Y, B)
+      const rawLabel = gamepadConnectedRef.current
+        ? GAMEPAD_LANE_GLYPHS[i as 0 | 1 | 2]
+        : keyLabel(laneKeysRef.current[i]);
+      const fs = Math.max(12, Math.floor(btnH * (gamepadConnectedRef.current ? 0.17 : 0.13)));
       ctx.fillStyle = pressed ? "rgba(50,45,40,0.7)" : "rgba(42,37,32,0.45)";
       ctx.font = `bold ${fs}px "Space Mono", monospace`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(
-        keyLabel(laneKeysRef.current[i]),
+        rawLabel,
         x + w / 2,
         hitY + (H - hitY) * 0.42 + (pressed ? 2 : 0),
       );
@@ -2235,6 +2240,10 @@ export default function Game() {
   const prevGamepadPausePressedRef = useRef<boolean>(false);
   const gamepadLeftStickNeutralRef = useRef<boolean>(true);
   const gamepadRightStickNeutralRef = useRef<boolean>(true);
+  // D-pad edge detection for swipes (Up=12,Down=13,Left=14,Right=15)
+  const prevDpadRef = useRef<[boolean, boolean, boolean, boolean]>([false, false, false, false]);
+  // True when a gamepad is actively connected — used by draw loop to show XYB labels
+  const gamepadConnectedRef = useRef<boolean>(false);
 
   // Keep references to functions updated on every render to avoid stale closures in the loop
   const hitLaneRef = useRef<typeof hitLane | null>(null);
@@ -2301,9 +2310,11 @@ export default function Game() {
       // Find the first active gamepad
       const gp = gamepads.find(g => g !== null);
       if (!gp) {
+        gamepadConnectedRef.current = false;
         requestAnimationFrame(pollGamepad);
         return;
       }
+      gamepadConnectedRef.current = true;
 
       const phase = phaseRef.current;
       const paused = pausedRef.current;
@@ -2333,6 +2344,38 @@ export default function Game() {
         if (gp.axes[2] !== undefined && gp.axes[3] !== undefined) {
           detectFlick(gp.axes[2], gp.axes[3], gamepadRightStickNeutralRef);
         }
+
+        // ── 2b. D-pad swipe detection (rising-edge, supports diagonals) ──
+        // Buttons: Up=12, Down=13, Left=14, Right=15
+        const dUp    = gp.buttons[12]?.pressed || false;
+        const dDown  = gp.buttons[13]?.pressed || false;
+        const dLeft  = gp.buttons[14]?.pressed || false;
+        const dRight = gp.buttons[15]?.pressed || false;
+        const [prevDUp, prevDDown, prevDLeft, prevDRight] = prevDpadRef.current;
+        const dpadChanged = dUp !== prevDUp || dDown !== prevDDown || dLeft !== prevDLeft || dRight !== prevDRight;
+        if (dpadChanged && (dUp || dDown || dLeft || dRight)) {
+          let dpadSwipe: Note['swipeDirection'] | undefined;
+          if (dUp   && dLeft)  dpadSwipe = 'up-left';
+          else if (dUp   && dRight) dpadSwipe = 'up-right';
+          else if (dDown && dLeft)  dpadSwipe = 'down-left';
+          else if (dDown && dRight) dpadSwipe = 'down-right';
+          else if (dUp)    dpadSwipe = 'up';
+          else if (dDown)  dpadSwipe = 'down';
+          else if (dLeft)  dpadSwipe = 'left';
+          else if (dRight) dpadSwipe = 'right';
+          if (dpadSwipe) {
+            const t = getTRef.current ? getTRef.current() : 0;
+            const cand = notesRef.current.find(n =>
+              !n.hit && !n.missed && n.note.type === 'swipe' &&
+              n.note.swipeDirection === dpadSwipe &&
+              Math.abs(n.note.time - t) < missWindow(songRef.current?.difficultyLevel ?? 5)
+            );
+            if (cand && hitLaneRef.current) {
+              hitLaneRef.current(cand.note.lane, dpadSwipe);
+            }
+          }
+        }
+        prevDpadRef.current = [dUp, dDown, dLeft, dRight];
 
         // ── 3. Direction and Face Buttons mapping ──
         // Determine current slide direction:
