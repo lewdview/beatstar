@@ -2229,6 +2229,198 @@ export default function Game() {
       window.removeEventListener("keyup", onUp);
     };
   }, [hitLane, releaseLane, moveHold, getT]);
+
+  // ── Gamepad API Controller Support ──
+  const prevGamepadLanePressedRef = useRef<[boolean, boolean, boolean]>([false, false, false]);
+  const prevGamepadPausePressedRef = useRef<boolean>(false);
+  const gamepadLeftStickNeutralRef = useRef<boolean>(true);
+  const gamepadRightStickNeutralRef = useRef<boolean>(true);
+
+  // Keep references to functions updated on every render to avoid stale closures in the loop
+  const hitLaneRef = useRef<typeof hitLane | null>(null);
+  const releaseLaneRef = useRef<typeof releaseLane | null>(null);
+  const moveHoldRef = useRef<typeof moveHold | null>(null);
+  const getTRef = useRef<typeof getT | null>(null);
+  const doPauseRef = useRef<typeof doPause | null>(null);
+  const doResumeRef = useRef<typeof doResume | null>(null);
+
+  useEffect(() => {
+    hitLaneRef.current = hitLane;
+    releaseLaneRef.current = releaseLane;
+    moveHoldRef.current = moveHold;
+    getTRef.current = getT;
+    doPauseRef.current = doPause;
+    doResumeRef.current = doResume;
+  }); // No dependency array so it runs on every render
+
+  useEffect(() => {
+    let active = true;
+
+    // Helper for analog stick flick detection
+    const detectFlick = (x: number, y: number, neutralRef: React.MutableRefObject<boolean>) => {
+      const magnitude = Math.hypot(x, y);
+      if (magnitude < 0.25) {
+        neutralRef.current = true;
+      } else if (magnitude > 0.75 && neutralRef.current) {
+        neutralRef.current = false;
+        // Flick detected! Find direction.
+        const angle = Math.atan2(y, x);
+        const deg = (angle * (180 / Math.PI) + 360) % 360;
+        let swipeDir: Note['swipeDirection'] | undefined;
+        if (deg >= 337.5 || deg < 22.5) swipeDir = 'right';
+        else if (deg >= 22.5 && deg < 67.5) swipeDir = 'down-right';
+        else if (deg >= 67.5 && deg < 112.5) swipeDir = 'down';
+        else if (deg >= 112.5 && deg < 157.5) swipeDir = 'down-left';
+        else if (deg >= 157.5 && deg < 202.5) swipeDir = 'left';
+        else if (deg >= 202.5 && deg < 247.5) swipeDir = 'up-left';
+        else if (deg >= 247.5 && deg < 292.5) swipeDir = 'up';
+        else swipeDir = 'up-right';
+
+        if (swipeDir) {
+          const t = getTRef.current ? getTRef.current() : 0;
+          const cand = notesRef.current.find(n =>
+            !n.hit && !n.missed && n.note.type === 'swipe' &&
+            n.note.swipeDirection === swipeDir &&
+            Math.abs(n.note.time - t) < missWindow(songRef.current?.difficultyLevel ?? 5)
+          );
+          if (cand && hitLaneRef.current) {
+            hitLaneRef.current(cand.note.lane, swipeDir);
+          }
+        }
+      }
+    };
+
+    const pollGamepad = () => {
+      if (!active) return;
+      if (!getTRef.current) {
+        requestAnimationFrame(pollGamepad);
+        return;
+      }
+
+      const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+      // Find the first active gamepad
+      const gp = gamepads.find(g => g !== null);
+      if (!gp) {
+        requestAnimationFrame(pollGamepad);
+        return;
+      }
+
+      const phase = phaseRef.current;
+      const paused = pausedRef.current;
+
+      // ── 1. Pause / Menu Buttons ──
+      // Start button is Button 9, Select is Button 8
+      const pausePressed = (gp.buttons[9]?.pressed) || (gp.buttons[8]?.pressed);
+      if (pausePressed && !prevGamepadPausePressedRef.current) {
+        if (phase === 'playing') {
+          if (paused) {
+            doResumeRef.current?.();
+          } else {
+            doPauseRef.current?.();
+          }
+        }
+      }
+      prevGamepadPausePressedRef.current = pausePressed;
+
+      // Only handle game inputs if we are playing and not paused/rewinding
+      if (phase === 'playing' && !paused) {
+        // ── 2. Swipe Flick detection on analog sticks ──
+        // Left stick axes: 0 (X), 1 (Y)
+        if (gp.axes[0] !== undefined && gp.axes[1] !== undefined) {
+          detectFlick(gp.axes[0], gp.axes[1], gamepadLeftStickNeutralRef);
+        }
+        // Right stick axes: 2 (X), 3 (Y)
+        if (gp.axes[2] !== undefined && gp.axes[3] !== undefined) {
+          detectFlick(gp.axes[2], gp.axes[3], gamepadRightStickNeutralRef);
+        }
+
+        // ── 3. Direction and Face Buttons mapping ──
+        // Determine current slide direction:
+        // Left: D-pad Left (Button 14) or Left stick X < -0.5 or Right stick X < -0.5
+        // Right: D-pad Right (Button 15) or Left stick X > 0.5 or Right stick X > 0.5
+        let slideDir: 'left' | 'center' | 'right' = 'center';
+        const stickXThreshold = 0.5;
+        if (
+          gp.buttons[14]?.pressed ||
+          (gp.axes[0] !== undefined && gp.axes[0] < -stickXThreshold) ||
+          (gp.axes[2] !== undefined && gp.axes[2] < -stickXThreshold)
+        ) {
+          slideDir = 'left';
+        } else if (
+          gp.buttons[15]?.pressed ||
+          (gp.axes[0] !== undefined && gp.axes[0] > stickXThreshold) ||
+          (gp.axes[2] !== undefined && gp.axes[2] > stickXThreshold)
+        ) {
+          slideDir = 'right';
+        }
+
+        // X, Y, B for the main buttons:
+        // Button 2 is X (Left lane -> 0)
+        // Button 3 is Y (Center lane -> 1)
+        // Button 1 is B (Right lane -> 2)
+        // Button 0 is A (Slide trigger)
+        const isAPressed = gp.buttons[0]?.pressed || false;
+        
+        const lanePressed: [boolean, boolean, boolean] = [
+          (gp.buttons[2]?.pressed || false) || (isAPressed && slideDir === 'left'),
+          (gp.buttons[3]?.pressed || false) || (isAPressed && slideDir === 'center'),
+          (gp.buttons[1]?.pressed || false) || (isAPressed && slideDir === 'right')
+        ];
+
+        // Process presses and releases
+        for (let i = 0; i < 3; i++) {
+          const wasPressed = prevGamepadLanePressedRef.current[i];
+          const isPressed = lanePressed[i];
+          if (isPressed && !wasPressed) {
+            // Lane press transition
+            const activeHold = notesRef.current.find(
+              (n) =>
+                n.note.type === "hold" &&
+                n.holdActive &&
+                n.note.targetLane === i &&
+                n.currentLane !== i &&
+                !n.hit
+            );
+            if (activeHold) {
+              const prevLaneIdx = Math.round(activeHold.currentLane);
+              if (laneRef.current[prevLaneIdx]) {
+                laneRef.current[prevLaneIdx].pressed = false;
+              }
+              laneRef.current[i].pressed = true;
+              laneRef.current[i].isArrow = null;
+              moveHoldRef.current?.(activeHold.currentLane, i);
+            } else {
+              laneRef.current[i].pressed = true;
+              laneRef.current[i].isArrow = null;
+              hitLaneRef.current?.(i);
+            }
+          } else if (!isPressed && wasPressed) {
+            // Lane release transition
+            laneRef.current[i].pressed = false;
+            releaseLaneRef.current?.(i);
+          }
+        }
+        prevGamepadLanePressedRef.current = lanePressed;
+      } else {
+        // If not playing or paused, make sure we clear pressed states to prevent sticking keys
+        for (let i = 0; i < 3; i++) {
+          if (prevGamepadLanePressedRef.current[i]) {
+            laneRef.current[i].pressed = false;
+            releaseLaneRef.current?.(i);
+          }
+        }
+        prevGamepadLanePressedRef.current = [false, false, false];
+      }
+
+      requestAnimationFrame(pollGamepad);
+    };
+
+    requestAnimationFrame(pollGamepad);
+
+    return () => {
+      active = false;
+    };
+  }, []);
   // NOTE: Keep touch, swipe, and hold note mechanics in sync with artifacts/beatstar-vault/src/pages/GamePlay.tsx
   const touchStartPos = useRef<Record<number, { x: number, y: number, lane: number, startLane: number }>>({});
 
