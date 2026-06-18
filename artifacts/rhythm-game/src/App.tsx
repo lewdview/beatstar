@@ -10,6 +10,8 @@ import Results from "@/pages/Results";
 import Tutorial from "@/pages/Tutorial";
 import Options from "@/pages/Options";
 import BackgroundMusic from "@/components/audio/BackgroundMusic";
+import GamepadCursor from "@/components/ui/GamepadCursor";
+
 
 const queryClient = new QueryClient();
 
@@ -42,6 +44,7 @@ function App() {
       <div className="noise-overlay" />
       <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
         <BackgroundMusic />
+        <GamepadCursor />
         <Router />
       </WouterRouter>
     </QueryClientProvider>
