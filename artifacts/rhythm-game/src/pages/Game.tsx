@@ -279,6 +279,20 @@ export default function Game() {
   const puBarRef = useRef<HTMLDivElement | null>(null);
   const gamepadRafRef = useRef<number | null>(null);
 
+  const prevPuStateRef = useRef<{
+    label: string;
+    color: string;
+    multiplier: number;
+    progress: number;
+    visible: boolean;
+  }>({
+    label: "",
+    color: "",
+    multiplier: 0,
+    progress: -1,
+    visible: false,
+  });
+
   const updatePuDisplayDOM = useCallback((
     displayData: {
       label: string;
@@ -292,25 +306,69 @@ export default function Game() {
     const barEl = puBarRef.current;
     if (!panel) return;
 
+    const prev = prevPuStateRef.current;
+
     if (!displayData) {
-      panel.style.display = "none";
+      if (prev.visible) {
+        panel.style.display = "none";
+        prev.visible = false;
+      }
       return;
     }
 
-    panel.style.display = "flex";
-    if (textEl) {
-      textEl.innerText = `${displayData.label} ×${displayData.multiplier}`;
-      textEl.style.color = displayData.color;
-      textEl.style.border = `2px solid ${displayData.color}`;
-      textEl.style.background = `${displayData.color}18`;
-      textEl.style.textShadow = `0 0 20px ${displayData.color}`;
-      textEl.style.boxShadow = `0 0 30px ${displayData.color}40`;
+    if (!prev.visible) {
+      panel.style.display = "flex";
+      prev.visible = true;
     }
-    if (barEl) {
-      barEl.style.width = `${displayData.progress * 100}%`;
-      barEl.style.background = displayData.color;
+
+    const labelChanged = prev.label !== displayData.label || prev.multiplier !== displayData.multiplier;
+    const colorChanged = prev.color !== displayData.color;
+    const progressChanged = Math.abs(prev.progress - displayData.progress) > 0.005;
+
+    if (labelChanged || colorChanged) {
+      if (textEl) {
+        if (labelChanged) {
+          textEl.innerText = `${displayData.label} ×${displayData.multiplier}`;
+          prev.label = displayData.label;
+          prev.multiplier = displayData.multiplier;
+        }
+        if (colorChanged) {
+          textEl.style.color = displayData.color;
+          textEl.style.border = `2px solid ${displayData.color}`;
+          textEl.style.background = `${displayData.color}18`;
+          textEl.style.textShadow = `0 0 20px ${displayData.color}`;
+          textEl.style.boxShadow = `0 0 30px ${displayData.color}40`;
+        }
+      }
+    }
+
+    if (progressChanged || colorChanged) {
+      if (barEl) {
+        if (progressChanged) {
+          barEl.style.width = `${displayData.progress * 100}%`;
+          prev.progress = displayData.progress;
+        }
+        if (colorChanged) {
+          barEl.style.background = displayData.color;
+        }
+      }
+    }
+
+    if (colorChanged) {
+      prev.color = displayData.color;
     }
   }, []);
+
+  const resetPuDisplayDOM = useCallback(() => {
+    prevPuStateRef.current = {
+      label: "",
+      color: "",
+      multiplier: 0,
+      progress: -1,
+      visible: false,
+    };
+    updatePuDisplayDOM(null);
+  }, [updatePuDisplayDOM]);
   const [missCount, setMissCount] = useState(0);
   const [continueCountdown, setContinueCountdown] = useState(10);
   const [opts, setOpts] = useState<GameOpts>(loadOpts);
@@ -328,6 +386,29 @@ export default function Game() {
     document.addEventListener("fullscreenchange", handler);
     return () => document.removeEventListener("fullscreenchange", handler);
   }, []);
+
+  useLayoutEffect(() => {
+    if (puPanelRef.current) {
+      puPanelRef.current.style.display = "none";
+    }
+    if (puTextRef.current) {
+      Object.assign(puTextRef.current.style, {
+        color: "#E5B800",
+        border: "2px solid #E5B800",
+        background: "#E5B80018",
+        textShadow: "0 0 20px #E5B800",
+        boxShadow: "0 0 30px #E5B80040",
+        clipPath: "polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)",
+      });
+    }
+    if (puBarRef.current) {
+      Object.assign(puBarRef.current.style, {
+        width: "0%",
+        background: "#E5B800",
+      });
+    }
+  }, []);
+
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
     else document.exitFullscreen?.();
@@ -2741,6 +2822,7 @@ export default function Game() {
     let onError: (() => void) | null = null;
 
     const init = async () => {
+      resetPuDisplayDOM();
       setLoadMsg("FETCHING TRANSMISSION...");
       phaseRef.current = "loading";
       setPhase("loading");
@@ -2948,6 +3030,7 @@ export default function Game() {
       }
       if (cancelled) return;
 
+      resetPuDisplayDOM();
       phaseRef.current = "countdown";
       setPhase("countdown");
       let count = 3;
@@ -3493,23 +3576,11 @@ export default function Game() {
           <div
             ref={puPanelRef}
             className="absolute top-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 pointer-events-none"
-            style={{ display: 'none' }}
           >
             <div
               ref={puTextRef}
               className="font-mono font-bold text-base px-5 py-2 tracking-[0.3em]"
-              style={{
-                color: "#E5B800",
-                border: "2px solid #E5B800",
-                background: "#E5B80018",
-                textShadow: "0 0 20px #E5B800",
-                boxShadow: "0 0 30px #E5B80040",
-                clipPath:
-                  "polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)",
-              }}
-            >
-              FEVER ×2
-            </div>
+            />
             <div
               className="w-36 h-1"
               style={{ background: "rgba(255,255,255,0.08)" }}
@@ -3517,10 +3588,6 @@ export default function Game() {
               <div
                 ref={puBarRef}
                 className="h-full"
-                style={{
-                  width: "0%",
-                  background: "#E5B800",
-                }}
               />
             </div>
           </div>
