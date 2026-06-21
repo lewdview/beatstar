@@ -61,6 +61,43 @@ export default function GamepadCursor() {
 
     window.addEventListener("mousemove", handleMouseMove);
 
+    const findScrollableContainer = (startEl: Element | null, x: number, y: number) => {
+      const isScrollable = (element: Element) => {
+        const style = window.getComputedStyle(element);
+        const isScrollableY =
+          element.scrollHeight > element.clientHeight &&
+          (style.overflowY === "auto" || style.overflowY === "scroll");
+        const isScrollableX =
+          element.scrollWidth > element.clientWidth &&
+          (style.overflowX === "auto" || style.overflowX === "scroll");
+        return isScrollableY || isScrollableX;
+      };
+
+      let current = startEl;
+      while (current && current !== document.body) {
+        if (isScrollable(current)) {
+          return current;
+        }
+        current = current.parentElement;
+      }
+
+      // If near screen edges (top/bottom), probe viewport center to bypass sticky header/footer overlays
+      const edgeThreshold = 45;
+      if (y < edgeThreshold || y > window.innerHeight - edgeThreshold) {
+        const probeY = window.innerHeight / 2;
+        const probeEl = document.elementFromPoint(x, probeY);
+        current = probeEl;
+        while (current && current !== document.body) {
+          if (isScrollable(current)) {
+            return current;
+          }
+          current = current.parentElement;
+        }
+      }
+
+      return document.scrollingElement || document.documentElement || window;
+    };
+
     // Main poll loop
     const poll = () => {
       const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
@@ -129,22 +166,7 @@ export default function GamepadCursor() {
         }
 
         if (edgeScrollY !== 0 || edgeScrollX !== 0) {
-          let scrollTarget = el;
-          while (scrollTarget && scrollTarget !== document.body) {
-            const style = window.getComputedStyle(scrollTarget);
-            const isScrollableY =
-              scrollTarget.scrollHeight > scrollTarget.clientHeight &&
-              (style.overflowY === "auto" || style.overflowY === "scroll");
-            const isScrollableX =
-              scrollTarget.scrollWidth > scrollTarget.clientWidth &&
-              (style.overflowX === "auto" || style.overflowX === "scroll");
-
-            if (isScrollableY || isScrollableX) {
-              break;
-            }
-            scrollTarget = scrollTarget.parentElement;
-          }
-          const container = scrollTarget || window;
+          const container = findScrollableContainer(el, x, y) as (Element | Window);
           container.scrollBy({
             top: edgeScrollY,
             left: edgeScrollX,
@@ -275,24 +297,7 @@ export default function GamepadCursor() {
 
         // 5. Handle scrolling (Right Stick)
         if (Math.abs(ry) > deadzone || Math.abs(rx) > deadzone) {
-          let scrollTarget = el;
-          // Find first scrollable container up the DOM tree
-          while (scrollTarget && scrollTarget !== document.body) {
-            const style = window.getComputedStyle(scrollTarget);
-            const isScrollableY =
-              scrollTarget.scrollHeight > scrollTarget.clientHeight &&
-              (style.overflowY === "auto" || style.overflowY === "scroll");
-            const isScrollableX =
-              scrollTarget.scrollWidth > scrollTarget.clientWidth &&
-              (style.overflowX === "auto" || style.overflowX === "scroll");
-
-            if (isScrollableY || isScrollableX) {
-              break;
-            }
-            scrollTarget = scrollTarget.parentElement;
-          }
-
-          const container = scrollTarget || window;
+          const container = findScrollableContainer(el, x, y) as (Element | Window);
           const scrollSpeed = 12;
           const scrollY = Math.sign(ry) * Math.pow(Math.abs(ry), 1.5) * scrollSpeed;
           const scrollX = Math.sign(rx) * Math.pow(Math.abs(rx), 1.5) * scrollSpeed;
