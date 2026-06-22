@@ -155,7 +155,12 @@ export class AudioManager {
   /** Lazy-init the AudioContext. Safe to call multiple times. */
   async init(): Promise<void> {
     if (!this.ctx) {
-      this.ctx = new AudioContext({ latencyHint: 'interactive' });
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      try {
+        this.ctx = new AudioContextClass({ latencyHint: 'interactive' });
+      } catch {
+        this.ctx = new AudioContextClass();
+      }
       this.masterGain = this.ctx.createGain();
       this.masterGain.gain.value = 0.7;
       this.masterGain.connect(this.ctx.destination);
@@ -163,6 +168,10 @@ export class AudioManager {
     if (this.ctx.state === 'suspended') {
       await this.ctx.resume();
     }
+  }
+
+  getContext(): AudioContext | null {
+    return this.ctx;
   }
 
   /** Ensure AudioContext is ready (call on first user gesture). */
@@ -204,7 +213,13 @@ export class AudioManager {
           return;
         }
         const arrayBuffer = await response.arrayBuffer();
-        const audioBuffer = await this.ctx!.decodeAudioData(arrayBuffer);
+        const audioBuffer = await new Promise<AudioBuffer>((resolve, reject) => {
+          this.ctx!.decodeAudioData(
+            arrayBuffer,
+            (buf) => resolve(buf),
+            (err) => reject(err)
+          );
+        });
         this.bufferCache.set(filename, audioBuffer);
       } catch (err) {
         console.warn(`Failed to load sfx "${filename}" (${url}):`, err);
