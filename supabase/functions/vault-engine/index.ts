@@ -412,8 +412,8 @@ serve(async (req) => {
         const PREMIUM_PACKS = ['prophecy', 'alpha', 'special_picks'];
         const isPremium = PREMIUM_PACKS.includes(packType);
 
-        // Free pack: enforce one per day
-        if (packType === 'free') {
+        // Free pack: enforce one per day (only for shop claims, not gameplay rewards)
+        if (packType === 'free' && !isGameplayReward) {
           const lastFreeDay = profile?.last_free_pack_day || 0;
           if (lastFreeDay >= today) {
             throw new Error('Free pack already claimed today. Come back tomorrow!');
@@ -485,8 +485,8 @@ serve(async (req) => {
           profileUpdate.daily_standard_claims = profile?.daily_standard_claims || 0;
           profileUpdate.daily_premium_claims = profile?.daily_premium_claims || 0;
         }
-        // Track free pack claim day
-        if (packType === 'free') {
+        // Track free pack claim day (only for shop claims, not gameplay rewards)
+        if (packType === 'free' && !isGameplayReward) {
           profileUpdate.last_free_pack_day = today;
         }
         await svc.from('profiles').update(profileUpdate).eq('id', user.id);
