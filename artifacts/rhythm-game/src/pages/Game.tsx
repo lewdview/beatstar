@@ -384,6 +384,8 @@ export default function Game() {
   const puTextRef = useRef<HTMLDivElement | null>(null);
   const puBarRef = useRef<HTMLDivElement | null>(null);
   const gamepadRafRef = useRef<number | null>(null);
+  const resolvePendingPromiseRef = useRef<(() => void) | null>(null);
+  const usePointerEventsRef = useRef(false);
 
   const prevPuStateRef = useRef<{
     label: string;
@@ -1176,12 +1178,18 @@ export default function Game() {
         p.x = Math.random() * W;
       }
 
+      const a = p.alpha * (0.3 + 0.7 * Math.sin(t * 3 + p.x));
+      // Outer glow circle
       ctx.fillStyle = particleColor;
-      ctx.globalAlpha = p.alpha * (0.3 + 0.7 * Math.sin(t * 3 + p.x));
-      ctx.shadowColor = particleColor;
-      ctx.shadowBlur = diffLevel >= 7 ? 8 : 4;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * 2.0, 0, Math.PI * 2);
+      ctx.globalAlpha = a * 0.28;
+      ctx.fill();
+
+      // Core circle
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.globalAlpha = a;
       ctx.fill();
     }
     ctx.restore();
@@ -1585,13 +1593,17 @@ export default function Game() {
       const alpha = p.alpha * (1 - progress);
       const size = p.size * (1 - progress * 0.5);
 
+      // Draw a subtle outer halo to simulate glow without using expensive shadowBlur
       ctx.fillStyle = p.color;
-      ctx.globalAlpha = alpha;
-      ctx.shadowColor = p.color;
-      ctx.shadowBlur = size * 2.0;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y + progress * 24, size * 2.2, 0, Math.PI * 2);
+      ctx.globalAlpha = alpha * 0.22;
+      ctx.fill();
 
+      // Main core particle
       ctx.beginPath();
       ctx.arc(p.x, p.y + progress * 24, size, 0, Math.PI * 2);
+      ctx.globalAlpha = alpha;
       ctx.fill();
     }
     ctx.restore();
@@ -2105,9 +2117,25 @@ export default function Game() {
         const py = e.cy + p.vy * dt + (p.isSwipeLine ? 0 : 180 * dt * dt); // gravity only for tap particles
         const life = Math.max(0, 1 - t01 * 1.4);
         const size = p.size * (0.3 + 0.7 * (1 - t01));
-        ctx.shadowColor = e.color;
-        ctx.shadowBlur = size * (p.isSwipeLine ? 4.5 : 2.5);
+        // Draw a glowing halo instead of expensive shadowBlur
+        ctx.save();
+        ctx.globalAlpha = life * 0.28;
+        if (p.isSwipeLine) {
+          ctx.strokeStyle = e.color;
+          ctx.lineWidth = size * 2.8;
+          ctx.beginPath();
+          ctx.moveTo(px - p.vx * 0.035, py - p.vy * 0.035);
+          ctx.lineTo(px, py);
+          ctx.stroke();
+        } else {
+          ctx.fillStyle = e.color;
+          ctx.beginPath();
+          ctx.arc(px, py, size * 1.8, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
 
+        // Main core particle
         if (p.isSwipeLine) {
           ctx.strokeStyle = e.color + Math.round(life * 255).toString(16).padStart(2, "0");
           ctx.lineWidth = size * 1.6;
@@ -2838,8 +2866,218 @@ export default function Game() {
     };
   }, [phase]);
 
+  const resetAllLanes = useCallback(() => {
+    touchStartPos.current = {};
+    for (let lane = 0; lane < LANE_COUNT; lane++) {
+      if (laneRef.current[lane].pressed) {
+        laneRef.current[lane].pressed = false;
+        laneRef.current[lane].touchId = undefined;
+        releaseLane(lane);
+      }
+    }
+  }, [releaseLane]);
+
+  const onPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLCanvasElement>) => {
+      usePointerEventsRef.current = true;
+      e.preventDefault();
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {}
+
+      const rect = canvas.getBoundingClientRect();
+      const rawLane = Math.floor(
+        ((e.clientX - rect.left) / rect.width) * LANE_COUNT,
+      );
+      const lane = Math.max(0, Math.min(LANE_COUNT - 1, rawLane));
+      laneRef.current[lane].pressed = true;
+      lastTapTimeRef.current[lane] = Date.now();
+      laneRef.current[lane].touchId = e.pointerId;
+      touchStartPos.current[e.pointerId] = { x: e.clientX, y: e.clientY, lane, startLane: lane };
+      hitLane(lane, undefined, e.pointerId);
+    },
+    [hitLane],
+  );
+
+  const onPointerMove = useCallback(
+    (e: React.PointerEvent<HTMLCanvasElement>) => {
+      if (!usePointerEventsRef.current) return;
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const rawLane = Math.floor(
+        ((e.clientX - rect.left) / rect.width) * LANE_COUNT,
+      );
+      const newLane = Math.max(0, Math.min(LANE_COUNT - 1, rawLane));
+
+      const start = touchStartPos.current[e.pointerId];
+      if (start) {
+        const dx = e.clientX - start.x;
+        const dy = e.clientY - start.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > 30) {
+          const angle = Math.atan2(dy, dx);
+          const dirs: Note['swipeDirection'][] = [
+            'right', 'down-right', 'down', 'down-left', 'left', 'up-left', 'up', 'up-right'
+          ];
+          let normAngle = angle;
+          if (normAngle < 0) normAngle += Math.PI * 2;
+          const bucket = Math.round(normAngle / (Math.PI / 4)) % 8;
+          const swipeDir = dirs[bucket];
+
+          const t = getT();
+          const cand = notesRef.current.find(n =>
+            !n.hit && !n.missed && n.note.type === 'swipe' &&
+            n.note.swipeDirection === swipeDir &&
+            (n.note.lane === start.startLane || n.note.lane === start.lane) &&
+            Math.abs(n.note.time - t) < missWindow(songRef.current?.difficultyLevel ?? 5)
+          );
+          if (cand) {
+            hitLane(cand.note.lane, swipeDir, e.pointerId);
+            start.x = e.clientX;
+            start.y = e.clientY;
+          }
+        }
+      }
+
+      if (newLane >= 0 && newLane < LANE_COUNT) {
+        for (let l = 0; l < LANE_COUNT; l++) {
+          if (laneRef.current[l].touchId === e.pointerId && l !== newLane) {
+            laneRef.current[l].pressed = false;
+            laneRef.current[l].touchId = undefined;
+            laneRef.current[newLane].pressed = true;
+            laneRef.current[newLane].touchId = e.pointerId;
+            if (start) start.lane = newLane;
+
+            // Directly track and update active hold notes by touchId
+            const ns = notesRef.current.find(
+              (n) => n.note.type === "hold" && n.holdActive && n.touchId === e.pointerId && !n.hit
+            );
+            if (ns && ns.note.targetLane !== undefined) {
+              const reachedTarget = newLane === ns.note.targetLane && ns.currentLane !== ns.note.targetLane;
+              ns.currentLane = newLane;
+
+              if (reachedTarget) {
+                audioManager.playSfx("hidden_secret_found", 0.3);
+
+                // ── Slide success particle effect ──
+                const W = canvas.width / (window.devicePixelRatio || 1);
+                const H = canvas.height / (window.devicePixelRatio || 1);
+                const hitY = H * HIT_RATIO;
+                const { x: lx, w: lw } = laneAt(newLane, 1, W);
+                const cx = lx + lw / 2;
+                const lc = getDifficultyLaneColor(laneColorsRef.current[newLane], songRef.current?.difficultyLevel ?? 5);
+                const particles: HitParticle[] = [];
+                for (let i = 0; i < 6; i++) {
+                  const angle = (Math.random() - 0.5) * Math.PI;
+                  const speed = 40 + Math.random() * 60;
+                  particles.push({
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed - 20,
+                    size: 2 + Math.random() * 3,
+                  });
+                }
+                hitFxRef.current.push({
+                  lane: newLane,
+                  startMs: Date.now(),
+                  cx,
+                  cy: hitY,
+                  color: lc,
+                  kind: "GOOD",
+                  particles,
+                });
+              }
+            }
+            break;
+          }
+        }
+      }
+    },
+    [getT, hitLane],
+  );
+
+  const releasePointerById = useCallback(
+    (identifier: number) => {
+      delete touchStartPos.current[identifier];
+      for (let lane = 0; lane < LANE_COUNT; lane++) {
+        if (laneRef.current[lane].touchId === identifier) {
+          laneRef.current[lane].pressed = false;
+          laneRef.current[lane].touchId = undefined;
+        }
+      }
+      const ns = notesRef.current.find(
+        (n) => n.note.type === "hold" && n.holdActive && n.touchId === identifier && !n.hit
+      );
+      if (ns) {
+        completeHoldNote(ns);
+      }
+    },
+    [completeHoldNote],
+  );
+
+  const onPointerUp = useCallback(
+    (e: React.PointerEvent<HTMLCanvasElement>) => {
+      if (!usePointerEventsRef.current) return;
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {}
+
+      const start = touchStartPos.current[e.pointerId];
+      if (start) {
+        const dx = e.clientX - start.x;
+        const dy = e.clientY - start.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > 30) {
+          const angle = Math.atan2(dy, dx);
+          const dirs: Note['swipeDirection'][] = [
+            'right', 'down-right', 'down', 'down-left', 'left', 'up-left', 'up', 'up-right'
+          ];
+          let normAngle = angle;
+          if (normAngle < 0) normAngle += Math.PI * 2;
+          const bucket = Math.round(normAngle / (Math.PI / 4)) % 8;
+          const swipeDir = dirs[bucket];
+
+          const t = getT();
+          const cand = notesRef.current.find(n =>
+            !n.hit && !n.missed && n.note.type === 'swipe' &&
+            n.note.swipeDirection === swipeDir &&
+            (n.note.lane === start.startLane || n.note.lane === start.lane) &&
+            Math.abs(n.note.time - t) < missWindow(songRef.current?.difficultyLevel ?? 5)
+          );
+          if (cand) {
+            hitLane(cand.note.lane, swipeDir, e.pointerId);
+          }
+        }
+      }
+      releasePointerById(e.pointerId);
+      if (Object.keys(touchStartPos.current).length === 0) {
+        resetAllLanes();
+      }
+    },
+    [getT, hitLane, releasePointerById, resetAllLanes],
+  );
+
+  const onPointerCancel = useCallback(
+    (e: React.PointerEvent<HTMLCanvasElement>) => {
+      if (!usePointerEventsRef.current) return;
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {}
+      releasePointerById(e.pointerId);
+      if (Object.keys(touchStartPos.current).length === 0) {
+        resetAllLanes();
+      }
+    },
+    [releasePointerById, resetAllLanes],
+  );
+
   const onTouchStart = useCallback(
     (e: React.TouchEvent<HTMLCanvasElement>) => {
+      if (usePointerEventsRef.current) return;
       e.preventDefault();
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -2862,6 +3100,7 @@ export default function Game() {
 
   const onTouchMove = useCallback(
     (e: React.TouchEvent<HTMLCanvasElement>) => {
+      if (usePointerEventsRef.current) return;
       e.preventDefault();
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -2931,8 +3170,8 @@ export default function Game() {
                   // ── Slide success particle effect ──
                   const canvas = canvasRef.current;
                   if (canvas) {
-                    const W = canvas.width;
-                    const H = canvas.height;
+                    const W = canvas.width / (window.devicePixelRatio || 1);
+                    const H = canvas.height / (window.devicePixelRatio || 1);
                     const hitY = H * HIT_RATIO;
                     const { x: lx, w: lw } = laneAt(newLane, 1, W);
                     const cx = lx + lw / 2;
@@ -2989,21 +3228,57 @@ export default function Game() {
 
   const onTouchEnd = useCallback(
     (e: React.TouchEvent<HTMLCanvasElement>) => {
+      if (usePointerEventsRef.current) return;
       e.preventDefault();
       for (let i = 0; i < e.changedTouches.length; i++) {
-        releaseTouchById(e.changedTouches[i].identifier);
+        const touch = e.changedTouches[i];
+        const start = touchStartPos.current[touch.identifier];
+        if (start) {
+          const dx = touch.clientX - start.x;
+          const dy = touch.clientY - start.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist > 30) {
+            const angle = Math.atan2(dy, dx);
+            const dirs: Note['swipeDirection'][] = [
+              'right', 'down-right', 'down', 'down-left', 'left', 'up-left', 'up', 'up-right'
+            ];
+            let normAngle = angle;
+            if (normAngle < 0) normAngle += Math.PI * 2;
+            const bucket = Math.round(normAngle / (Math.PI / 4)) % 8;
+            const swipeDir = dirs[bucket];
+
+            const t = getT();
+            const cand = notesRef.current.find(n =>
+              !n.hit && !n.missed && n.note.type === 'swipe' &&
+              n.note.swipeDirection === swipeDir &&
+              (n.note.lane === start.startLane || n.note.lane === start.lane) &&
+              Math.abs(n.note.time - t) < missWindow(songRef.current?.difficultyLevel ?? 5)
+            );
+            if (cand) {
+              hitLane(cand.note.lane, swipeDir, touch.identifier);
+            }
+          }
+        }
+        releaseTouchById(touch.identifier);
+      }
+      if (e.touches.length === 0) {
+        resetAllLanes();
       }
     },
-    [releaseTouchById],
+    [getT, hitLane, releaseTouchById, resetAllLanes],
   );
 
   const onTouchCancel = useCallback(
     (e: React.TouchEvent<HTMLCanvasElement>) => {
+      if (usePointerEventsRef.current) return;
       for (let i = 0; i < e.changedTouches.length; i++) {
         releaseTouchById(e.changedTouches[i].identifier);
       }
+      if (e.touches.length === 0) {
+        resetAllLanes();
+      }
     },
-    [releaseTouchById],
+    [releaseTouchById, resetAllLanes],
   );
 
   // ── canvas resize — useLayoutEffect so dimensions are set before first paint ──
@@ -3122,6 +3397,7 @@ export default function Game() {
         const img = new Image();
         img.crossOrigin = "anonymous";
         img.onload = () => {
+          if (cancelled) return;
           coverImgRef.current = img;
           const off = document.createElement("canvas");
           off.width = 512;
@@ -3248,6 +3524,7 @@ export default function Game() {
       audio.src = song.audioUrl;
       audio.load();
       await new Promise<void>((resolve) => {
+        resolvePendingPromiseRef.current = resolve;
         if (audio!.readyState >= 3) {
           resolve();
           return;
@@ -3258,6 +3535,7 @@ export default function Game() {
         audio!.addEventListener("error", onError, { once: true });
         loadTimeoutRef.current = setTimeout(resolve, 15000);
       });
+      resolvePendingPromiseRef.current = null;
       if (onCanPlay) audio.removeEventListener("canplay", onCanPlay);
       if (onError) audio.removeEventListener("error", onError);
       if (loadTimeoutRef.current) {
@@ -3289,6 +3567,7 @@ export default function Game() {
       setCountdown(count);
       audioManager.playSfx('countdown', 0.7);
       await new Promise<void>((resolve) => {
+        resolvePendingPromiseRef.current = resolve;
         countdownIntervalRef.current = setInterval(() => {
           count--;
           if (count > 0) {
@@ -3307,6 +3586,7 @@ export default function Game() {
           }
         }, 1000);
       });
+      resolvePendingPromiseRef.current = null;
       if (cancelled) return;
 
       phaseRef.current = "playing";
@@ -3428,6 +3708,10 @@ export default function Game() {
       cancelled = true;
       phaseRef.current = "unmounted";
       cancelAnimationFrame(rafRef.current);
+      if (resolvePendingPromiseRef.current) {
+        resolvePendingPromiseRef.current();
+        resolvePendingPromiseRef.current = null;
+      }
       if (audio) {
         audio.pause();
         if (onProgress) audio.removeEventListener("progress", onProgress);
@@ -3491,6 +3775,7 @@ export default function Game() {
       coverImgRef.current = null;
       coverBlurRef.current = null;
       scanPatternRef.current = null;
+      offscreenCanvasRef.current = null;
 
       laneSilenced.current = [false, false, false];
     };
@@ -3870,6 +4155,10 @@ export default function Game() {
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
             onTouchCancel={onTouchCancel}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerCancel}
             data-testid="canvas-game"
           />
 
