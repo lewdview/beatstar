@@ -52,8 +52,6 @@ export default function GamepadCursor() {
         setHoveredElement(null);
       }
       document.body.classList.remove("gamepad-cursor-active");
-      setActive(false);
-      activeRef.current = false;
       return;
     }
 
