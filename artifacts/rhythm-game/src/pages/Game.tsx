@@ -108,6 +108,109 @@ function playRewindSound() {
   audioManager.playSfx("rewind", 0.8);
 }
 
+function prerenderStaticTrack(
+  W: number,
+  H: number,
+  dpr: number,
+  difficultyLevel: number,
+  laneColors: [string, string, string]
+): HTMLCanvasElement {
+  const off = document.createElement("canvas");
+  off.width = W * dpr;
+  off.height = H * dpr;
+  const ctx = off.getContext("2d");
+  if (!ctx) return off;
+
+  ctx.scale(dpr, dpr);
+
+  const hitY = H * HIT_RATIO;
+  const hwTop = hwAtProgress(0, W);
+  const hwBot = hwAtProgress(1, W);
+
+  const hillCx = W / 2;
+  const hillCy = -hitY * 0.09;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(hwTop.left, 0);
+  ctx.quadraticCurveTo(hillCx, hillCy, hwTop.right, 0);
+  ctx.lineTo(hwBot.right, hitY);
+  ctx.lineTo(hwBot.left, hitY);
+  ctx.closePath();
+  ctx.clip();
+
+  // Track surface: deep gradient for depth
+  const trackGrad = ctx.createLinearGradient(0, 0, 0, hitY);
+  trackGrad.addColorStop(0, "#08081a");
+  trackGrad.addColorStop(0.35, "#0c0c22");
+  trackGrad.addColorStop(0.7, "#10102a");
+  trackGrad.addColorStop(1, "#141430");
+  ctx.fillStyle = trackGrad;
+  ctx.fillRect(0, 0, W, hitY);
+
+  // Per-lane colored tint (subtle accent)
+  for (let i = 0; i < LANE_COUNT; i++) {
+    const { x: lx0, w: lw0 } = laneAt(i, 0.3, W);
+    const { x: lx1, w: lw1 } = laneAt(i, 1, W);
+    const lc = getDifficultyLaneColor(laneColors[i], difficultyLevel);
+    const lcR = parseInt(lc.slice(1, 3), 16);
+    const lcG = parseInt(lc.slice(3, 5), 16);
+    const lcB = parseInt(lc.slice(5, 7), 16);
+    const laneGrad = ctx.createLinearGradient(0, 0, 0, hitY);
+    laneGrad.addColorStop(0, "transparent");
+    laneGrad.addColorStop(0.6, `rgba(${lcR},${lcG},${lcB},0.03)`);
+    laneGrad.addColorStop(1, `rgba(${lcR},${lcG},${lcB},0.07)`);
+    ctx.fillStyle = laneGrad;
+    ctx.beginPath();
+    ctx.moveTo(lx0, hitY * 0.3);
+    ctx.lineTo(lx0 + lw0, hitY * 0.3);
+    ctx.lineTo(lx1 + lw1, hitY);
+    ctx.lineTo(lx1, hitY);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Subtle perspective horizontal grid lines
+  for (let row = 0; row <= 16; row++) {
+    const ry = (row / 16) * hitY;
+    const rp = ry / hitY;
+    const { left, right } = hwAtProgress(rp, W);
+    ctx.strokeStyle = `rgba(255,248,235,${0.01 + rp * 0.025})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(left, ry);
+    ctx.lineTo(right, ry);
+    ctx.stroke();
+  }
+
+  // Lane groove dividers — double-line with glow
+  for (let l = 1; l < LANE_COUNT; l++) {
+    const topPos = laneAt(l, 0, W);
+    const botPos = laneAt(l, 1, W);
+    // Dark groove
+    ctx.strokeStyle = "rgba(0,0,0,0.85)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(topPos.x, 0);
+    ctx.lineTo(botPos.x, hitY);
+    ctx.stroke();
+    // Subtle glow line
+    const divGrad = ctx.createLinearGradient(0, 0, 0, hitY);
+    divGrad.addColorStop(0, "rgba(255,255,255,0.0)");
+    divGrad.addColorStop(0.5, "rgba(255,255,255,0.08)");
+    divGrad.addColorStop(1, "rgba(255,255,255,0.14)");
+    ctx.strokeStyle = divGrad;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(topPos.x + 1.5, 0);
+    ctx.lineTo(botPos.x + 1.5, hitY);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+  return off;
+}
+
 // ── interfaces ───────────────────────────────────────────────────
 interface NoteState {
   note: Note;
@@ -192,6 +295,9 @@ export default function Game() {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const canvasWrapperRef = useRef<HTMLDivElement>(null);
+  const offscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const noteTrailsRef = useRef<{ id: string; x: number; y: number; color: string; size: number; alpha: number; birthTime: number }[]>([]);
+  const lastTapTimeRef = useRef<number[]>([0, 0, 0]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioOffsetRef = useRef(0);
   const laneColorsRef = useRef<[string, string, string]>(["#FF1493", "#00E5FF", "#39FF14"]);
@@ -504,8 +610,9 @@ export default function Game() {
     (lane: number, kind: "PERFECT+" | "PERFECT" | "GOOD" | "SHIELDED", customY?: number, swipeDir?: Note['swipeDirection']) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
-      const W = canvas.width;
-      const H = canvas.height;
+      const dpr = window.devicePixelRatio || 1;
+      const W = canvas.width / dpr;
+      const H = canvas.height / dpr;
       const hitY = H * HIT_RATIO;
       const { x: lx, w: lw } = laneAt(lane, 1, W);
       const cx = lx + lw / 2;
@@ -1003,11 +1110,15 @@ export default function Game() {
     } else {
       t = getT();
     }
-    const W = canvas.width;
-    const H = canvas.height;
+    const dpr = window.devicePixelRatio || 1;
+    const W = canvas.width / dpr;
+    const H = canvas.height / dpr;
     const pulse = 0.5 + 0.5 * Math.sin(t * 10); // 1.6Hz pulse for polish
     const AT = approachTime(song.difficultyLevel);
     const hitY = H * HIT_RATIO;
+    const hillBow = W * 0.032; // how far rails bow outward at the shoulder
+    const bowY = hitY * 0.28; // where the shoulder bow peaks
+    const nowMs = Date.now();
     const gs = gsRef.current;
     const pu = puRef.current;
     gs.progress = Math.min(1, t / song.duration);
@@ -1031,6 +1142,11 @@ export default function Game() {
     // ── 1. BACKGROUND ──────────────────────────────────────────
     // Canvas is transparent — CSS cover art layer shows through beneath everything
     ctx.clearRect(0, 0, W, H);
+
+    // Draw pre-rendered static tracks (Double-buffering optimization)
+    if (offscreenCanvasRef.current) {
+      ctx.drawImage(offscreenCanvasRef.current, 0, 0, W, H);
+    }
 
     // Save context for entire frame drawing (supports global translations / shake)
     ctx.save();
@@ -1090,54 +1206,63 @@ export default function Game() {
     const hwBot = hwAtProgress(1, W);
 
     // ── 2. LANE TRACK SURFACE ───────────────────────────────────
-    // Hill crest: the top edge of the highway arcs upward (above screen) like cresting a hill.
-    const hillCx = W / 2;
-    const hillCy = -hitY * 0.09; // control point above the viewport
-    const hillBow = W * 0.032; // how far rails bow outward at the shoulder
-    const bowY = hitY * 0.28; // where the shoulder bow peaks
+    if (!offscreenCanvasRef.current) {
+      // Hill crest: the top edge of the highway arcs upward (above screen) like cresting a hill.
+      const hillCx = W / 2;
+      const hillCy = -hitY * 0.09; // control point above the viewport
+      ctx.save();
+      ctx.beginPath();
+      // Top edge as upward arc (hill crest silhouette)
+      ctx.moveTo(hwTop.left, 0);
+      ctx.quadraticCurveTo(hillCx, hillCy, hwTop.right, 0);
+      ctx.lineTo(hwBot.right, hitY);
+      ctx.lineTo(hwBot.left, hitY);
+      ctx.closePath();
+      ctx.clip();
 
+      // Track surface: deep gradient for depth
+      const trackGrad = ctx.createLinearGradient(0, 0, 0, hitY);
+      trackGrad.addColorStop(0, "#08081a");
+      trackGrad.addColorStop(0.35, "#0c0c22");
+      trackGrad.addColorStop(0.7, "#10102a");
+      trackGrad.addColorStop(1, "#141430");
+      ctx.fillStyle = trackGrad;
+      ctx.fillRect(0, 0, W, hitY);
+
+      // Per-lane colored tint (very subtle accent under each lane)
+      for (let i = 0; i < LANE_COUNT; i++) {
+        const { x: lx0, w: lw0 } = laneAt(i, 0.3, W);
+        const { x: lx1, w: lw1 } = laneAt(i, 1, W);
+        const lc = getDifficultyLaneColor(laneColorsRef.current[i], songRef.current?.difficultyLevel ?? 5);
+        const lcR = parseInt(lc.slice(1, 3), 16);
+        const lcG = parseInt(lc.slice(3, 5), 16);
+        const lcB = parseInt(lc.slice(5, 7), 16);
+        const laneGrad = ctx.createLinearGradient(0, 0, 0, hitY);
+        laneGrad.addColorStop(0, "transparent");
+        laneGrad.addColorStop(0.6, `rgba(${lcR},${lcG},${lcB},0.03)`);
+        laneGrad.addColorStop(1, `rgba(${lcR},${lcG},${lcB},0.07)`);
+        ctx.fillStyle = laneGrad;
+        ctx.beginPath();
+        ctx.moveTo(lx0, hitY * 0.3);
+        ctx.lineTo(lx0 + lw0, hitY * 0.3);
+        ctx.lineTo(lx1 + lw1, hitY);
+        ctx.lineTo(lx1, hitY);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // Draw dynamic speed lines (clipped to track guides)
     ctx.save();
     ctx.beginPath();
-    // Top edge as upward arc (hill crest silhouette)
     ctx.moveTo(hwTop.left, 0);
-    ctx.quadraticCurveTo(hillCx, hillCy, hwTop.right, 0);
+    ctx.quadraticCurveTo(W / 2, -hitY * 0.09, hwTop.right, 0);
     ctx.lineTo(hwBot.right, hitY);
     ctx.lineTo(hwBot.left, hitY);
     ctx.closePath();
     ctx.clip();
 
-    // Track surface: deep gradient for depth
-    const trackGrad = ctx.createLinearGradient(0, 0, 0, hitY);
-    trackGrad.addColorStop(0, "#08081a");
-    trackGrad.addColorStop(0.35, "#0c0c22");
-    trackGrad.addColorStop(0.7, "#10102a");
-    trackGrad.addColorStop(1, "#141430");
-    ctx.fillStyle = trackGrad;
-    ctx.fillRect(0, 0, W, hitY);
-
-    // Per-lane colored tint (very subtle accent under each lane)
-    for (let i = 0; i < LANE_COUNT; i++) {
-      const { x: lx0, w: lw0 } = laneAt(i, 0.3, W);
-      const { x: lx1, w: lw1 } = laneAt(i, 1, W);
-      const lc = getDifficultyLaneColor(laneColorsRef.current[i], songRef.current?.difficultyLevel ?? 5);
-      const lcR = parseInt(lc.slice(1, 3), 16);
-      const lcG = parseInt(lc.slice(3, 5), 16);
-      const lcB = parseInt(lc.slice(5, 7), 16);
-      const laneGrad = ctx.createLinearGradient(0, 0, 0, hitY);
-      laneGrad.addColorStop(0, "transparent");
-      laneGrad.addColorStop(0.6, `rgba(${lcR},${lcG},${lcB},0.03)`);
-      laneGrad.addColorStop(1, `rgba(${lcR},${lcG},${lcB},0.07)`);
-      ctx.fillStyle = laneGrad;
-      ctx.beginPath();
-      ctx.moveTo(lx0, hitY * 0.3);
-      ctx.lineTo(lx0 + lw0, hitY * 0.3);
-      ctx.lineTo(lx1 + lw1, hitY);
-      ctx.lineTo(lx1, hitY);
-      ctx.closePath();
-      ctx.fill();
-    }
-
-    // Scrolling speed-lines — rushing forward effect per lane
     const speedCycle = hitY * 0.18;
     const speedOff = (t * 0.8 * hitY) % speedCycle;
     for (let row = -1; row < 8; row++) {
@@ -1158,6 +1283,7 @@ export default function Game() {
       ctx.closePath();
       ctx.fill();
     }
+    ctx.restore();
 
     // Subtle perspective horizontal grid lines
     for (let row = 0; row <= 16; row++) {
@@ -1449,6 +1575,27 @@ export default function Game() {
     }
     ctx.restore(); // end button clip
 
+    // ── 4b. NOTE PARTICLE TRAILS ────────────────────────────────
+    const TRAIL_LIFETIME = 280; // ms
+    noteTrailsRef.current = noteTrailsRef.current.filter(p => nowMs - p.birthTime < TRAIL_LIFETIME);
+    ctx.save();
+    for (const p of noteTrailsRef.current) {
+      const age = nowMs - p.birthTime;
+      const progress = age / TRAIL_LIFETIME;
+      const alpha = p.alpha * (1 - progress);
+      const size = p.size * (1 - progress * 0.5);
+
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = alpha;
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = size * 2.0;
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y + progress * 24, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
     // ── 5. NOTES ────────────────────────────────────────────────
     let dirty = false;
     for (const ns of notesRef.current) {
@@ -1632,6 +1779,21 @@ export default function Game() {
       const noteX = lx + 7;
       const noteW = lw - 14;
       const r = noteH * 0.32;
+
+      // Spawn note trail particles as the note descends
+      if (phase === "playing" && !ns.missed) {
+        if (Math.random() < 0.28) {
+          noteTrailsRef.current.push({
+            id: `${note.id}-${Math.random()}`,
+            x: noteX,
+            y: noteY,
+            color: lc,
+            size: 1.8 + Math.random() * 2.8,
+            alpha: 0.48,
+            birthTime: Date.now(),
+          });
+        }
+      }
 
       if (note.type === "tap" || note.type === "swipe") {
         drawKey(ctx, noteX, noteY, noteW, noteH, r, lc, prog, false, note.swipeDirection);
@@ -1866,7 +2028,6 @@ export default function Game() {
 
     // ── 5b. HIT EXPLOSION EFFECTS ───────────────────────────────
     const FX_DURATION = 520;
-    const nowMs = Date.now();
     hitFxRef.current = hitFxRef.current.filter(
       (e) => nowMs - e.startMs < FX_DURATION,
     );
@@ -1996,6 +2157,29 @@ export default function Game() {
       }
       ctx.restore();
       void easeOut; // suppress unused warning
+    }
+
+    // ── 5d. KEY PRESS SHOCKWAVE RIPPLES ───────────────────────────
+    for (let i = 0; i < LANE_COUNT; i++) {
+      const tapAge = nowMs - lastTapTimeRef.current[i];
+      if (tapAge < 250) {
+        const rt = tapAge / 250;
+        const { x: lx, w: lw } = laneAt(i, 1, W);
+        const cx = lx + lw / 2;
+        const ringR = rt * lw * 0.85;
+        const ringAlpha = Math.pow(1 - rt, 1.4) * 0.65;
+        const lc = getDifficultyLaneColor(laneColorsRef.current[i], songRef.current?.difficultyLevel ?? 5);
+
+        ctx.save();
+        ctx.strokeStyle = `rgba(255, 255, 255, ${ringAlpha})`;
+        ctx.lineWidth = lerp(4, 0.5, rt);
+        ctx.shadowColor = lc;
+        ctx.shadowBlur = 15 * (1 - rt);
+        ctx.beginPath();
+        ctx.arc(cx, hitY, ringR, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
     }
 
     // ── 6. HIT ZONE BASELINE ────────────────────────────────────
@@ -2323,12 +2507,14 @@ export default function Game() {
           laneRef.current[prevLaneIdx].pressed = false;
         }
         laneRef.current[lane].pressed = true;
+        lastTapTimeRef.current[lane] = Date.now();
         laneRef.current[lane].isArrow = null;
         moveHold(activeHold.currentLane, lane);
         return;
       }
 
       laneRef.current[lane].pressed = true;
+      lastTapTimeRef.current[lane] = Date.now();
       laneRef.current[lane].isArrow = null;
       hitLane(lane);
     };
@@ -2554,10 +2740,12 @@ export default function Game() {
                 laneRef.current[prevLaneIdx].pressed = false;
               }
               laneRef.current[i].pressed = true;
+              lastTapTimeRef.current[i] = Date.now();
               laneRef.current[i].isArrow = null;
               moveHoldRef.current?.(activeHold.currentLane, i);
             } else {
               laneRef.current[i].pressed = true;
+              lastTapTimeRef.current[i] = Date.now();
               laneRef.current[i].isArrow = null;
               hitLaneRef.current?.(i);
             }
@@ -2663,6 +2851,7 @@ export default function Game() {
         );
         const lane = Math.max(0, Math.min(LANE_COUNT - 1, rawLane));
         laneRef.current[lane].pressed = true;
+        lastTapTimeRef.current[lane] = Date.now();
         laneRef.current[lane].touchId = touch.identifier;
         touchStartPos.current[touch.identifier] = { x: touch.clientX, y: touch.clientY, lane, startLane: lane };
         hitLane(lane, undefined, touch.identifier);
@@ -2825,11 +3014,31 @@ export default function Game() {
     const sync = () => {
       const W = wrapper.clientWidth;
       const H = wrapper.clientHeight;
+      const dpr = window.devicePixelRatio || 1;
+      const canvasWidth = Math.floor(W * dpr);
+      const canvasHeight = Math.floor(H * dpr);
       // Only reassign when dimensions actually changed — setting canvas.width/height
       // always clears the canvas and resets the 2D context, causing visible flicker.
-      if (W > 0 && H > 0 && (canvas.width !== W || canvas.height !== H)) {
-        canvas.width = W;
-        canvas.height = H;
+      if (W > 0 && H > 0 && (canvas.width !== canvasWidth || canvas.height !== canvasHeight)) {
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+        canvas.style.width = `${W}px`;
+        canvas.style.height = `${H}px`;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.resetTransform();
+          ctx.scale(dpr, dpr);
+        }
+        
+        // Pre-render static track surface offscreen cache on resize
+        const diffLevel = songRef.current?.difficultyLevel ?? 5;
+        offscreenCanvasRef.current = prerenderStaticTrack(
+          W,
+          H,
+          dpr,
+          diffLevel,
+          laneColorsRef.current
+        );
       }
     };
     sync();
@@ -2875,6 +3084,20 @@ export default function Game() {
       const diffOverrideNum = parseInt(sessionStorage.getItem(`diff_override_${songId}`) ?? '', 10);
       if (!isNaN(diffOverrideNum) && diffOverrideNum >= 1 && diffOverrideNum <= 10) {
         songRef.current.difficultyLevel = diffOverrideNum;
+      }
+      // Re-generate offscreen static track cache when song loads and overrides are applied
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const dpr = window.devicePixelRatio || 1;
+        const W = canvas.width / dpr;
+        const H = canvas.height / dpr;
+        offscreenCanvasRef.current = prerenderStaticTrack(
+          W,
+          H,
+          dpr,
+          songRef.current.difficultyLevel,
+          laneColorsRef.current
+        );
       }
       // Initialize ambient particles depending on difficulty
       const diffLvl = songRef.current.difficultyLevel;
@@ -3160,9 +3383,28 @@ export default function Game() {
         const c = canvasRef.current;
         const w = canvasWrapperRef.current;
         if (c && w && w.clientWidth > 0 && w.clientHeight > 0) {
-          if (c.width !== w.clientWidth || c.height !== w.clientHeight) {
-            c.width = w.clientWidth;
-            c.height = w.clientHeight;
+          const dpr = window.devicePixelRatio || 1;
+          const targetWidth = Math.floor(w.clientWidth * dpr);
+          const targetHeight = Math.floor(w.clientHeight * dpr);
+          if (c.width !== targetWidth || c.height !== targetHeight) {
+            c.width = targetWidth;
+            c.height = targetHeight;
+            c.style.width = `${w.clientWidth}px`;
+            c.style.height = `${w.clientHeight}px`;
+            const ctx = c.getContext("2d");
+            if (ctx) {
+              ctx.resetTransform();
+              ctx.scale(dpr, dpr);
+            }
+            // Pre-render static track surface offscreen cache on resize
+            const diffLevel = songRef.current?.difficultyLevel ?? 5;
+            offscreenCanvasRef.current = prerenderStaticTrack(
+              w.clientWidth,
+              w.clientHeight,
+              dpr,
+              diffLevel,
+              laneColorsRef.current
+            );
           }
         }
       }
@@ -3799,9 +4041,28 @@ export default function Game() {
                   const c = canvasRef.current;
                   const w = canvasWrapperRef.current;
                   if (c && w && w.clientWidth > 0 && w.clientHeight > 0) {
-                    if (c.width !== w.clientWidth || c.height !== w.clientHeight) {
-                      c.width = w.clientWidth;
-                      c.height = w.clientHeight;
+                    const dpr = window.devicePixelRatio || 1;
+                    const targetWidth = Math.floor(w.clientWidth * dpr);
+                    const targetHeight = Math.floor(w.clientHeight * dpr);
+                    if (c.width !== targetWidth || c.height !== targetHeight) {
+                      c.width = targetWidth;
+                      c.height = targetHeight;
+                      c.style.width = `${w.clientWidth}px`;
+                      c.style.height = `${w.clientHeight}px`;
+                      const ctx = c.getContext("2d");
+                      if (ctx) {
+                        ctx.resetTransform();
+                        ctx.scale(dpr, dpr);
+                      }
+                      // Pre-render static track surface offscreen cache on resize
+                      const diffLevel = songRef.current?.difficultyLevel ?? 5;
+                      offscreenCanvasRef.current = prerenderStaticTrack(
+                        w.clientWidth,
+                        w.clientHeight,
+                        dpr,
+                        diffLevel,
+                        laneColorsRef.current
+                      );
                     }
                   }
                   // Resume AudioContext during user gesture!
