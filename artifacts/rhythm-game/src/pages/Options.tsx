@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { loadOpts, resetOpts, keyLabel, getActiveTheme, type GameOpts } from "@/lib/options";
 import { clearCatalogCache } from "@/game/api";
 import { audioManager } from "@/game/audio";
+import { Lock } from "lucide-react";
 
 // ── colour palette presets (8 per lane, thematically grouped) ────
 const COLOR_PRESETS: [string[], string[], string[]] = [
@@ -197,6 +198,14 @@ export default function Options() {
 
   const isAvant = getActiveTheme() === "avant-garde";
 
+  useEffect(() => {
+    const handler = () => {
+      setOpts(loadOpts());
+    };
+    window.addEventListener("cheat_code_activated", handler);
+    return () => window.removeEventListener("cheat_code_activated", handler);
+  }, []);
+
   // keyboard listener for remapping
   useEffect(() => {
     if (remapping === null) return;
@@ -229,6 +238,10 @@ export default function Options() {
   }
 
   function toggle(k: "missSystem" | "hudMisses" | "comboDisplay" | "judgmentText" | "useLocalFiles" | "bgMusic") {
+    if (k === "missSystem" && localStorage.getItem("opt_unlocked_noclip") !== "true") {
+      audioManager.playSfx('locked_out', 0.15);
+      return;
+    }
     const v = !opts[k];
     localStorage.setItem(`opt_${k}`, String(v));
     setOpts(o => ({ ...o, [k]: v }));
@@ -556,6 +569,26 @@ export default function Options() {
             <div className="flex gap-2">
               {(["auto", "lyrics", "bpm"] as const).map(mode => {
                 const active = opts.noteGenerationSource === mode;
+                const isLocked = (mode === "lyrics" || mode === "bpm") && localStorage.getItem("opt_unlocked_iddqd") !== "true";
+                if (isLocked) {
+                  return (
+                    <button
+                      key={mode}
+                      onClick={() => {
+                        audioManager.playSfx('locked_out', 0.15);
+                      }}
+                      className="font-mono text-xs font-bold flex-1 py-2.5 transition-all flex items-center justify-center gap-1.5 opacity-55 cursor-not-allowed"
+                      style={{
+                        background: "rgba(255,255,255,0.02)",
+                        border: isAvant ? "1px solid rgba(239,68,68,0.15)" : "1px solid rgba(255,255,255,0.08)",
+                        color: "rgba(239, 68, 68, 0.4)",
+                      }}
+                    >
+                      <Lock size={10} className="text-red-500" />
+                      {mode.toUpperCase()}
+                    </button>
+                  );
+                }
                 return (
                   <button
                     key={mode}
@@ -605,28 +638,45 @@ export default function Options() {
               { key: "comboDisplay", label: "COMBO DISPLAY", sub: "Combo counter" },
               { key: "judgmentText", label: "JUDGMENT TEXT", sub: "PERFECT / GOOD popup text" },
             ] as const).map(({ key, label, sub }, i, arr) => {
+              const isLocked = key === "missSystem" && localStorage.getItem("opt_unlocked_noclip") !== "true";
               const on = opts[key];
               return (
                 <div key={key} className="flex items-center justify-between px-4 py-3"
-                  onMouseEnter={() => { if (isAvant) audioManager.playSfx('tap_nav', 0.05); }}
+                  onMouseEnter={() => { if (isAvant && !isLocked) audioManager.playSfx('tap_nav', 0.05); }}
                   style={{
                     borderBottom: i < arr.length - 1
                       ? (isAvant ? "1px solid rgba(57,255,20,0.12)" : "1px solid rgba(255,255,255,0.05)")
                       : "none",
-                    background: (isAvant && on) ? "rgba(57,255,20,0.02)" : "transparent",
+                    background: (isAvant && on && !isLocked) ? "rgba(57,255,20,0.02)" : "transparent",
+                    opacity: isLocked ? 0.55 : 1,
                     transition: "background 0.2s"
                   }}>
                   <div>
-                    <div className="font-mono text-xs tracking-[0.15em]"
-                      style={{ color: on ? (isAvant ? "#39FF14" : "rgba(255,255,255,0.75)") : "rgba(255,255,255,0.28)" }}>
-                      {label}
+                    <div className="font-mono text-xs tracking-[0.15em] flex items-center gap-1.5"
+                      style={{ color: on && !isLocked ? (isAvant ? "#39FF14" : "rgba(255,255,255,0.75)") : "rgba(255,255,255,0.28)" }}>
+                      {isLocked && <Lock size={10} className="text-red-500 animate-pulse" />}
+                      {label} {isLocked && <span className="text-[9px] text-red-500 font-mono tracking-normal lowercase">(locked)</span>}
                     </div>
                     <div className="font-mono mt-0.5"
                       style={{ fontSize: 9, color: isAvant ? "rgba(57,255,20,0.4)" : "rgba(255,255,255,0.18)", letterSpacing: "0.1em" }}>
                       {sub}
                     </div>
                   </div>
-                  <Toggle on={on} onChange={() => toggle(key)} isAvant={isAvant} />
+                  {isLocked ? (
+                    <button 
+                      onClick={() => audioManager.playSfx('locked_out', 0.15)}
+                      style={{
+                        width: isAvant ? 50 : 44, height: isAvant ? 18 : 24,
+                        border: "1px solid rgba(239, 68, 68, 0.3)",
+                        background: "rgba(239, 68, 68, 0.1)",
+                        display: "flex", alignItems: "center", justifyContent: "center", cursor: "not-allowed"
+                      }}
+                    >
+                      <Lock size={10} className="text-red-500" />
+                    </button>
+                  ) : (
+                    <Toggle on={on} onChange={() => toggle(key)} isAvant={isAvant} />
+                  )}
                 </div>
               );
             })}

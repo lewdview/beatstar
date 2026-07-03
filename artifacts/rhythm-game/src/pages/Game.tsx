@@ -6,6 +6,7 @@ import type { GameSong } from "@/game/api";
 import type { Note, JudgmentDisplay, GameState } from "@/game/types";
 import { loadOpts, keyLabel, type GameOpts } from "@/lib/options";
 import { audioManager } from "@/game/audio";
+import { Lock } from "lucide-react";
 
 // ── constants ────────────────────────────────────────────────────
 const LANE_COUNT = 3;
@@ -493,6 +494,14 @@ export default function Game() {
     const handler = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", handler);
     return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
+
+  useEffect(() => {
+    const handler = () => {
+      setOpts(loadOpts());
+    };
+    window.addEventListener("cheat_code_activated", handler);
+    return () => window.removeEventListener("cheat_code_activated", handler);
   }, []);
 
   useLayoutEffect(() => {
@@ -4062,32 +4071,51 @@ export default function Game() {
                 { key: "comboDisplay", label: "COMBO DISPLAY", sub: "Show combo counter" },
                 { key: "judgmentText", label: "JUDGMENT TEXT", sub: "Show PERFECT / GOOD popups" },
               ] as const).map(({ key, label, sub }) => {
+                const isLocked = key === "missSystem" && localStorage.getItem("opt_unlocked_noclip") !== "true";
                 const on = opts[key];
                 return (
-                  <div key={key} className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                  <div key={key} className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.05)", opacity: isLocked ? 0.55 : 1 }}>
                     <div>
-                      <div className="font-mono text-xs" style={{ color: on ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.3)", letterSpacing: "0.15em" }}>{label}</div>
+                      <div className="font-mono text-xs flex items-center gap-1" style={{ color: on && !isLocked ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.3)", letterSpacing: "0.15em" }}>
+                        {isLocked && <Lock size={10} className="text-red-500 animate-pulse" />}
+                        {label} {isLocked && <span className="text-[8px] text-red-500 lowercase">(locked)</span>}
+                      </div>
                       <div className="font-mono mt-0.5" style={{ fontSize: 9, color: "rgba(255,255,255,0.2)", letterSpacing: "0.1em" }}>{sub}</div>
                     </div>
-                    <button
-                      onClick={() => {
-                        const nv = !on;
-                        localStorage.setItem(`opt_${key}`, String(nv));
-                        setOpts(o => ({ ...o, [key]: nv }));
-                      }}
-                      style={{
-                        width: 38, height: 20, position: "relative", flexShrink: 0,
-                        background: on ? "#FF1493" : "rgba(255,255,255,0.1)",
-                        border: on ? "1px solid #FF1493" : "1px solid rgba(255,255,255,0.15)",
-                        transition: "background 0.15s",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <div style={{
-                        width: 13, height: 13, background: "#fff", position: "absolute",
-                        top: 2.5, left: on ? 21 : 3, transition: "left 0.15s",
-                      }} />
-                    </button>
+                    {isLocked ? (
+                      <button
+                        onClick={() => audioManager.playSfx('locked_out', 0.15)}
+                        style={{
+                          width: 38, height: 20, position: "relative", flexShrink: 0,
+                          background: "rgba(239, 68, 68, 0.1)",
+                          border: "1px solid rgba(239, 68, 68, 0.3)",
+                          cursor: "not-allowed",
+                          display: "flex", alignItems: "center", justifyContent: "center"
+                        }}
+                      >
+                        <Lock size={10} className="text-red-500" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          const nv = !on;
+                          localStorage.setItem(`opt_${key}`, String(nv));
+                          setOpts(o => ({ ...o, [key]: nv }));
+                        }}
+                        style={{
+                          width: 38, height: 20, position: "relative", flexShrink: 0,
+                          background: on ? "#FF1493" : "rgba(255,255,255,0.1)",
+                          border: on ? "1px solid #FF1493" : "1px solid rgba(255,255,255,0.15)",
+                          transition: "background 0.15s",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <div style={{
+                          width: 13, height: 13, background: "#fff", position: "absolute",
+                          top: 2.5, left: on ? 21 : 3, transition: "left 0.15s",
+                        }} />
+                      </button>
+                    )}
                   </div>
                 );
               })}

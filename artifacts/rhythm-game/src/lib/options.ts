@@ -27,8 +27,12 @@ export const DEFAULT_OPTS: GameOpts = {
 export function loadOpts(): GameOpts {
   const bool = (key: string, def: boolean) =>
     localStorage.getItem(key) === null ? def : localStorage.getItem(key) !== "false";
+
+  const isNoclipUnlocked = localStorage.getItem("opt_unlocked_noclip") === "true";
+  const isIddqdUnlocked = localStorage.getItem("opt_unlocked_iddqd") === "true";
+
   return {
-    missSystem:   bool("opt_missSystem", true),
+    missSystem:   isNoclipUnlocked ? bool("opt_missSystem", true) : true,
     hudMisses:    bool("opt_hudMisses", true),
     comboDisplay: bool("opt_comboDisplay", true),
     judgmentText: bool("opt_judgmentText", true),
@@ -45,6 +49,7 @@ export function loadOpts(): GameOpts {
     ],
     useLocalFiles: bool("opt_useLocalFiles", false),
     noteGenerationSource: (() => {
+      if (!isIddqdUnlocked) return "auto";
       const v = localStorage.getItem("opt_noteGenerationSource");
       return (v === "lyrics" || v === "bpm" || v === "auto") ? v : "auto";
     })(),
