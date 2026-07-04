@@ -483,7 +483,7 @@ export default function Game() {
   const [continueCountdown, setContinueCountdown] = useState(10);
   const [opts, setOpts] = useState<GameOpts>(loadOpts);
   const [currentStage, setCurrentStage] = useState(1);
-  const [stageTransitionText, setStageTransitionText] = useState<string | null>(null);
+  const [stageStingerNumber, setStageStingerNumber] = useState<number | null>(null);
   const lastDetectedStageRef = useRef(1);
   const optsRef = useRef(opts);
   useEffect(() => { optsRef.current = opts; }, [opts]);
@@ -1160,10 +1160,10 @@ export default function Game() {
       const sb = stageBounds.find(s => s.stage === calculatedStage);
       if (sb && prevStage > 0 && calculatedStage > prevStage) {
         audioManager.playSfx("fusion", 0.7);
-        setStageTransitionText(`${sb.name.toUpperCase()} - ${sb.difficulty.toUpperCase()}`);
+        setStageStingerNumber(calculatedStage);
         setTimeout(() => {
-          setStageTransitionText(prev => prev === `${sb.name.toUpperCase()} - ${sb.difficulty.toUpperCase()}` ? null : prev);
-        }, 2200);
+          setStageStingerNumber(prev => prev === calculatedStage ? null : prev);
+        }, 2500);
       }
     }
 
@@ -3380,7 +3380,7 @@ export default function Game() {
       resetPuDisplayDOM();
       lastDetectedStageRef.current = 1;
       setCurrentStage(1);
-      setStageTransitionText(null);
+      setStageStingerNumber(null);
       setLoadMsg("FETCHING TRANSMISSION...");
       phaseRef.current = "loading";
       setPhase("loading");
@@ -3608,7 +3608,7 @@ export default function Game() {
       resetPuDisplayDOM();
       lastDetectedStageRef.current = 1;
       setCurrentStage(1);
-      setStageTransitionText(null);
+      setStageStingerNumber(null);
       phaseRef.current = "countdown";
       setPhase("countdown");
       let count = 3;
@@ -4224,26 +4224,85 @@ export default function Game() {
         >
           {/* Stage Transition Alert Banner */}
           <AnimatePresence>
-            {stageTransitionText && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8, y: "-50%", x: "-50%" }}
-                animate={{ opacity: 1, scale: 1.0, y: "-50%", x: "-50%" }}
-                exit={{ opacity: 0, scale: 0.9, y: "-50%", x: "-50%" }}
-                transition={{ duration: 0.35, ease: "easeOut" }}
-                className="absolute top-1/3 left-1/2 pointer-events-none font-mono text-center z-30"
-                style={{
-                  background: "rgba(12, 12, 20, 0.92)",
-                  border: "1px solid #FF1493",
-                  boxShadow: "0 0 20px rgba(255, 20, 147, 0.4), inset 0 0 10px rgba(255, 20, 147, 0.2)",
-                  padding: "12px 28px",
-                  borderRadius: 4,
-                  backdropFilter: "blur(8px)",
-                  minWidth: 260
-                }}
-              >
-                <div className="text-[9px] text-[#00E5FF] tracking-[0.4em] mb-1 font-bold animate-pulse">STAGE CLEAR</div>
-                <div className="text-sm text-white font-bold tracking-[0.2em]">{stageTransitionText}</div>
-              </motion.div>
+            {stageStingerNumber && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30 overflow-hidden">
+                <motion.div
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  variants={{
+                    animate: { transition: { staggerChildren: 0.1 } }
+                  }}
+                  className="relative flex flex-col items-center justify-center font-mono"
+                >
+                  {/* Glowing snaps circle */}
+                  <motion.div
+                    variants={{
+                      initial: { scale: 2.2, opacity: 0, border: "2px solid #00E5FF", boxShadow: "0 0 0px rgba(0,229,255,0)" },
+                      animate: { 
+                        scale: 1.0, 
+                        opacity: [0, 1, 1],
+                        border: ["2px solid #00E5FF", "2px solid #FF1493", "2px solid #FF1493"],
+                        boxShadow: "0 0 30px rgba(255, 20, 147, 0.6), inset 0 0 15px rgba(255, 20, 147, 0.3)",
+                        transition: { type: "spring", stiffness: 120, damping: 14, delay: 0.3 }
+                      },
+                      exit: { scale: 1.5, opacity: 0, transition: { duration: 0.35 } }
+                    }}
+                    style={{
+                      position: "absolute",
+                      width: 180,
+                      height: 180,
+                      borderRadius: "50%",
+                    }}
+                  />
+
+                  {/* Sparkle burst ring (triggers on snap) */}
+                  <motion.div
+                    variants={{
+                      initial: { scale: 0.8, opacity: 0, border: "1px solid #ffffff", boxShadow: "0 0 0px #fff" },
+                      animate: {
+                        scale: [0.8, 1.0, 1.4],
+                        opacity: [0, 0, 1, 0],
+                        border: ["1px solid #ffffff", "2px solid #00E5FF", "1px solid #FF1493"],
+                        boxShadow: ["0 0 0px #fff", "0 0 20px #00E5FF", "0 0 40px #FF1493"],
+                        transition: { duration: 0.5, delay: 0.7, times: [0, 0.2, 0.6, 1] }
+                      }
+                    }}
+                    style={{
+                      position: "absolute",
+                      width: 180,
+                      height: 180,
+                      borderRadius: "50%",
+                    }}
+                  />
+
+                  {/* Slide-in Top Text: STAGE X */}
+                  <motion.div
+                    variants={{
+                      initial: { x: "-100vw", opacity: 0 },
+                      animate: { x: 0, opacity: 1, transition: { type: "spring", stiffness: 100, damping: 15 } },
+                      exit: { x: "-100vw", opacity: 0, transition: { ease: "easeInOut", duration: 0.3 } }
+                    }}
+                    className="text-white font-extrabold text-2xl tracking-[0.25em] z-10"
+                    style={{ textShadow: "0 0 10px rgba(255,255,255,0.6)" }}
+                  >
+                    STAGE {stageStingerNumber}
+                  </motion.div>
+
+                  {/* Slide-in Bottom Text: START! */}
+                  <motion.div
+                    variants={{
+                      initial: { x: "100vw", opacity: 0 },
+                      animate: { x: 0, opacity: 1, transition: { type: "spring", stiffness: 100, damping: 15 } },
+                      exit: { x: "100vw", opacity: 0, transition: { ease: "easeInOut", duration: 0.3 } }
+                    }}
+                    className="text-[#00E5FF] font-bold text-xs tracking-[0.5em] mt-2.5 z-10"
+                    style={{ textShadow: "0 0 8px rgba(0,229,255,0.6)" }}
+                  >
+                    START!
+                  </motion.div>
+                </motion.div>
+              </div>
             )}
           </AnimatePresence>
 
