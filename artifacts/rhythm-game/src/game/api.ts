@@ -31,6 +31,7 @@ export interface GameSong {
   key: string;
   genre: string[];
   difficultyLevel: number;
+  stages?: any[];
 }
 
 /** True if the song's release date is still in the future (not yet playable). */
@@ -122,6 +123,99 @@ export async function getSongById(id: string): Promise<GameSong | null> {
   return null;
 }
 
+interface Stage {
+  stage: number;
+  name: string;
+  startTime: number;
+  endTime: number;
+  difficulty: string;
+  noteCount: number;
+}
+
+function stageifyNotes(notes: Note[], duration: number, bpm: number): { notes: Note[], stages: Stage[] } {
+  const beatDuration = 60 / bpm;
+  const stageBounds = [
+    { stage: 1, name: "Stage 1", startTime: 0, endTime: duration * 0.20, difficulty: "Very Easy", noteCount: 0 },
+    { stage: 2, name: "Stage 2", startTime: duration * 0.20, endTime: duration * 0.40, difficulty: "Easy", noteCount: 0 },
+    { stage: 3, name: "Stage 3", startTime: duration * 0.40, endTime: duration * 0.65, difficulty: "Medium", noteCount: 0 },
+    { stage: 4, name: "Stage 4", startTime: duration * 0.65, endTime: duration * 0.80, difficulty: "Hard", noteCount: 0 },
+    { stage: 5, name: "Stage 5", startTime: duration * 0.80, endTime: duration, difficulty: "Expert", noteCount: 0 }
+  ];
+
+  const processed: Note[] = [];
+
+  notes.forEach(note => {
+    let stage = 5;
+    for (let i = 0; i < stageBounds.length; i++) {
+      if (note.time >= stageBounds[i].startTime && note.time < stageBounds[i].endTime) {
+        stage = stageBounds[i].stage;
+        break;
+      }
+    }
+
+    const clone: Note = { ...note, stage };
+
+    if (stage === 1) {
+      clone.type = 'tap';
+      delete clone.holdDuration;
+      delete clone.targetLane;
+      delete clone.swipeDirection;
+      const lastNote = processed.filter(n => n.stage === 1).pop();
+      if (lastNote && clone.time - lastNote.time < beatDuration * 0.85) {
+        return;
+      }
+    } else if (stage === 2) {
+      if (clone.type === 'swipe') {
+        clone.type = 'tap';
+        delete clone.swipeDirection;
+      }
+      const lastNote = processed.filter(n => n.stage === 2).pop();
+      if (lastNote && clone.time - lastNote.time < beatDuration * 0.45) {
+        return;
+      }
+    } else if (stage === 3) {
+      const lastNote = processed.filter(n => n.stage === 3).pop();
+      if (lastNote && clone.time - lastNote.time < beatDuration * 0.22) {
+        return;
+      }
+    } else if (stage === 4) {
+      const lastNote = processed.filter(n => n.stage === 4).pop();
+      if (lastNote && clone.time - lastNote.time < beatDuration * 0.15) {
+        return;
+      }
+    } else if (stage === 5) {
+      const lastNote = processed.filter(n => n.stage === 5).pop();
+      if (lastNote && clone.time - lastNote.time < beatDuration * 0.08) {
+        return;
+      }
+    }
+
+    if (stage <= 3) {
+      const duplicateTime = processed.some(n => Math.abs(n.time - clone.time) < 0.02);
+      if (duplicateTime) {
+        return;
+      }
+    }
+
+    processed.push(clone);
+  });
+
+  const finalNotes = processed.map((note, index) => ({
+    ...note,
+    id: index
+  }));
+
+  const stagesWithCounts = stageBounds.map(sb => {
+    const noteCount = finalNotes.filter(n => n.stage === sb.stage).length;
+    return {
+      ...sb,
+      noteCount
+    };
+  });
+
+  return { notes: finalNotes, stages: stagesWithCounts };
+}
+
 function buildGameSong(r: any, useLocal = false): GameSong {
   const lyricsWords: LyricsWord[] = r.lyricsWords || [];
   const bpm = r.tempo || 100;
@@ -138,11 +232,12 @@ function buildGameSong(r: any, useLocal = false): GameSong {
     useLyrics = lyricsWords.length > 15;
   }
 
-  const notes = useLyrics
+  const rawNotes = useLyrics
     ? generateNotesFromLyrics(lyricsWords, bpm)
     : generateNotesFromBPM(bpm, duration);
 
-  const difficultyLevel = calcDifficulty(bpm, valence, notes.length, duration);
+  const difficultyLevel = calcDifficulty(bpm, valence, rawNotes.length, duration);
+  const { notes, stages } = stageifyNotes(rawNotes, duration, bpm);
 
   const dayStr = String(r.day);
   const mapped = (dayFileMap as any)[dayStr];
@@ -214,6 +309,7 @@ function buildGameSong(r: any, useLocal = false): GameSong {
     audioUrl,
     coverArt,
     notes,
+    stages,
     key: r.key || '',
     genre: Array.isArray(r.genre) ? r.genre : [],
     difficultyLevel,

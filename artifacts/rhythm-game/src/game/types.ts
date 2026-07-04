@@ -6,6 +6,7 @@ export interface Note {
   holdDuration?: number;
   targetLane?: number;
   swipeDirection?: 'left' | 'right' | 'up' | 'down' | 'up-left' | 'up-right' | 'down-left' | 'down-right';
+  stage?: number;
 }
 
 export interface Song {
