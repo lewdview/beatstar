@@ -637,7 +637,7 @@ export default function Game() {
       const color =
         kind === "SHIELDED"
           ? "#00FFDD"
-          : getDifficultyLaneColor(laneColorsRef.current[lane], songRef.current?.difficultyLevel ?? 5);
+          : getDifficultyLaneColor(laneColorsRef.current[Math.max(0, Math.min(2, Math.round(lane)))] || "#00E5FF", songRef.current?.difficultyLevel ?? 5);
 
       const count =
         kind === "SHIELDED"
