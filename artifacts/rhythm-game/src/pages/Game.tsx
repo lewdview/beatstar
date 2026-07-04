@@ -1219,11 +1219,11 @@ export default function Game() {
         
         stingerTimeout1Ref.current = setTimeout(() => {
           setStageStingerPhase('start');
-        }, 1200);
+        }, 2200);
         
         stingerTimeout2Ref.current = setTimeout(() => {
           setStageStingerNumber(null);
-        }, 2700);
+        }, 4200);
       }
     }
 

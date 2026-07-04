@@ -152,7 +152,7 @@ function stageifyNotes(notes: Note[], duration: number, bpm: number): { notes: N
   const processed: Note[] = [];
 
   notes.forEach(note => {
-    const isInTransitionGap = boundaries.some(b => Math.abs(note.time - b) < 1.5);
+    const isInTransitionGap = boundaries.some(b => note.time >= b + 1.2 && note.time <= b + 4.2);
     if (isInTransitionGap) {
       return;
     }
