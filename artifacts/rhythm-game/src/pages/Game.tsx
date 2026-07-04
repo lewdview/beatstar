@@ -2560,8 +2560,9 @@ export default function Game() {
 
         // If it's an arrow-only press (left/right) and we are holding a slide, move it
         if (key === "ArrowLeft" || key === "ArrowRight") {
+          const pressedLanes = laneRef.current.map(l => l.pressed);
           for (let i = 0; i < LANE_COUNT; i++) {
-            if (laneRef.current[i].pressed) {
+            if (pressedLanes[i]) {
               const activeHold = notesRef.current.find(
                 (n) => n.note.type === "hold" && n.holdActive && n.currentLane === i && !n.hit
               );
