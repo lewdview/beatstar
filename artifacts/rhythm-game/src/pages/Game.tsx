@@ -856,8 +856,22 @@ export default function Game() {
           updatePuDisplayDOM(null);
           puRef.current.triggered.clear();
 
+          jRef.current = [
+            ...jRef.current.filter((x) => Date.now() - x.ts < 600),
+            { type: "MISS", lane: ns.note.lane, id: ++jCounter.current, ts: Date.now() },
+          ];
+
+          const now = Date.now();
+          if (now - lastMissTimeRef.current > 350) {
+            missCountRef.current++;
+            lastMissTimeRef.current = now;
+          }
+          setMissCount(missCountRef.current);
+
           muteLane(ns.note.lane);
           syncDisplay();
+          
+          if (triggerGameFail()) return;
         }
         return;
       }
@@ -1031,6 +1045,40 @@ export default function Game() {
       setLocation(dest);
     }, 100);
   }, [songId, setLocation]);
+
+  function triggerGameFail(): boolean {
+    if (missCountRef.current >= 3 && optsRef.current.missSystem) {
+      const audio = audioRef.current;
+      if (audio) {
+        rewindToRef.current = Math.max(0, audio.currentTime - 2.5);
+        audio.pause();
+      }
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (continueUsedRef.current >= 3) {
+        audioManager.playSfx("outof_continues", 0.85);
+        finishGame(true);
+      } else {
+        phaseRef.current = "continue";
+        setPhase("continue");
+        audioManager.playSfx("gmeover", 0.7);
+        laneRestoreTimers.current.forEach(clearTimeout);
+        if (continueTimeoutRef.current) {
+          clearTimeout(continueTimeoutRef.current);
+          continueTimeoutRef.current = null;
+        }
+        if (finishGameTimeoutRef.current) {
+          clearTimeout(finishGameTimeoutRef.current);
+          finishGameTimeoutRef.current = null;
+        }
+        if (abandonTimeoutRef.current) {
+          clearTimeout(abandonTimeoutRef.current);
+          abandonTimeoutRef.current = null;
+        }
+      }
+      return true;
+    }
+    return false;
+  }
 
   const doReturn = useCallback(() => {
     playRewindSound();
@@ -1802,38 +1850,7 @@ export default function Game() {
             }
             setMissCount(missCountRef.current);
             syncDisplay();
-            if (missCountRef.current >= 3 && optsRef.current.missSystem) {
-              const audio = audioRef.current;
-              if (audio) {
-                rewindToRef.current = Math.max(0, audio.currentTime - 2.5);
-                audio.pause();
-              }
-              cancelAnimationFrame(rafRef.current);
-              if (continueUsedRef.current >= 3) {
-                // All continues exhausted — play the out-of-continues sting then fail
-                audioManager.playSfx("outof_continues", 0.85);
-                finishGame(true);
-              } else {
-                phaseRef.current = "continue";
-                setPhase("continue");
-                audioManager.playSfx("gmeover", 0.7);
-                // Clear any pending timers during continue transition
-                laneRestoreTimers.current.forEach(clearTimeout);
-                if (continueTimeoutRef.current) {
-                  clearTimeout(continueTimeoutRef.current);
-                  continueTimeoutRef.current = null;
-                }
-                if (finishGameTimeoutRef.current) {
-                  clearTimeout(finishGameTimeoutRef.current);
-                  finishGameTimeoutRef.current = null;
-                }
-                if (abandonTimeoutRef.current) {
-                  clearTimeout(abandonTimeoutRef.current);
-                  abandonTimeoutRef.current = null;
-                }
-              }
-              return;
-            }
+            if (triggerGameFail()) return;
           }
           continue;
         }
@@ -4201,6 +4218,29 @@ export default function Game() {
                 />
                 <div className="flex justify-between font-mono" style={{ fontSize: 8, color: "rgba(255,255,255,0.18)", letterSpacing: "0.08em", marginTop: 2 }}>
                   <span>-150ms</span><span>0</span><span>+150ms</span>
+                </div>
+              </div>
+
+              {/* How to Play Guide */}
+              <div className="px-5 py-4 font-mono select-none" style={{ background: "rgba(255,255,255,0.015)" }}>
+                <div className="text-[9px] tracking-[0.25em] mb-3 text-zinc-500 uppercase font-black">// HOW TO PLAY //</div>
+                <div className="space-y-3.5" style={{ fontSize: 9.5, color: "rgba(255,255,255,0.4)" }}>
+                  <div>
+                    <span className="text-[#39FF14] font-bold block mb-0.5">■ TAPS</span>
+                    Press lane key exactly when the block reaches the glow bar.
+                  </div>
+                  <div>
+                    <span className="text-[#00E5FF] font-bold block mb-0.5">▬ HOLD RAILS</span>
+                    Press and hold key until the end of the note tail matches the glow bar.
+                  </div>
+                  <div>
+                    <span className="text-[#FF1493] font-bold block mb-0.5">➔ SWIPE RELEASES</span>
+                    Hold the rail, then at the arrow release AND tap the corresponding ARROW key (or flick finger on mobile).
+                  </div>
+                  <div>
+                    <span className="text-[#FFaa00] font-bold block mb-0.5">↝ SLIDE TRANSITIONS</span>
+                    Hold starting lane key, then press/shift to the target lane key as the path slides sideways.
+                  </div>
                 </div>
               </div>
             </div>
