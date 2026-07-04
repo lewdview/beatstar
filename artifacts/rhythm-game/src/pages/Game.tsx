@@ -484,7 +484,10 @@ export default function Game() {
   const [opts, setOpts] = useState<GameOpts>(loadOpts);
   const [currentStage, setCurrentStage] = useState(1);
   const [stageStingerNumber, setStageStingerNumber] = useState<number | null>(null);
+  const [stageStingerPhase, setStageStingerPhase] = useState<'cleared' | 'start'>('cleared');
   const lastDetectedStageRef = useRef(1);
+  const stingerTimeout1Ref = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stingerTimeout2Ref = useRef<ReturnType<typeof setTimeout> | null>(null);
   const optsRef = useRef(opts);
   useEffect(() => { optsRef.current = opts; }, [opts]);
   // Keep mutable refs current every render so draw/handlers always see latest values
@@ -1160,10 +1163,19 @@ export default function Game() {
       const sb = stageBounds.find(s => s.stage === calculatedStage);
       if (sb && prevStage > 0 && calculatedStage > prevStage) {
         audioManager.playSfx("fusion", 0.7);
+        if (stingerTimeout1Ref.current) clearTimeout(stingerTimeout1Ref.current);
+        if (stingerTimeout2Ref.current) clearTimeout(stingerTimeout2Ref.current);
+        
         setStageStingerNumber(calculatedStage);
-        setTimeout(() => {
-          setStageStingerNumber(prev => prev === calculatedStage ? null : prev);
-        }, 2500);
+        setStageStingerPhase('cleared');
+        
+        stingerTimeout1Ref.current = setTimeout(() => {
+          setStageStingerPhase('start');
+        }, 1200);
+        
+        stingerTimeout2Ref.current = setTimeout(() => {
+          setStageStingerNumber(null);
+        }, 2700);
       }
     }
 
@@ -3378,6 +3390,8 @@ export default function Game() {
 
     const init = async () => {
       resetPuDisplayDOM();
+      if (stingerTimeout1Ref.current) clearTimeout(stingerTimeout1Ref.current);
+      if (stingerTimeout2Ref.current) clearTimeout(stingerTimeout2Ref.current);
       lastDetectedStageRef.current = 1;
       setCurrentStage(1);
       setStageStingerNumber(null);
@@ -3606,6 +3620,8 @@ export default function Game() {
       if (cancelled) return;
 
       resetPuDisplayDOM();
+      if (stingerTimeout1Ref.current) clearTimeout(stingerTimeout1Ref.current);
+      if (stingerTimeout2Ref.current) clearTimeout(stingerTimeout2Ref.current);
       lastDetectedStageRef.current = 1;
       setCurrentStage(1);
       setStageStingerNumber(null);
@@ -4276,30 +4292,36 @@ export default function Game() {
                     }}
                   />
 
-                  {/* Slide-in Top Text: STAGE X */}
+                  {/* Slide-in Top Text */}
                   <motion.div
+                    key={`top-${stageStingerPhase}-${stageStingerNumber}`}
                     variants={{
                       initial: { x: "-100vw", opacity: 0 },
                       animate: { x: 0, opacity: 1, transition: { type: "spring", stiffness: 100, damping: 15 } },
                       exit: { x: "-100vw", opacity: 0, transition: { ease: "easeInOut", duration: 0.3 } }
                     }}
-                    className="text-white font-extrabold text-2xl tracking-[0.25em] z-10"
-                    style={{ textShadow: "0 0 10px rgba(255,255,255,0.6)" }}
+                    className="absolute text-white font-extrabold text-2xl tracking-[0.25em] z-10"
+                    style={{ textShadow: "0 0 10px rgba(255,255,255,0.6)", transform: "translateY(-16px)" }}
                   >
-                    STAGE {stageStingerNumber}
+                    STAGE {stageStingerPhase === 'cleared' ? stageStingerNumber - 1 : stageStingerNumber}
                   </motion.div>
 
-                  {/* Slide-in Bottom Text: START! */}
+                  {/* Slide-in Bottom Text */}
                   <motion.div
+                    key={`bottom-${stageStingerPhase}-${stageStingerNumber}`}
                     variants={{
                       initial: { x: "100vw", opacity: 0 },
                       animate: { x: 0, opacity: 1, transition: { type: "spring", stiffness: 100, damping: 15 } },
                       exit: { x: "100vw", opacity: 0, transition: { ease: "easeInOut", duration: 0.3 } }
                     }}
-                    className="text-[#00E5FF] font-bold text-xs tracking-[0.5em] mt-2.5 z-10"
-                    style={{ textShadow: "0 0 8px rgba(0,229,255,0.6)" }}
+                    className="absolute text-[#00E5FF] font-bold text-xs tracking-[0.5em] z-10"
+                    style={{ 
+                      textShadow: "0 0 8px rgba(0,229,255,0.6)", 
+                      transform: "translateY(20px)",
+                      color: stageStingerPhase === 'cleared' ? '#FF1493' : '#00E5FF',
+                    }}
                   >
-                    START!
+                    {stageStingerPhase === 'cleared' ? 'CLEARED' : 'START!'}
                   </motion.div>
                 </motion.div>
               </div>
