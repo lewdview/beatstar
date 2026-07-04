@@ -2816,7 +2816,7 @@ export default function Game() {
         
         const lanePressed: [boolean, boolean, boolean] = [
           (gp.buttons[2]?.pressed || false) || (isAPressed && slideDir === 'left'),
-          (gp.buttons[3]?.pressed || false), // Y fires only when physically pressed
+          (gp.buttons[3]?.pressed || false) || (isAPressed && slideDir === 'center'),
           (gp.buttons[1]?.pressed || false) || (isAPressed && slideDir === 'right')
         ];
 
