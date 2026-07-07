@@ -876,6 +876,37 @@ export default function Game() {
         return;
       }
 
+      if (ns.note.swipeDirection) {
+        // Did not swipe! This is a miss!
+        ns.holdActive = false;
+        ns.missed = true;
+        const gsx = gsRef.current;
+        gsx.combo = 0;
+        gsx.misses++;
+        puRef.current.active = null;
+        puRef.current.endTime = 0;
+        updatePuDisplayDOM(null);
+        puRef.current.triggered.clear();
+
+        jRef.current = [
+          ...jRef.current.filter((x) => Date.now() - x.ts < 600),
+          { type: "MISS", lane: ns.note.lane, id: ++jCounter.current, ts: Date.now() },
+        ];
+
+        const now = Date.now();
+        if (now - lastMissTimeRef.current > 350) {
+          missCountRef.current++;
+          lastMissTimeRef.current = now;
+        }
+        setMissCount(missCountRef.current);
+
+        muteLane(ns.note.lane);
+        syncDisplay();
+        
+        if (triggerGameFail()) return;
+        return;
+      }
+
       ns.hit = true;
       ns.holdActive = false;
       if (ns.holdProgress > 0.6) {
@@ -908,6 +939,54 @@ export default function Game() {
       syncDisplay();
     },
     [getT, calcScore, checkPowerUps, syncDisplay, muteLane, triggerHitFx]
+  );
+
+  const hitSwipeRelease = useCallback(
+    (ns: NoteState, swipeDir: Note['swipeDirection']) => {
+      ns.hit = true;
+      ns.holdActive = false;
+      const gs = gsRef.current;
+      const t = getT();
+      const dl = songRef.current?.difficultyLevel ?? 5;
+      const diff = Math.abs((ns.note.time + (ns.note.holdDuration || 0.5)) - t);
+
+      let j: "PERFECT+" | "PERFECT" | "GOOD" | null =
+        diff <= perfectPlusWindow(dl)
+          ? "PERFECT+"
+          : diff <= perfectWindow(dl)
+            ? "PERFECT"
+            : diff <= goodWindow(dl)
+              ? "GOOD"
+              : null;
+      if (!j) j = "GOOD"; // Fallback to GOOD inside miss window bounds
+
+      gs.score += calcScore(gs.combo, j);
+      gs.combo++;
+      gs.maxCombo = Math.max(gs.maxCombo, gs.combo);
+      if (j === "PERFECT+") {
+        gs.perfectPlus++;
+        audioManager.playSfx("tap_nav", 0.15);
+      } else if (j === "PERFECT") {
+        gs.perfects++;
+        audioManager.playSfx("tap_nav", 0.12);
+      } else {
+        gs.goods++;
+        audioManager.playSfx("tap_nav", 0.1);
+      }
+
+      checkPowerUps(gs.combo);
+
+      const H = canvasRef.current?.height || 600;
+      const hitY = H * HIT_RATIO;
+      triggerHitFx(ns.currentLane, j, hitY, swipeDir);
+
+      jRef.current = [
+        ...jRef.current.filter((x) => Date.now() - x.ts < 600),
+        { type: j, lane: ns.currentLane, id: ++jCounter.current, ts: Date.now() },
+      ];
+      syncDisplay();
+    },
+    [getT, calcScore, checkPowerUps, syncDisplay, triggerHitFx]
   );
 
   const releaseLane = useCallback(
@@ -2558,6 +2637,16 @@ export default function Game() {
           return;
         }
 
+        const activeHoldWithSwipe = notesRef.current.find(n =>
+          n.holdActive && !n.hit && !n.missed &&
+          n.note.swipeDirection === swipeDir &&
+          Math.abs((n.note.time + (n.note.holdDuration || 0.5)) - t) < missWindow(songRef.current?.difficultyLevel ?? 5)
+        );
+        if (activeHoldWithSwipe) {
+          hitSwipeRelease(activeHoldWithSwipe, swipeDir);
+          return;
+        }
+
         // If it's an arrow-only press (left/right) and we are holding a slide, move it
         if (key === "ArrowLeft" || key === "ArrowRight") {
           const pressedLanes = laneRef.current.map(l => l.pressed);
@@ -2661,6 +2750,7 @@ export default function Game() {
   const getTRef = useRef<typeof getT | null>(null);
   const doPauseRef = useRef<typeof doPause | null>(null);
   const doResumeRef = useRef<typeof doResume | null>(null);
+  const hitSwipeReleaseRef = useRef<typeof hitSwipeRelease | null>(null);
 
   useEffect(() => {
     hitLaneRef.current = hitLane;
@@ -2669,6 +2759,7 @@ export default function Game() {
     getTRef.current = getT;
     doPauseRef.current = doPause;
     doResumeRef.current = doResume;
+    hitSwipeReleaseRef.current = hitSwipeRelease;
   }); // No dependency array so it runs on every render
 
   useEffect(() => {
@@ -2703,6 +2794,15 @@ export default function Game() {
           );
           if (cand && hitLaneRef.current) {
             hitLaneRef.current(cand.note.lane, swipeDir);
+          } else {
+            const activeHoldWithSwipe = notesRef.current.find(n =>
+              n.holdActive && !n.hit && !n.missed &&
+              n.note.swipeDirection === swipeDir &&
+              Math.abs((n.note.time + (n.note.holdDuration || 0.5)) - t) < missWindow(songRef.current?.difficultyLevel ?? 5)
+            );
+            if (activeHoldWithSwipe && hitSwipeReleaseRef.current) {
+              hitSwipeReleaseRef.current(activeHoldWithSwipe, swipeDir);
+            }
           }
         }
       }
@@ -2781,6 +2881,15 @@ export default function Game() {
             );
             if (cand && hitLaneRef.current) {
               hitLaneRef.current(cand.note.lane, dpadSwipe);
+            } else {
+              const activeHoldWithSwipe = notesRef.current.find(n =>
+                n.holdActive && !n.hit && !n.missed &&
+                n.note.swipeDirection === dpadSwipe &&
+                Math.abs((n.note.time + (n.note.holdDuration || 0.5)) - t) < missWindow(songRef.current?.difficultyLevel ?? 5)
+              );
+              if (activeHoldWithSwipe && hitSwipeReleaseRef.current) {
+                hitSwipeReleaseRef.current(activeHoldWithSwipe, dpadSwipe);
+              }
             }
           }
         }
@@ -3012,6 +3121,19 @@ export default function Game() {
             hitLane(cand.note.lane, swipeDir, e.pointerId);
             start.x = e.clientX;
             start.y = e.clientY;
+          } else {
+            const checkLane = start.startLane !== undefined ? start.startLane : start.lane;
+            const activeHoldWithSwipe = notesRef.current.find(n =>
+              n.holdActive && !n.hit && !n.missed &&
+              n.note.swipeDirection === swipeDir &&
+              n.currentLane === checkLane &&
+              Math.abs((n.note.time + (n.note.holdDuration || 0.5)) - t) < missWindow(songRef.current?.difficultyLevel ?? 5)
+            );
+            if (activeHoldWithSwipe) {
+              hitSwipeRelease(activeHoldWithSwipe, swipeDir);
+              start.x = e.clientX;
+              start.y = e.clientY;
+            }
           }
         }
       }
@@ -3215,6 +3337,19 @@ export default function Game() {
               // Reset start pos so we don't double-trigger
               start.x = touch.clientX;
               start.y = touch.clientY;
+            } else {
+              const checkLane = start.startLane !== undefined ? start.startLane : start.lane;
+              const activeHoldWithSwipe = notesRef.current.find(n =>
+                n.holdActive && !n.hit && !n.missed &&
+                n.note.swipeDirection === swipeDir &&
+                n.currentLane === checkLane &&
+                Math.abs((n.note.time + (n.note.holdDuration || 0.5)) - t) < missWindow(songRef.current?.difficultyLevel ?? 5)
+              );
+              if (activeHoldWithSwipe) {
+                hitSwipeRelease(activeHoldWithSwipe, swipeDir);
+                start.x = touch.clientX;
+                start.y = touch.clientY;
+              }
             }
           }
         }
