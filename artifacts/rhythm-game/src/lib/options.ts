@@ -9,6 +9,7 @@ export type GameOpts = {
   useLocalFiles: boolean;
   noteGenerationSource: 'auto' | 'lyrics' | 'bpm';
   bgMusic: boolean;
+  gameSenseEnabled: boolean;
 };
 
 export const DEFAULT_OPTS: GameOpts = {
@@ -22,6 +23,7 @@ export const DEFAULT_OPTS: GameOpts = {
   useLocalFiles: false,
   noteGenerationSource: "auto",
   bgMusic: false,
+  gameSenseEnabled: false,
 };
 
 export function loadOpts(): GameOpts {
@@ -54,6 +56,7 @@ export function loadOpts(): GameOpts {
       return (v === "lyrics" || v === "bpm" || v === "auto") ? v : "auto";
     })(),
     bgMusic: bool("opt_bgMusic", false),
+    gameSenseEnabled: bool("opt_gameSenseEnabled", false),
   };
 }
 

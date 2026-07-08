@@ -4,6 +4,7 @@ import { loadOpts, resetOpts, keyLabel, getActiveTheme, type GameOpts } from "@/
 import { clearCatalogCache } from "@/game/api";
 import { audioManager } from "@/game/audio";
 import { Lock } from "lucide-react";
+import { gameSenseService, type GameSenseStatus } from "@/services/gameSenseService";
 
 // ── colour palette presets (8 per lane, thematically grouped) ────
 const COLOR_PRESETS: [string[], string[], string[]] = [
@@ -189,6 +190,7 @@ export default function Options() {
   const [opts, setOpts] = useState<GameOpts>(loadOpts);
   const [remapping, setRemapping] = useState<number | null>(null);
   const [resetState, setResetState] = useState<"idle" | "confirm">("idle");
+  const [gsStatus, setGsStatus] = useState<GameSenseStatus>("scanning");
   const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const colorRefs = [
     useRef<HTMLInputElement>(null),
@@ -197,6 +199,12 @@ export default function Options() {
   ];
 
   const isAvant = getActiveTheme() === "avant-garde";
+
+  useEffect(() => {
+    gameSenseService.init().then(status => {
+      setGsStatus(status);
+    });
+  }, []);
 
   useEffect(() => {
     const handler = () => {
@@ -237,7 +245,7 @@ export default function Options() {
     setOpts(o => ({ ...o, laneColors: newColors }));
   }
 
-  function toggle(k: "missSystem" | "hudMisses" | "comboDisplay" | "judgmentText" | "useLocalFiles" | "bgMusic") {
+  function toggle(k: "missSystem" | "hudMisses" | "comboDisplay" | "judgmentText" | "useLocalFiles" | "bgMusic" | "gameSenseEnabled") {
     if (k === "missSystem" && localStorage.getItem("opt_unlocked_noclip") !== "true") {
       audioManager.playSfx('locked_out', 0.15);
       return;
@@ -252,6 +260,14 @@ export default function Options() {
     }
     if (k === "bgMusic") {
       window.dispatchEvent(new Event("bgmusic_toggle"));
+    }
+    if (k === "gameSenseEnabled") {
+      setGsStatus("scanning");
+      setTimeout(() => {
+        gameSenseService.init().then(status => {
+          setGsStatus(status);
+        });
+      }, 50);
     }
   }
 
@@ -680,6 +696,37 @@ export default function Options() {
                 </div>
               );
             })}
+          </div>
+        </section>
+
+        {/* ── INTEGRATIONS ──────────────────────────────────────── */}
+        <section className="flex flex-col gap-3">
+          <SectionLabel label="INTEGRATIONS" sub="External hardware & SDK linkages" isAvant={isAvant} />
+          <div style={{ border: isAvant ? "1px solid rgba(57,255,20,0.2)" : "2px solid rgba(255,255,255,0.08)", background: isAvant ? "rgba(5,5,5,0.4)" : "transparent", padding: "4px 0" }}>
+            <div className="flex items-center justify-between px-4 py-3"
+              onMouseEnter={() => { if (isAvant) audioManager.playSfx('tap_nav', 0.05); }}
+              style={{
+                background: (isAvant && opts.gameSenseEnabled) ? "rgba(57,255,20,0.02)" : "transparent",
+                transition: "background 0.2s"
+              }}>
+              <div>
+                <div className="font-mono text-xs tracking-[0.15em]"
+                  style={{ color: opts.gameSenseEnabled ? (isAvant ? "#39FF14" : "#FF1493") : "rgba(255,255,255,0.28)" }}>
+                  STEELSERIES GAMESENSE
+                </div>
+                <div className="font-mono mt-0.5"
+                  style={{ fontSize: 9, color: isAvant ? "rgba(57,255,20,0.4)" : "rgba(255,255,255,0.18)", letterSpacing: "0.1em" }}>
+                  Status: <span style={{ 
+                    color: gsStatus === 'connected' ? '#39FF14' : 
+                           gsStatus === 'scanning' ? '#E5B800' : 
+                           gsStatus === 'disconnected' ? 'rgba(255,255,255,0.4)' : '#FF1493'
+                  }}>
+                    {gsStatus.toUpperCase()}
+                  </span>
+                </div>
+              </div>
+              <Toggle on={opts.gameSenseEnabled} onChange={() => toggle("gameSenseEnabled")} isAvant={isAvant} />
+            </div>
           </div>
         </section>
 

@@ -959,3 +959,35 @@ export function saveHighScore(songId: string, score: number): void {
   const current = getHighScore(songId);
   if (score > current) localStorage.setItem(`hs_${songId}`, score.toString());
 }
+
+export type SongModifierType = 'vocal_isolation' | 'bass_realm' | 'corrupted_signal' | 'none';
+
+export function getModifierForSong(song: GameSong | null): SongModifierType {
+  if (!song) return 'none';
+  
+  const titleLower = song.title?.toLowerCase() || '';
+  const isCorrupted = 
+    titleLower.includes('crash') || 
+    titleLower.includes('overflow') || 
+    titleLower.includes('fault') || 
+    titleLower.includes('lock') || 
+    titleLower.includes('decay') ||
+    song.moodTags?.some(t => ['glitch', 'noise', 'corrupted', 'industrial'].includes(t.toLowerCase())) ||
+    song.bpm > 138;
+  if (isCorrupted) return 'corrupted_signal';
+
+  const isBass = 
+    song.genre?.some(g => ['electro', 'dance', 'hip-hop', 'trap', 'techno', 'dubstep', 'house'].includes(g.toLowerCase())) ||
+    song.moodTags?.some(t => ['intense', 'heavy', 'bass', 'hardcore', 'dark', 'synthwave'].includes(t.toLowerCase())) ||
+    song.bpm > 120;
+  if (isBass) return 'bass_realm';
+
+  const isVocal = 
+    song.genre?.some(g => ['pop', 'indie', 'acoustic', 'ambient', 'r&b', 'soul'].includes(g.toLowerCase())) ||
+    song.moodTags?.some(t => ['vocal', 'chill', 'ambient', 'melodic', 'emotional'].includes(t.toLowerCase())) ||
+    song.mood === 'light' ||
+    song.bpm <= 100;
+  if (isVocal) return 'vocal_isolation';
+
+  return 'none';
+}
