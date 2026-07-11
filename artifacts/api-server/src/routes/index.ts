@@ -9,9 +9,30 @@ const router: IRouter = Router();
 router.use(healthRouter);
 router.use("/gamesense", gamesenseRouter);
 
+// Dynamically resolves the correct beatstar-vault public/data/slideshow directory path
+function getSlideshowDirPath(): string {
+  const possiblePaths = [
+    // 1. Production bundle relative path from artifacts/api-server/dist/index.mjs
+    path.resolve(import.meta.dirname || __dirname, "../../beatstar-vault/public/data/slideshow"),
+    // 2. Development source relative path from artifacts/api-server/src/routes/index.ts
+    path.resolve(import.meta.dirname || __dirname, "../../../beatstar-vault/public/data/slideshow"),
+    // 3. Absolute path fallback on user's system
+    "/Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/public/data/slideshow"
+  ];
+
+  for (const p of possiblePaths) {
+    const parentDir = path.dirname(p);
+    if (fs.existsSync(parentDir) && fs.statSync(parentDir).isDirectory()) {
+      return p;
+    }
+  }
+
+  return possiblePaths[0];
+}
+
 router.get("/slideshow-images", (_req, res): void => {
   try {
-    const dirPath = path.resolve(import.meta.dirname || __dirname, "../../../beatstar-vault/public/data/slideshow");
+    const dirPath = getSlideshowDirPath();
     if (!fs.existsSync(dirPath)) {
       res.json([]);
       return;
@@ -35,7 +56,7 @@ router.post("/upload-slideshow", (req, res): void => {
       return;
     }
 
-    const dirPath = path.resolve(import.meta.dirname || __dirname, "../../../beatstar-vault/public/data/slideshow");
+    const dirPath = getSlideshowDirPath();
     if (!fs.existsSync(dirPath)) {
       fs.mkdirSync(dirPath, { recursive: true });
     }
