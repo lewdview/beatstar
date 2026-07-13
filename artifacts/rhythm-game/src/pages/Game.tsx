@@ -324,6 +324,12 @@ export default function Game() {
   });
   const jRef = useRef<JudgmentDisplay[]>([]);
   const jCounter = useRef(0);
+  const recordedTelemetryRef = useRef<{ noteId: number; time: number; judgment: string; offset: number; lane: number; type: string }[]>([]);
+  const ghostTelemetryRef = useRef<any[] | null>(null);
+  const ghostIndexRef = useRef<number>(0);
+  const ghostActiveKeysRef = useRef<boolean[]>([false, false, false]);
+  const ghostJudgmentsRef = useRef<{ id: number; type: string; lane: number; ts: number }[]>([]);
+  const ghostJCounter = useRef(0);
   const songRef = useRef<GameSong | null>(null);
   const phaseRef = useRef<
     | "loading"
@@ -768,6 +774,15 @@ export default function Game() {
       }
       if (!j) return;
 
+      recordedTelemetryRef.current.push({
+        noteId: ns.note.id,
+        time: t,
+        judgment: j,
+        offset: t - ns.note.time,
+        lane: lane,
+        type: ns.note.type
+      });
+
       if (ns.note.type === "hold") {
         ns.holdActive = true;
         ns.currentLane = lane;
@@ -837,6 +852,14 @@ export default function Game() {
           // Treat as HIT with GOOD
           ns.hit = true;
           ns.holdActive = false;
+          recordedTelemetryRef.current.push({
+            noteId: ns.note.id,
+            time: getT(),
+            judgment: "SHIELDED",
+            offset: 0,
+            lane: ns.currentLane,
+            type: "hold"
+          });
           const gs = gsRef.current;
           gs.score += calcScore(gs.combo, "GOOD");
           gs.combo++;
@@ -854,6 +877,14 @@ export default function Game() {
           // Did not finish the slide
           ns.holdActive = false;
           ns.missed = true;
+          recordedTelemetryRef.current.push({
+            noteId: ns.note.id,
+            time: getT(),
+            judgment: "MISS",
+            offset: 0,
+            lane: ns.note.lane,
+            type: "hold"
+          });
           const gsx = gsRef.current;
           gsx.combo = 0;
           gsx.misses++;
@@ -890,6 +921,14 @@ export default function Game() {
         // Did not swipe! This is a miss!
         ns.holdActive = false;
         ns.missed = true;
+        recordedTelemetryRef.current.push({
+          noteId: ns.note.id,
+          time: getT(),
+          judgment: "MISS",
+          offset: 0,
+          lane: ns.note.lane,
+          type: "hold"
+        });
         const gsx = gsRef.current;
         gsx.combo = 0;
         gsx.misses++;
@@ -1098,7 +1137,16 @@ export default function Game() {
     // Save progress with error handling
     try {
       if (songRef.current && !failed) {
-        saveHighScore(songRef.current.id, gs.score);
+        const totalNotes = gs.perfectPlus + gs.perfects + gs.goods + gs.misses;
+        const accuracy = totalNotes > 0 ? ((gs.perfectPlus + gs.perfects) / totalNotes) * 100 : 0;
+        saveHighScore(
+          songRef.current.id,
+          gs.score,
+          parseFloat(accuracy.toFixed(2)),
+          gs.maxCombo,
+          medal,
+          { events: recordedTelemetryRef.current }
+        );
         saveMedal(songRef.current.id, medal);
         saveScoreHistory(songRef.current.id, gs.score);
       }
@@ -1223,6 +1271,17 @@ export default function Game() {
       [0, 1, 2].forEach(restoreLane);
       rewindAnimRef.current = null;
 
+      // Reset ghost playback index on rewind
+      if (ghostTelemetryRef.current) {
+        const ghostEvents = ghostTelemetryRef.current;
+        let newIdx = 0;
+        while (newIdx < ghostEvents.length && ghostEvents[newIdx].time < rewindTo) {
+          newIdx++;
+        }
+        ghostIndexRef.current = newIdx;
+        ghostJudgmentsRef.current = [];
+      }
+
       if (audio) {
         audio.currentTime = rewindTo;
         audio.play().catch(() => {});
@@ -1285,6 +1344,44 @@ export default function Game() {
     const gs = gsRef.current;
     const pu = puRef.current;
     gs.progress = Math.min(1, t / song.duration);
+
+    // Update ghost competitor keys and timeline events
+    if (ghostTelemetryRef.current) {
+      const ghostEvents = ghostTelemetryRef.current;
+      const ghostPressed = [false, false, false];
+      ghostEvents.forEach(event => {
+        if (event.type === 'hold' && event.judgment !== 'MISS') {
+          const holdDur = event.holdDuration || 0.5;
+          if (t >= event.time && t <= event.time + holdDur) {
+            ghostPressed[event.lane] = true;
+          }
+        } else if (event.judgment !== 'MISS') {
+          if (t >= event.time && t <= event.time + 0.08) {
+            ghostPressed[event.lane] = true;
+          }
+        }
+      });
+      ghostActiveKeysRef.current = ghostPressed;
+
+      // Update ghost index pointer and trigger floating judgments
+      while (ghostIndexRef.current < ghostEvents.length) {
+        const event = ghostEvents[ghostIndexRef.current];
+        if (t >= event.time) {
+          ghostIndexRef.current++;
+          ghostJudgmentsRef.current.push({
+            id: ++ghostJCounter.current,
+            type: event.judgment,
+            lane: event.lane,
+            ts: Date.now()
+          });
+          if (ghostJudgmentsRef.current.length > 10) {
+            ghostJudgmentsRef.current.shift();
+          }
+        } else {
+          break;
+        }
+      }
+    }
 
     // Stage transition tracking
     const stageBounds = [
@@ -1698,6 +1795,23 @@ export default function Game() {
       ctx.roundRect(bx, bTop, bw, btnH, 10);
       ctx.stroke();
 
+      // Draw Ghost Pressed Highlight overlay (Translucent Neon Cyan)
+      if (ghostActiveKeysRef.current && ghostActiveKeysRef.current[i]) {
+        ctx.strokeStyle = "rgba(0, 229, 255, 0.62)";
+        ctx.lineWidth = 2.5;
+        ctx.shadowColor = "#00E5FF";
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.roundRect(bx, bTop, bw, btnH, 10);
+        ctx.stroke();
+        
+        ctx.fillStyle = "rgba(0, 229, 255, 0.08)";
+        ctx.beginPath();
+        ctx.roundRect(bx, bTop, bw, btnH, 10);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+
       // Colored stripe — centered exactly on hitY
       const stripeH = Math.max(5, btnH * 0.06);
       const stripeTop = hitY - stripeH / 2 + (pressed ? 1 : 0);
@@ -1922,10 +2036,26 @@ export default function Game() {
                 ts: Date.now(),
               },
             ];
+            recordedTelemetryRef.current.push({
+              noteId: note.id,
+              time: t,
+              judgment: "SHIELDED",
+              offset: t - note.time,
+              lane: note.lane,
+              type: note.type
+            });
             dirty = true;
             syncDisplay();
           } else {
             ns.missed = true;
+            recordedTelemetryRef.current.push({
+              noteId: note.id,
+              time: note.time,
+              judgment: "MISS",
+              offset: 0,
+              lane: note.lane,
+              type: note.type
+            });
             const gsx = gsRef.current;
             gsx.combo = 0;
             gsx.misses++;
@@ -2386,6 +2516,32 @@ export default function Game() {
         ctx.stroke();
         ctx.restore();
       }
+    }
+
+    // ── 5d_ghost. GHOST FLOATING JUDGMENTS ───────────────────────────
+    if (ghostTelemetryRef.current) {
+      ctx.save();
+      ghostJudgmentsRef.current.forEach((j) => {
+        const age = Date.now() - j.ts;
+        if (age > 600) return;
+        const alpha = 1 - age / 600;
+        const { x: lx, w: lw } = laneAt(j.lane, 1.0, W);
+        const cx = lx + lw / 2;
+        const y = hitY - 30 - (age / 600) * 45; // float upwards
+        
+        let color = "rgba(0, 229, 255, "; // default cyan
+        if (j.type === "PERFECT+") color = "rgba(229, 184, 0, "; // gold
+        else if (j.type === "MISS") color = "rgba(255, 20, 147, "; // pink/magenta
+        
+        ctx.fillStyle = `${color}${alpha})`;
+        ctx.font = `italic 900 11px "Space Mono", monospace`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.shadowColor = j.type === "PERFECT+" ? "#E5B800" : j.type === "MISS" ? "#FF1493" : "#00E5FF";
+        ctx.shadowBlur = 8 * alpha;
+        ctx.fillText(`[GHOST: ${j.type}]`, cx, y);
+      });
+      ctx.restore();
     }
 
     // ── 6. HIT ZONE BASELINE ────────────────────────────────────
@@ -3595,6 +3751,26 @@ export default function Game() {
         return;
       }
       songRef.current = song;
+
+      // Load ghost telemetry
+      ghostTelemetryRef.current = null;
+      ghostIndexRef.current = 0;
+      ghostActiveKeysRef.current = [false, false, false];
+      ghostJudgmentsRef.current = [];
+      recordedTelemetryRef.current = [];
+
+      try {
+        const localGhost = localStorage.getItem(`telemetry_${songId}`);
+        if (localGhost) {
+          const parsed = JSON.parse(localGhost);
+          if (parsed && Array.isArray(parsed.events)) {
+            ghostTelemetryRef.current = parsed.events.sort((a: any, b: any) => a.time - b.time);
+            console.log("[Replay Ghost] Loaded ghost telemetry from localStorage:", parsed.events.length, "events");
+          }
+        }
+      } catch (e) {
+        console.warn("[Replay Ghost] Failed to parse local ghost telemetry:", e);
+      }
       
       // Initialize GameSense on song load
       gameSenseService.init().then((status) => {

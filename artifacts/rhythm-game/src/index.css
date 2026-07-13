@@ -326,6 +326,16 @@
   background: rgba(255, 255, 255, 0.1);
 }
 
+/* Hide scrollbars but keep functionality */
+.scrollbar-none {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}
+
+
 /* ─────────────────────────────────────────────────────────────────
    UTILITIES
    ───────────────────────────────────────────────────────────────── */

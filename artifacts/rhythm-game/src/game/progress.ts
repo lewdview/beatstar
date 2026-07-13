@@ -16,9 +16,14 @@ export function getHighScore(songId: string): number {
   return parseInt(localStorage.getItem(`hs_${songId}`) ?? '0', 10);
 }
 
-export function saveHighScore(songId: string, score: number): void {
+export function saveHighScore(songId: string, score: number, accuracy = 0, maxCombo = 0, medal = 'NONE', telemetry?: any): void {
   const current = getHighScore(songId);
-  if (score > current) localStorage.setItem(`hs_${songId}`, String(score));
+  if (score > current) {
+    localStorage.setItem(`hs_${songId}`, String(score));
+    if (telemetry) {
+      localStorage.setItem(`telemetry_${songId}`, JSON.stringify(telemetry));
+    }
+  }
 }
 
 export function getSongScore(songId: string): number {
