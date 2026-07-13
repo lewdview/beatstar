@@ -30,6 +30,23 @@ function getSlideshowDirPath(): string {
   return possiblePaths[0];
 }
 
+function getFilesRecursively(dir: string, baseDir: string = dir): string[] {
+  let results: string[] = [];
+  if (!fs.existsSync(dir)) return results;
+  const list = fs.readdirSync(dir);
+  for (const file of list) {
+    const filePath = path.join(dir, file);
+    const stat = fs.statSync(filePath);
+    if (stat && stat.isDirectory()) {
+      results = results.concat(getFilesRecursively(filePath, baseDir));
+    } else if (/\.(png|jpe?g|gif|webp|svg)$/i.test(file)) {
+      const relative = path.relative(baseDir, filePath);
+      results.push(`/data/slideshow/${relative.replace(/\\/g, '/')}`);
+    }
+  }
+  return results;
+}
+
 router.get("/slideshow-images", (_req, res): void => {
   try {
     const dirPath = getSlideshowDirPath();
@@ -37,9 +54,7 @@ router.get("/slideshow-images", (_req, res): void => {
       res.json([]);
       return;
     }
-    const files = fs.readdirSync(dirPath)
-      .filter((file) => /\.(png|jpe?g|gif|webp|svg)$/i.test(file))
-      .map((file) => `/data/slideshow/${file}`);
+    const files = getFilesRecursively(dirPath);
     res.json(files);
     return;
   } catch (err) {
