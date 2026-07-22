@@ -12,24 +12,24 @@ The project operates under a three-tiered loop designed to maximize user engagem
 > **The Retention Thesis:**
 > **Music Unlocks Gameplay** $\to$ **Gameplay Unlocks Ownership** $\to$ **Ownership Unlocks Status**
 
-1. **Music Unlocks Gameplay**: Fans navigate to the application via deep links (e.g., from TikTok or Spotify) to access a free playable level for the daily song release.
-2. **Gameplay Unlocks Ownership**: Reaching specific score and accuracy thresholds on a level awards collectible card packs (Gacha drops) containing card stems and registry proofs.
-3. **Ownership Unlocks Status**: Players display their earned collections, showcase streaks, view first-discoverer certifications, and connect external wallets to permanently establish ownership and status.
+1. **Music Unlocks Gameplay**: Fans navigate to the application via deep links (e.g., from TikTok or Spotify) to access a free playable level for the daily song release (365 songs total—one for every day of the year).
+2. **Gameplay Unlocks Ownership**: Reaching specific score and accuracy thresholds on a level awards collectible card packs (Gacha drops) containing card stems, registry proofs, and card burn assets.
+3. **Ownership Unlocks Status**: Players display their earned collections, showcase streaks, view first-discoverer certifications, and connect external Web3 wallets to permanently establish ownership and status.
 
 ### The Three Simultaneous Economies
 To sustain long-term engagement, the application orchestrates three interlocking value systems:
-* **The Skill Economy**: Driven by gameplay accuracy, timing windows, and high scores.
-* **The Scarcity Economy**: Powered by global hard supply caps, rarity tiers, and card burning sinks.
-* **The Social Economy**: Expressed through collection prestige scores, provenance tracking, and first-discoverer status.
+* **The Skill Economy**: Driven by gameplay accuracy, timing windows, swipe precision, hold tracking, and high scores.
+* **The Scarcity Economy**: Powered by global hard supply caps, rarity tiers (Common, Uncommon, Rare, Legendary, Mythic), mintable vs gameplay copy splits, and card burning sinks.
+* **The Social Economy**: Expressed through collection prestige scores, provenance tracking, replay ghosts, and first-discoverer status.
 
 ### Product Classification: Systems Product
-Moving beyond a simple rhythm prototype or static NFT gallery, the project is classified as an **Experimental Live-Service Platform**. It features server-authoritative transactions, progression currencies, audio-reactive gameplay mutations, and stateful longitudinal player telemetry.
+Moving beyond a simple rhythm prototype or static NFT gallery, the project is classified as an **Experimental Live-Service Platform**. It features server-authoritative transactions, progression currencies ($V\text{⚡}$ tokens), audio-reactive gameplay mutations (Vocal Isolation, Bass Realm, Corrupted Signal), and stateful longitudinal player telemetry.
 
 ---
 
 ## 2. Technical Architecture & Workspace Layout
 
-The codebase is organized as a React + TypeScript monorepo managed with **pnpm workspaces**.
+The codebase is organized as a React 19 + TypeScript monorepo managed with **pnpm workspaces**.
 
 ```mermaid
 graph TD
@@ -52,31 +52,41 @@ graph TD
 
 ### Core Technologies
 - **Client Framework**: React 19, TypeScript
-- **Routing**: `wouter` (lightweight routing for React)
-- **State Management**: `zustand` (fast, reactive global stores)
-- **Styling**: Vanilla CSS + TailwindCSS 4, modern Outfit & Roboto Mono Google Fonts, customized HSL palettes
-- **Database & Auth**: Supabase (Auth, RLS, PostgreSQL storage)
-- **Animations**: Framer Motion (used for cinematic card reveals, pack opening overlays, and stickers)
+- **Routing**: `wouter` (lightweight declarative routing for React)
+- **State Management**: `zustand` (fast, reactive global stores for vault, audio, and auth state)
+- **Styling**: Vanilla CSS + TailwindCSS 4, modern Outfit & Roboto Mono Google Fonts, customized HSL dark-mode palettes
+- **Database & Auth**: Supabase (Auth, Row Level Security, PostgreSQL storage, Edge Functions)
+- **Animations**: Framer Motion (used for cinematic card reveals, pack opening overlays, stickers, and page transitions)
+- **Audio & Rendering**: Web Audio API (3-way crossover split filters) + HTML5 2D Canvas 60fps rendering loop
 
 ### Client Package Configurations
 The monorepo contains two primary packages:
-1. **`@workspace/beatstar-vault` ([beatstar-vault](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault))**: The primary portal containing the collectible card vault dashboard, Web3 wallet auth, card forge rarity upgrade, duplicate fusion engine, gacha pack shop, and embedded rhythm gameplay engine.
-2. **`@workspace/rhythm-game` ([rhythm-game](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/rhythm-game))**: A dedicated standalone client package representing the rhythm game component (with campaign chapter maps, stage winding roads, options, calibration offsets, and independent play mode).
+1. **`@workspace/beatstar-vault` ([beatstar-vault](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault))**: The primary portal containing the collectible card vault dashboard, Web3 wallet auth, card forge rarity upgrade, duplicate fusion engine, gacha pack shop, pitch deck presentation, beatmap editor, listen jukebox, voyeur telemetry, and embedded rhythm gameplay engine.
+2. **`@workspace/rhythm-game` ([rhythm-game](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/rhythm-game))**: A dedicated standalone client package representing the rhythm game component (with campaign chapter maps, stage winding roads, interactive tutorial, options, calibration offsets, and independent play mode).
 
 ### Key Files & Pathways
 * **App Shell & Router**: [App.tsx (Vault)](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/src/App.tsx) | [App.tsx (Rhythm)](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/rhythm-game/src/App.tsx)
 * **Game Engine Pages**:
-  * [GamePlay.tsx (Vault)](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/src/pages/GamePlay.tsx) | [Game.tsx (Rhythm)](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/rhythm-game/src/pages/Game.tsx) (Canvas-based rendering, multi-lane audio splitting, input handler)
+  * [GamePlay.tsx (Vault)](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/src/pages/GamePlay.tsx) | [Game.tsx (Rhythm)](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/rhythm-game/src/pages/Game.tsx) (Canvas-based rendering, 3-band audio splitting, note input handler)
   * [GameResults.tsx (Vault)](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/src/pages/GameResults.tsx) | [Results.tsx (Rhythm)](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/rhythm-game/src/pages/Results.tsx) (Accuracy calculations and gacha rewards mapping)
+  * [Tutorial.tsx](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/rhythm-game/src/pages/Tutorial.tsx) (Interactive step-by-step game tutorial)
+  * [Options.tsx](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/rhythm-game/src/pages/Options.tsx) (Keybind configuration, audio offset calibration, miss limit toggle)
 * **Collectibles Core**:
   * [LandingPage.tsx](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/src/pages/LandingPage.tsx) (Scaled-up dashboard hero & daily card portal)
   * [HomePage.tsx](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/src/pages/HomePage.tsx) (Main vault landing interface)
   * [PackRevealPage.tsx](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/src/pages/PackRevealPage.tsx) (Cinematic cards opening animation)
   * [CodexPage.tsx](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/src/pages/CodexPage.tsx) (Glossary of all 365 daily release cards)
   * [ForgePage.tsx](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/src/pages/ForgePage.tsx) (Burn cards for tokens, upgrade rarities, and fuse duplicates)
+  * [CardDesignShowcase.tsx](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/src/pages/CardDesignShowcase.tsx) (Visual showcase of all card design tiers and holographic foils)
 * **Campaign & Chapters**:
   * [Campaign.tsx (Vault)](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/src/pages/Campaign.tsx) | [Campaign.tsx (Rhythm)](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/rhythm-game/src/pages/Campaign.tsx) (Constellation Sector Map UI)
   * [Chapter.tsx (Vault)](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/src/pages/Chapter.tsx) | [Chapter.tsx (Rhythm)](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/rhythm-game/src/pages/Chapter.tsx) (Winding Pathway Level UI + Milestone Rewards bar)
+* **Creation & Platform Tools**:
+  * [BeatmapEditor.tsx](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/src/pages/BeatmapEditor.tsx) (Interactive visual beatmap creation and editing suite)
+  * [AdminPage.tsx](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/src/pages/AdminPage.tsx) (Live service economy balance & gacha drop tuning dashboard)
+  * [PitchDeck.tsx](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/src/pages/PitchDeck.tsx) (Interactive ecosystem presentation deck)
+  * [ListenPage.tsx](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/src/pages/ListenPage.tsx) (Full track & audio stems player)
+  * [VoyeurPage.tsx](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/src/pages/VoyeurPage.tsx) (Real-time global telemetry feed)
 * **API, State & Data Layer**:
   * [api.ts (Vault)](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/src/game/api.ts) | [api.ts (Rhythm)](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/rhythm-game/src/game/api.ts) (Release catalog fetching, local file mappings, and time-lock safety checks)
   * [vaultService.ts](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/src/services/vaultService.ts) (Card claims, burn/sell logic, upgrade logic, database mappings, and safety fallbacks)
@@ -204,16 +214,6 @@ sequenceDiagram
 - **RPC URL**: `https://mainnet.base.org`
 - **Block Explorer**: `https://base.blockscout.com`
 
-### Authentication Flow
-1. **Wallet Initialization**: If no standard browser wallet extension (`window.ethereum`) is found, the system initializes **Coinbase Wallet SDK v4** using `makeWeb3Provider()`.
-2. **Base Network Enforcement**: The client verifies the current chain. If it is not Base, it requests a switch (`wallet_switchEthereumChain`) or registers the network configuration (`wallet_addEthereumChain`).
-3. **Personal Sign Challenge**: The client requests a signature for:
-   `"Sign in to th3vault on Base. Nonce: {Date.now()}"`
-4. **Signature Verification**: The address, message, and signature are sent to the `auth-smart-wallet` edge function.
-   - **EOA (External Owned Accounts)**: Verified via standard `ecrecover` parameters.
-   - **Smart Contracts (Coinbase Smart Wallet)**: Verified using **EIP-1271** (`isValidSignature` call against the contract wallet address), enabling gasless smart wallets to sign in.
-5. **Session Creation**: If valid, the edge function returns a Supabase JWT session, which the client consumes to log in.
-
 ---
 
 ## 5. Rhythm Gameplay & Canvas Render Engine
@@ -221,11 +221,11 @@ sequenceDiagram
 Gameplay rendering operates via an HTML5 Canvas drawing loop triggered by `requestAnimationFrame`, projecting descending note coordinates onto a perspective 3D highway.
 
 ### 1. Approach Time Scaling
-The speed at which notes travel from the horizon to the hit line scale dynamically with the difficulty level. Easier levels are slow and forgiving; hard levels are rapid.
+The speed at which notes travel from the horizon to the hit line scales dynamically with difficulty level:
 $$\text{Approach Time (seconds)} = \max(1.35, 2.5 - (\text{Difficulty Level} - 1) \times 0.128)$$
 
 ### 2. Perspective Geometry Mapping
-The perspective highway maps notes from 3D space onto the 2D canvas. The progression $P$ of a note (where $P = 0$ is the horizon, and $P = 1.0$ is the hit line) maps the screen Y coordinate:
+The perspective highway maps notes from 3D space onto the 2D canvas. The progression $P$ of a note (where $P = 0$ is the horizon, and $P = 1.0$ is the hit line) maps screen Y coordinate:
 $$Y_{\text{note}} = Y_{\text{top}} + (Y_{\text{bottom}} - Y_{\text{top}}) \times P$$
 Lanes are segmented into 3 tracks:
 - **Lane 0 (Bass)**: Rendered on the Left. Under the **Bass Realm** modifier, Lane 0 notes are rendered **60% thicker**, **28% wider**, and styled with a glowing neon purple accent (`#a855f7`).
@@ -233,13 +233,13 @@ Lanes are segmented into 3 tracks:
 - **Lane 2 (Treble)**: Rendered on the Right.
 
 ### 3. Note Types
-* **Taps**: Single-hit circular targets.
-* **Swipes**: Gated by difficulty levels (unlocked at Level 4+). Checked by touch/swipe vectors to match direction (`left`, `right`, `up`, `down`, `up-left`, `up-right`, `down-left`, `down-right`).
+* **Taps**: Single-hit rectangular targets.
+* **Swipes**: Gated by difficulty levels (unlocked at Level 4+). Checked by touch/swipe vectors or arrow keys (`left`, `right`, `up`, `down`, `up-left`, `up-right`, `down-left`, `down-right`).
 * **Holds & Slides**: Gated by difficulty levels (unlocked at Level 7+). Requires holding and tracking notes across lanes. The visual position of a slide note moves smoothly between lanes using linear interpolation:
   $$\text{visualLane} = \text{lerp}(\text{visualLane}, \text{currentLane}, 0.18)$$
 
 ### 4. Timing Windows & Judgment
-Timing window tolerances scale down as difficulty increases, raising accuracy standards:
+Timing window tolerances scale down as difficulty increases:
 
 | Judgment | Timing Window Formula (Seconds) | Base Score |
 | :--- | :--- | :--- |
@@ -249,33 +249,27 @@ Timing window tolerances scale down as difficulty increases, raising accuracy st
 | **Miss** | $> \max(0.190, 0.360 - (\text{diff} - 1) \times 0.019)$ | 0 points (Resets Combo) |
 
 ### 5. Difficulty Combo Multipliers
-The active score multiplier caps are determined by track difficulties:
+Active score multiplier caps are determined by track difficulties:
 - **LIGHT (Level 1-3)**: Cap of 3x.
-  - $\text{Combo} < 10 \to 1\times$ | $\text{Combo} < 25 \to 1.5\times$ | $\text{Combo} < 50 \to 2\times$ | $\text{Combo} \ge 50 \to 3\times$
 - **DARK (Level 4-6)**: Cap of 4x.
-  - $\text{Combo} < 10 \to 1\times$ | $\text{Combo} < 25 \to 1.5\times$ | $\text{Combo} < 50 \to 2\times$ | $\text{Combo} < 75 \to 3\times$ | $\text{Combo} \ge 75 \to 4\times$
 - **VOID (Level 7-10)**: Cap of 5x.
-  - $\text{Combo} < 10 \to 1\times$ | $\text{Combo} < 25 \to 1.5\times$ | $\text{Combo} < 50 \to 2\times$ | $\text{Combo} < 75 \to 3\times$ | $\text{Combo} < 100 \to 4\times$ | $\text{Combo} \ge 100 \to 5\times$
 
 ### 6. Power-Up Overlays (Flow-State Amplification)
-Maintaining high combos unlocks dynamic states, inducing flow-state synchronization with the music:
+Maintaining high combos unlocks dynamic flow-state overlays:
 - **FEVER (Combo $\ge 20$)**: 9-second duration. Score multiplier is 2x. Upgrades all standard `PERFECT` hits to `PERFECT+` automatically. Styled in gold (`#E5B800`).
-- **SURGE (Combo $\ge 40$)**: 11-second duration. Score multiplier is 3x. **Autoplay Mode**: Automatically grabs hold notes and tracks slide paths, synchronizing the player with the visual structure. Styled in hot pink (`#FF1493`).
+- **SURGE (Combo $\ge 40$)**: 11-second duration. Score multiplier is 3x. **Autoplay Mode**: Automatically grabs hold notes and tracks slide paths. Styled in hot pink (`#FF1493`).
 - **SIGNAL LOCK (Combo $\ge 60$)**: 14-second duration. Score multiplier is 4x. Styled in neon green (`#39FF14`).
 
 ### 7. Death & Continue System
 - **Miss Limit**: Accumulating 3 misses triggers a failure state.
 - **Rewind Logic**: The engine pauses and rewinds the audio track by 2.5 seconds.
-- **Continues**: A user can continue up to **3 times** per song. Rrying a continue decreases the remaining continue count, resets the miss count, and triggers a backward scroll animation:
-  - Renders the perspective highway in reverse over 1.2 seconds (`1200ms`).
-  - Restores notes missed in the rewind window (`note.time >= rewindTo - 0.5`).
-  - Resets combo to 0 and un-silences all audio lanes.
+- **Continues**: Up to **3 continues** per song. Retrying a continue decreases remaining continue count, resets miss count, and triggers a backward scroll animation over 1.2s.
 
 ---
 
-## 6. Split-band Audio & Lane Muting Subsystem
+## 6. Split-band Audio & Lane Muting Subsystem (Sonic Punishment)
 
-The game feeds physical performance accuracy back to the user through real-time audio channel filtering, creating **performance-driven adaptive music degradation (Sonic Punishment)**.
+The game feeds physical performance accuracy back to the user through real-time audio channel filtering, creating **performance-driven adaptive music degradation**.
 
 ```mermaid
 graph LR
@@ -294,84 +288,40 @@ graph LR
 ```
 
 ### Frequency Band Routing
-The master track audio is fed through a 3-way crossover split utilizing Web Audio API `BiquadFilterNode` routing:
-- **Lane 0 (Bass)**: Connected to a `lowpass` filter. Frequency: `300 Hz` | Q-factor: `0.8`.
-- **Lane 1 (Mids)**: Connected to a `bandpass` filter. Frequency: `1200 Hz` | Q-factor: `0.7`.
-- **Lane 2 (Treble)**: Connected to a `highpass` filter. Frequency: `3200 Hz` | Q-factor: `0.8`.
+- **Lane 0 (Bass)**: `lowpass` filter (Frequency: `300 Hz` | Q-factor: `0.8`).
+- **Lane 1 (Mids)**: `bandpass` filter (Frequency: `1200 Hz` | Q-factor: `0.7`).
+- **Lane 2 (Treble)**: `highpass` filter (Frequency: `3200 Hz` | Q-factor: `0.8`).
 
-### Adaptive Sonic Muting & Recovery
-Unlike typical rhythm games that punish misses purely visually or numerically, PIM degrades the audio quality itself. Missing the treble components silences the highpass frequency; missing the bass hollows out the track. This builds sub-conscious lane-association and deep sensory immersion:
-- **Muting on Miss**: Ramps the gain node of the missed lane down to a quiet audibility threshold of `0.04` over `0.12 seconds` (`linearRampToValueAtTime`).
-- **Active Restore on Hit**: Striking a note in a muted lane instantly un-silences that band, ramping the gain back to its target level over `0.25 seconds`.
-- **Passive Restore (Auto-Recovery)**: If a lane is muted and the player fails to strike a note, the system automatically restores the lane's gain back to its target level after a `3.5-second` (3500ms) safety window, ramping it up over `0.4 seconds` (crossover filter smoothing).
-
-### Autoplay Policy Warm-Up
-To prevent mobile browser blockages (Safari/Chrome autoplay policies blocking audio on game start after the 3-second countdown):
-- During the first navigation gesture, the app calls `play()` on the audio element, followed immediately by `pause()` and a reset of `currentTime = 0`. This marks the media element as "user-unlocked," allowing the game engine to play audio successfully after the countdown.
+### Muting & Recovery Rules
+- **Muting on Miss**: Ramps gain node down to `0.04` over `0.12 seconds`.
+- **Active Restore on Hit**: Striking a note in a muted lane instantly un-silences that band, ramping gain back over `0.25 seconds`.
+- **Passive Auto-Recovery**: If a lane is muted and no note appears, gain automatically recovers after a `3.5-second` (3500ms) safety window, ramping up over `0.4 seconds`.
 
 ---
 
-## 7. Codex, Previews & Active Modifiers
-
-The collectible cards interact directly with audio previews, song details, and gameplay mechanics.
+## 7. Codex, Audio Previews & Active Modifiers
 
 ### 1. Codex Sorting & Filtering
-The Codex houses the 365 daily releases, supporting multi-tier organization:
-- **Sort Modes**: `day-asc` (chronological), `day-desc` (reverse chronological), `rarity` (highest rarity owned first).
-- **Filter Modes**:
-  - `all`: Displays past released cards plus owned future cards.
-  - `owned`: Displays only cards present in the user's vault collections.
-  - `missing`: Displays released cards not currently owned.
-  - `beyond`: Displays future locked cards that the player won early from Prophecy packs.
+Supports multi-tier organization across all 365 songs:
+- **Sort Modes**: `day-asc`, `day-desc`, `rarity`.
+- **Filter Modes**: `all`, `owned`, `missing`, `beyond`.
 
-### 2. Audio Preview Constraints
-If a user does not own a card in their collection, they are subject to audio preview duration restrictions when browsing the Codex or Song Select screens:
+### 2. Audio Preview Duration Constraints
 - **Common Cards**: 15 seconds audio preview.
-- **Uncommon Cards**: 60 seconds (1 minute) audio preview.
+- **Uncommon Cards**: 60 seconds preview.
 - **Rare, Legendary, & Mythic Cards**: Unlimited/Full song preview.
-- **Daily Claim Card**: Unlimited/Full song preview regardless of rarity.
-- **Mythic Stems**: Owning Mythic cards unlocks raw session stems downloading for custom remixing.
+- **Mythic Stems**: Owning Mythic cards unlocks raw session stem downloads.
 
 ### 3. Active Gameplay Modifiers
-Equipping owned cards modifies song parameters, altering lane volume gains and visual rendering:
-
-```mermaid
-graph TD
-    Mod{Active Modifier}
-    
-    Mod -->|Vocal Isolation| Voc[Vocal Isolation]
-    Voc --> VocGain[Lane 1 gain = 2.2 <br> Lane 0 & 2 gain = 0.15]
-    
-    Mod -->|Bass Realm| Bass[Bass Realm]
-    Bass --> BassGain[Lane 0 gain = 2.6 <br> Lane 1 & 2 gain = 0.25]
-    Bass --> BassVisual[Lane 0 notes 60% thicker <br> 28% wider, colored Neon Purple]
-    
-    Mod -->|Corrupted Signal| Corr[Corrupted Signal]
-    Corr --> CorrPitch[Playback rate tempo drift: <br> 1.0 + sin t*2 * 0.04]
-    Corr --> CorrVisual[CRT scanlines <br> Periodic noise block overlays <br> Screen translation shake]
-```
-
-- **Vocal Isolation**:
-  - *Trigger*: Tag/genre matches Pop, Indie, Acoustic, Ambient, R&B, Soul, or BPM $\le 100$.
-  - *Audio*: Boosts vocal channels while dampening others (Lane 1 Mids gain = 2.2, Lane 0 Bass gain = 0.15, Lane 2 Treble gain = 0.15).
-- **Bass Realm**:
-  - *Trigger*: Tag/genre matches Electro, Dance, Hip-Hop, Trap, Techno, Dubstep, House, or BPM $> 120$.
-  - *Audio & Visual*: Amplifies low-end frequencies (Lane 0 gain = 2.6, Lane 1 & 2 gain = 0.25). Lane 0 notes are styled as neon purple (`#a855f7`), 60% thicker, and 28% wider.
-- **Corrupted Signal**:
-  - *Trigger*: Title contains "crash", "overflow", "fault", "lock", "decay", or tag matches Glitch, Noise, Corrupted, Industrial, or BPM $> 138$.
-  - *Audio & Visual*: Drives pitch/tempo oscillations ($\pm 4\%$ drift on playback rate: `1.0 + Math.sin(t * 2.0) * 0.04`). The canvas translates randomly (7% chance per frame of horizontal offset up to $\pm 7\text{px}$), overlaying CRT scanlines every 4px and horizontal orange noise blocks.
+- **Vocal Isolation**: Boosts vocal channel (Lane 1 gain = 2.2; Lanes 0 & 2 = 0.15).
+- **Bass Realm**: Amplifies low-end (Lane 0 gain = 2.6). Lane 0 notes rendered neon purple (`#a855f7`), 60% thicker, 28% wider.
+- **Corrupted Signal**: Pitch/tempo drift ($\pm 4\%$), CRT scanlines, and screen translate shake.
 
 ---
 
-## 8. Admin Config & Gacha Simulation (Economy Rebalance v2.1)
-
-Ecosystem rates are configured in `admin_config` (synchronized via the `vault-engine` edge function) and cached in `localStorage` under `th3vault_admin_config`.
+## 8. Economy Rebalance v2.1, Gacha & Admin Controls
 
 ### 1. Velocity-Balanced Supply Structure
-Because PIM transitions the ecosystem from an *occasional gacha pull* model to a *repeatable skill-driven gameplay farming loop*, static scarce caps on low-tier cards risk exhausting supply immediately during traffic spikes (creating onboarding bottlenecks).
-
-The supply cap architecture diverges between **Playable Copies** (free gameplay progression, non-tradeable) and **Mintable Copies** (on-chain ownership cards, tradeable on Base) to ensure players are never locked out of progression, while collectors maintain absolute digital rarity:
-
 | Rarity Tier | Old Static Cap | New Gameplay Copy Cap | New Mintable Cap | Token Burn Value |
 | :--- | :--- | :--- | :--- | :--- |
 | **Common** | 50 | 2,000 | 0 (Off-chain) | 3 tokens |
@@ -380,169 +330,274 @@ The supply cap architecture diverges between **Playable Copies** (free gameplay 
 | **Legendary** | 2 | 10 | 3 | 80 tokens |
 | **Mythic** | 1 | 1 | 1 | 200 tokens |
 
-### 2. Time-Based Archival Supply Expansion
-Instead of hard static caps forever, daily releases implement time-expanding caps to preserve early adopter prestige while preventing late-comers from being permanently locked out of archival content:
-- **Launch Week (Day 0–7)**: Common cap = `250` | Uncommon cap = `100` | Rare cap = `15` | Legendary cap = `2`.
-- **Month 1 (Day 30+)**: Common cap expands to `500` | Uncommon to `250` | Rare to `35` | Legendary to `3`.
-- **Month 6 (Day 180+)**: Common cap expands to `1000` | Uncommon to `500` | Rare to `50` | Legendary to `5`.
+### 2. Archival Expansion & Dynamic Legendary Classes
+- **Time Expansion**: Launch Week (Day 0–7) $\to$ Month 1 (Day 30+) $\to$ Month 6 (Day 180+).
+- **Legendary Classes**: Daily (5), Event (3), Founder (2), First Discoverer (1).
 
-### 3. Dynamic Legendary Classes
-Rather than a flat cap of 2, Legendary scarcity is contextually class-divided to enhance narrative significance:
-- **Daily Legendary**: Supply = `5` (rolled from standard and mood gacha packs).
-- **Event Legendary**: Supply = `3` (issued during calendar milestones and chapter completions).
-- **Founder Legendary**: Supply = `2` (initial print runs for early community adopters).
-- **First Discoverer Legendary**: Supply = `1` (awarded exclusively to the first player to achieve a Platinum medal on a daily release).
+### 3. Echo Cards & Generational Prestige Decay
+- **Gen 0 Echo**: 25% spawn, 1.0x burn value.
+- **Gen 1 Echo**: 15% spawn, 0.6x burn value.
+- **Gen 2 Echo**: 8% spawn, 0.3x burn value.
+- **Gen 3+ Echo**: 0% spawn, 0.1x burn value (Entropy Death).
 
-### 4. Echo Generation & Generational Prestige Decay
-Packs have a **15% chance** to roll an **Echo card variant**. Burning Echo cards splits their payout (50% tokens, 50% Echo Prestige). To prevent infinite recursive token farming, the Echo card decays across generations, reducing token yields until entropy death:
-- **Gen 0 Echo Spawn**: 25% rate (original burn value).
-- **Gen 1 Echo Spawn**: 15% rate (0.6x burn value multiplier).
-- **Gen 2 Echo Spawn**: 8% rate (0.3x burn value multiplier).
-- **Gen 3+ Echo Spawn**: 0% rate (0.1x burn value multiplier) — *Entropy Death limit*.
-
-### 5. Global Prestige Scoring
-Global Prestige determines player status on the leaderboard. The algorithm rewards consistency, participation, and archival significance rather than just token wealth:
-$$\text{Prestige Score} = (\text{Streak Count} \times 120) + (\text{Total Pulls} \times 15) + \sum \text{Card Rarity Points} + \sum \text{Bonuses}$$
-*Bonuses:* First edition card owned = $+500$ | Proof card owned = $+200$ | Echo card owned = $+400$.
-
-### 6. Daily Gacha Limits & Sinks
-- **Daily Standard Packs Pull Limit**: 60 pulls/day (elevated from 30 in V2 RC1).
-- **Daily Premium Packs Pull Limit**: 5 pulls/day (elevated from 2 in V2 RC1).
-- **Drought Pity Protection**: Guaranteed Rare+ floor triggers after **25 consecutive pulls** with no Rare or higher cards drawn.
-- **V2 Token Sinks**:
-  - *Targeted Pull*: Choose any daily card for 500 V⚡ tokens.
-  - *Rarity Upgrade*: Upgrade any owned card by 1 tier for 150 V⚡ tokens.
-  - *Duplicate Fusion*: Combine 3 identical cards (same day and rarity) into 1 card of the next tier.
-
-### 7. Conditional Admin Modifiers
-The engine supports conditional modifiers, dynamically adjusting rates based on user context:
-- `streak_reward` (7+ login streak): $+50\%$ Rare & Legendary rates.
-- `midnight_drop` (12am–2am clock): 2x Legendary chances.
-- `drought_protection` (20+ pulls with no Rare+): Guaranteed Rare card floor.
-- `collector_milestone` (100+ unique cards): $+25\%$ to Rare, Legendary, and Mythic rates.
-- `first_pack_luck` (new user's first pack): Guaranteed Uncommon card floor.
-- `weekend_bonus` (Saturday & Sunday): $+30\%$ Rare & Legendary rates.
-- `lucky_seven` (days ending in 7): 2x Mythic chance.
-- `burn_streak` (10+ burns today): $+1$ bonus card on next pull.
-- `codex_completionist` (50%+ Codex completion): 1.5x token earn multiplier.
+### 4. Global Prestige Scoring & Token Sinks
+- **Prestige Formula**: $(\text{Streak} \times 120) + (\text{Pulls} \times 15) + \sum \text{Card Points} + \text{Bonuses}$.
+- **Token Sinks**: Targeted Pull (500 V⚡), Rarity Upgrade (150 V⚡), Duplicate Fusion (3 matching cards).
 
 ---
 
-## 9. User Identity & Stripe Payment Integration
+## 9. User Identity, Stripe Integration & Platform Features
 
-To support users without crypto wallets, the platform integrates standard Email/Password authentication coupled with an automated local ephemeral wallet structure, alongside Stripe card checkouts.
-
-### 1. Identity Classes & Onboarding
-- **EVM Wallet Mode**: Connects via MetaMask or Coinbase Smart Wallet (EIP-1271).
-- **Email/Password Mode**: Managed via Supabase Auth.
-  - On Registration: The client generates an ephemeral wallet (private key + address). The address is written to the user's `profiles.wallet_address` and Supabase Auth user metadata (`wallet_address`). The private key is saved securely in a user-scoped localStorage key (`th3vault_ephemeral_wallet_pkey_${userId}`) and set active.
-  - On Login: The client checks the database for a linked `wallet_address`. If the private key is missing locally (e.g., logging in from a new device), the client generates a new ephemeral wallet, overwriting the database/metadata with the new address to ensure transaction capabilities.
-
-### 2. Stripe Checkout Intercept Sequence
-Packs purchased with USD value (Prophecy, Alpha, Special Picks) support debit/credit card fallbacks:
-1. Purchasing a USD pack intercepts the flow and triggers `PaymentSelectModal`.
-2. Selecting **Card** launches a mock Stripe Checkout redirect loader.
-3. The page shifts `window.location.href` to `/?session_id=cs_live_mock_[id]&category=[category]&size=[size]`.
-4. On redirect reload, the client intercepts the `session_id`, clears search parameters, and sends the session ID to the `vault-engine` Deno Edge function to finalize pack generation.
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User
-    participant Client as Client Browser
-    participant Gateway as Stripe Checkout
-    participant Edge as vault-engine (Edge Function)
-
-    User->>Client: Slide to Rip USD Pack
-    Client->>User: Display PaymentSelectModal
-    User->>Client: Click "Pay with Card"
-    Client->>User: "Connecting to Stripe checkout..."
-    Client->>Gateway: Redirect to Checkout Session
-    Gateway->>Client: Redirect back to /?session_id=mock_session_xxx
-    Client->>Client: Extract session_id, clear URL
-    Client->>Edge: Invoke purchasePack(session_id)
-    Edge->>Edge: Generate Pack Cards & Update global_supply
-    Edge->>Client: Return Card Data
-    Client->>User: Start Cinematic Reveal Animation
-```
+- **Dual Identity Modes**: Web3 EVM Smart Wallet (MetaMask / Coinbase Smart Wallet EIP-1271) + Supabase Email with local Ephemeral Wallet generation.
+- **Stripe Integration**: Mock USD checkout redirect intercept with session verification on `vault-engine`.
+- **Listen Page**: Jukebox interface for full track and stem listening.
+- **Voyeur Page**: Real-time global telemetry dashboard for card pulls, platinum medals, and leaderboard rank shifts.
+- **Pitch Deck**: Slide deck presentation outlining ecosystem economics and product vision.
 
 ---
 
-## 10. Quality & Performance Maintenance Wins
+## 10. Beatmap Editor & Custom Mapping Engine
 
-Key fixes deployed in the current releases maintain platform stability:
-
-1. **Time-Lock Lockout Resolution**: Patched the date comparison in `isSongTimeLocked` to check if a song's day count is less than or equal to the current vault day. This solved the critical bug where timezone mismatches caused the game to silently redirect users away on launch.
-2. **Authentication Pollution Fix**: Suppressed default initialization auth logs to warnings, preserving the wallet "Connect Wallet" button state instead of defaulting to a red "Retry Connect" failure if Supabase Anonymous Auth isn't active on a host.
-3. **Defensive Fallback & Security**: Built safe defaults (`getSafeFallbackCard` / `findCardWithFallback`) to ensure database lookups never crash the client if the release cache or DB connection fails.
-4. **Defensive Date Split Parsing**: All date splits are guarded (`date?.split('/')`) to prevent page-level crashes when sorting February chapters or incomplete campaign listings.
-5. **Progress Logic Synchronicity**: Progression is calculated using unique song IDs with an earned medal OR a high score $>0$, aligning map highlights with level indicators.
-6. **sessionStorage Refresh Safety**: Score formatting on the Results page uses `(result?.score ?? 0).toLocaleString()`, preventing crashes if the session storage cache is cleared during page refreshes.
-7. **Array Index Bounds**: Winding pathway rendering loops in `Chapter.tsx` check boundary limits to avoid reading empty indexes.
+The built-in Beatmap Editor ([BeatmapEditor.tsx](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/src/pages/BeatmapEditor.tsx)) provides full visual editing for PIM tracks:
+- Interactive multi-lane canvas grid with playhead scrubbing.
+- Audio playback speed scaling (0.25x, 0.5x, 0.75x, 1.0x).
+- Beat snap grid divisions (1/4, 1/8, 1/16, 1/32, freeform).
+- Multi-note editing: Tap, Hold, Swipe (8 directions: UP, DOWN, LEFT, RIGHT, UP_LEFT, UP_RIGHT, DOWN_LEFT, DOWN_RIGHT), and Slide notes across 3 lanes.
+- Automatic BPM detection, offset calibration, and JSON beatmap export/import.
 
 ---
 
-## 11. Strategic System Appraisal & Future Roadmap
+## 11. Quality Maintenance & Defensive Engineering
 
-To address systems creep as the project moves into the *Experimental Live-Service Platform* tier, the architecture details several major design patterns for future implementation:
+1. **Time-Lock Safety**: Date comparison guards (`isSongTimeLocked`) prevent timezone mismatch redirect loops.
+2. **Defensive Data Parsing**: Guarded splits (`date?.split('/')`) prevent crashes when rendering incomplete chapter lists.
+3. **Progress Logic Synchronicity**: Unique song ID tracking with earned medals or scores $>0$.
+4. **Session Storage Guards**: Safe fallback getters (`(result?.score ?? 0)`) preserve state during page refreshes.
 
-### 1. Layered UX Onboarding Strata
-To manage cognitive complexity and avoid freezing players with a massive array of systems on day one, the interface will segment features into four distinct onboarding tiers:
+---
 
-```
-+-------------------------------------------------------------+
-| Casual: Play rhythm tracks + standard gacha pack opening     |
-+-------------------------------------------------------------+
-                              |
-                              v
-+-------------------------------------------------------------+
-| Regular: Daily login streaks + Codex completion progress     |
-+-------------------------------------------------------------+
-                              |
-                              v
-+-------------------------------------------------------------+
-| Collector: Card targeted pulls + Forge rarity upgrades      |
-+-------------------------------------------------------------+
-                              |
-                              v
-+-------------------------------------------------------------+
-| Hardcore: Prestige optimization + Echo entropy loops         |
-+-------------------------------------------------------------+
-```
+## 12. Strategic System Appraisal & Future Roadmap
 
-### 2. Tiered Emotional Loop Archetypes
-Scarcity caps map to specific player emotions to ensure structural engagement:
-- **Common (Gameplay Copy = 2000)**: *“I’m progressing.”* (Onboarding retention, codex filler, fusion fodder, burn fuel).
-- **Uncommon (Gameplay Copy = 500)**: *“I’m building identity.”* (Deck customization, profile satisfaction, deck flexing).
-- **Rare (Gameplay Copy = 100)**: *“I got lucky.”* (Controlled drop rates, satisfying high accuracy plays).
-- **Legendary (Gameplay Copy = 10)**: *“Holy shit.”* (Social status flex, milestone rewards, extreme prestige boosters).
-- **Mythic (Gameplay Copy = 1)**: *“This is history.”* (Absolute rarity, discoverer certification, permanent blockchain prestige).
+- **UX Onboarding Strata**: Casual $\to$ Regular $\to$ Collector $\to$ Hardcore.
+- **Emotional Loop Archetypes**: Clear emotional triggers mapped to card rarities.
+- **Provenance Memory**: Writing immutable discoverer metadata and timing accuracy directly into card faces.
+- **Async Social Ghosts**: Replay ghosts and lane heatmaps projected on the canvas.
+- **Living Vault Ecosystem**: Dynamic background camera drifts through locked security wings based on card ownership.
 
-### 3. Circulation & Destruction Velocity Telemetry Spec
-Rather than viewing supply as a fixed pool, telemetry hooks will track the ecosystem's velocity similar to complex in-game economies (e.g. Counter-Strike, Path of Exile):
-- **Gameplay-to-Mint Conversion Ratio**: Speed at which off-chain gameplay copies are minted onto Base.
-- **Velocity Tracking**: Average daily pull rates, circulation volume, card burn destruction rates, and active token sinks balance.
-- **Pity Trigger Frequencies**: Monitoring how often the 25-pull Rare+ floor triggers to maintain drop rate balance.
+---
 
-### 4. Provenance Memory Implementation
-To increase emotional attachment, cards will evolve from digital records to historical artifacts by writing permanent records into the metadata when players reach milestones:
-- **First Discoverer**: Wallet binding/username of the first player to pull/claim a specific day's card.
-- **Fastest Platinum**: The user who completes the corresponding song's platinum medal with the lowest absolute timing error.
-- **Historical Timestamps**: Early mint numbers mapped directly to the card's visual card face.
+## 13. PIM Game Instruction Booklet & Player Operating Manual
 
-### 5. Async Social Ghosts
-Utilizing the gameplay telemetry records, the system will support asynchronous player interactions:
-- **Replay Ghosts**: Recreating another player's notes hit/miss timeline on the canvas as a semi-transparent runner.
-- **Lane Heatmaps**: Rendering visual indicators showing where players struggle on specific notes.
-- **Spectral Skill Fingerprints**: Fingerprinting player accuracy profiles to generate matches for asynchronous PvP challenges.
+<style>
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #pim-instruction-booklet, #pim-instruction-booklet * {
+    visibility: visible;
+  }
+  #pim-instruction-booklet {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    color: #000 !important;
+    background: #fff !important;
+    font-family: 'Inter', sans-serif !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .booklet-header {
+    border-bottom: 3px solid #000 !important;
+  }
+  .booklet-card {
+    border: 1px solid #999 !important;
+    background: #f9f9f9 !important;
+  }
+}
+</style>
 
-### 6. The Living Vault Ecosystem Spec (Fragmented Cards & Hidden Paths)
-The background rendering ecosystem evolves into an interactive, visual representation of the player's collection status:
-- **Fragmented Card Shards**: 
-  - For songs where the player has accrued $< 10$ fragments, the vault background displays floating, glitching HSL card fragments drifting along parallax vectors.
-  - The physical alignment and glowing transparency of these shards scale dynamically with the user's current fragment count (`fragmentCount / 10`). At $9$ fragments, the card is visually assembled but flickering; upon decrypting the $10\text{th}$ fragment, it crystallizes into a solid card model on the shelves.
-- **Hidden Neural Pathways**:
-  - The background camera tracks along branching concrete corridors in the Vault.
-  - Owning key legendary cards, event credentials, or reaching high prestige milestone scores unlocks "security overrides."
-  - When overrides occur, hidden hydraulic doors slides open in the canvas background, displaying secret server wings, locked audio chambers, or portal Deep Links to secret avant-garde levels.
+<div id="pim-instruction-booklet">
 
+<div class="no-print" style="margin: 24px 0; padding: 20px; background: rgba(57, 255, 20, 0.08); border: 2px solid #39ff14; border-radius: 12px; text-align: center; font-family: monospace;">
+  <h2 style="margin-top: 0; color: #39ff14; font-size: 22px;">🖨️ OFFICIAL PIM INSTRUCTION BOOKLET</h2>
+  <p style="color: #e2e8f0; font-size: 14px; margin-bottom: 16px;">Click the button below to print out the standalone, formatted PIM Instruction Booklet & Operating Manual or save it as a PDF document.</p>
+  <button onclick="window.print()" style="background: #39ff14; color: #000; font-weight: 800; padding: 14px 28px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-family: monospace; letter-spacing: 1px; box-shadow: 0 0 15px rgba(57, 255, 20, 0.4);">
+    🖨️ PRINT INSTRUCTION BOOKLET / SAVE AS PDF
+  </button>
+</div>
+
+<div class="booklet-header" style="border-bottom: 4px solid #39ff14; padding-bottom: 12px; margin-bottom: 24px;">
+  <h1 style="margin: 0; font-size: 28px; letter-spacing: 2px;">BEATSTAR (PIM) — OFFICIAL OPERATING MANUAL & INSTRUCTION BOOKLET</h1>
+  <p style="margin: 6px 0 0 0; color: #a855f7; font-weight: bold; font-family: monospace;">CLASSIFIED FIELD GUIDE // EDITION 2.1 // ALL GAME SYSTEMS & EVENT MECHANICS</p>
+</div>
+
+### SECTION 1: QUICK START & INPUT CONTROLS
+
+PIM (Performance-Driven Sonic Rhythm Engine) is played across a **3-Lane Highway**.
+
+#### Keyboard Keybindings
+* **Lane 0 (Left / Bass)**: Key **`A`** (or `1`, `J`)
+* **Lane 1 (Middle / Mids)**: Key **`S`** (or `2`, `K`)
+* **Lane 2 (Right / Treble)**: Key **`D`** (or `3`, `L`)
+* **Swipe Notes**: **Arrow Keys** (`↑`, `↓`, `←`, `→`) or Numpad (`8`, `2`, `4`, `6`)
+* **Slide Movements**: **Left / Right Arrow Keys** or direct lane keypresses
+
+#### Touch & Mobile Gesture Controls
+* **Taps**: Tap directly on the hit line beneath the corresponding lane column.
+* **Swipes**: Swipe your finger in the direction of the chevron arrow when the note strikes the line.
+* **Holds & Slides**: Touch and hold the lane button, sliding your finger horizontally across lanes as the hold beam shifts.
+
+#### Audio Latency & Offset Calibration
+Every audio device (Bluetooth headphones, TV speakers, built-in laptop drivers) introduces tiny audio delays.
+* Open **⚙ Options** in the main menu to calibrate **AUDIO OFFSET (ms)**.
+* **Negative Offset (-ms)**: Shift notes earlier if you find yourself hitting late.
+* **Positive Offset (+ms)**: Shift notes later if you find yourself hitting early.
+
+---
+
+### SECTION 2: NOTE TAXONOMY & HOW TO PLAY
+
+1. **TAP NOTES (Standard Rectangles)**
+   - *Appearance*: Solid glowing rectangular bars descending down a single lane.
+   - *Action*: Press the matching lane key exactly as the note center aligns with the glowing target line.
+
+2. **SWIPE NOTES (Directional Chevrons)**
+   - *Unlocked at*: Difficulty Level 4+.
+   - *Appearance*: Bright chevron arrows pointing in one of 8 directions (`UP`, `DOWN`, `LEFT`, `RIGHT`, `UP-LEFT`, `UP-RIGHT`, `DOWN-LEFT`, `DOWN-RIGHT`).
+   - *Action*: Flick the corresponding arrow key or swipe your touchscreen in the direction indicated.
+
+3. **HOLD NOTES (Sustained Beams)**
+   - *Unlocked at*: Difficulty Level 7+.
+   - *Appearance*: Solid note head connected to a long vertical neon tail.
+   - *Action*: Press and hold the lane key when the head arrives. Continue holding down until the tail completely passes the hit line.
+
+4. **SLIDE NOTES (Winding Hold Beams)**
+   - *Unlocked at*: Difficulty Level 7+.
+   - *Appearance*: Curved, lane-shifting hold tail that snakes between Lane 0, Lane 1, and Lane 2.
+   - *Action*: Hold down your input while tracking the movement of the beam across lanes using Arrow keys or touch dragging.
+
+---
+
+### SECTION 3: TIMING WINDOWS, JUDGMENT GRADES & SCORING
+
+Accuracy is measured in milliseconds relative to perfect audio sync.
+
+#### Judgment Grades & Tolerances
+* **PERFECT+ (500 pts)**: Frame-exact hit within $\le \text{TimingWindow}_{\text{P+}}$ (up to $\pm 30\text{ms}$ on Void difficulty).
+* **PERFECT (300 pts)**: Clean hit within $\le \text{TimingWindow}_{\text{P}}$ (up to $\pm 55\text{ms}$).
+* **GOOD (150 pts)**: Slightly early or late hit within $\le \text{TimingWindow}_{\text{G}}$ (up to $\pm 100\text{ms}$).
+* **MISS (0 pts)**: Note passed the hit line without input or was hit out of bounds. Resets current combo to 0.
+
+#### Difficulty Score Multipliers
+Score multipliers build up as your unbroken combo increases:
+* **LIGHT Difficulty (Levels 1–3)**: Max Multiplier = **3x** (Combo thresholds: 10 $\to$ 1.5x, 25 $\to$ 2.0x, 50 $\to$ 3.0x).
+* **DARK Difficulty (Levels 4–6)**: Max Multiplier = **4x** (Combo thresholds: 10 $\to$ 1.5x, 25 $\to$ 2.0x, 50 $\to$ 3.0x, 75 $\to$ 4.0x).
+* **VOID Difficulty (Levels 7–10)**: Max Multiplier = **5x** (Combo thresholds: 10 $\to$ 1.5x, 25 $\to$ 2.0x, 50 $\to$ 3.0x, 75 $\to$ 4.0x, 100 $\to$ 5.0x).
+
+---
+
+### SECTION 4: SONIC PUNISHMENT — MULTI-BAND AUDIO DEGRADATION
+
+Unlike traditional rhythm games that only drop numbers when you miss, PIM **degrades the physical music in real time**.
+
+* **The 3 Crossover Bands**:
+  - **Lane 0 (Bass)**: Controls lowpass frequencies below $300\text{Hz}$ (drums, sub-bass, kick).
+  - **Lane 1 (Mids)**: Controls bandpass frequencies around $1200\text{Hz}$ (vocals, main synth, lead guitar).
+  - **Lane 2 (Treble)**: Controls highpass frequencies above $3200\text{Hz}$ (hi-hats, cymbals, crisp air).
+* **Muting on Miss**: Missing a note in a lane instantly mutes that audio band, dropping channel volume gain to **0.04** over 0.12s.
+* **Active Restore on Hit**: Striking the next note in a muted lane instantly un-silences the channel, ramping gain back over 0.25s.
+* **Passive Auto-Recovery**: If no notes appear in a muted lane for **3.5 seconds**, auto-recovery restores the channel automatically over 0.4s to prevent total track silence.
+
+---
+
+### SECTION 5: OVERDRIVE & FLOW-STATE POWER-UP OVERLAYS
+
+Sustaining high unbroken combos activates dynamic flow-state power-ups:
+
+> [!TIP]
+> **OVERDRIVE MODES**
+> - **FEVER (Combo $\ge 20$)**: Lasts 9 seconds. **2x Score Multiplier**. Automatically upgrades all standard `PERFECT` hits to `PERFECT+`. Visual color: **Gold (`#E5B800`)**.
+> - **SURGE (Combo $\ge 40$)**: Lasts 11 seconds. **3x Score Multiplier**. **Autoplay Assist**: Autoplay automatically locks onto complex slide paths and hold tails for you. Visual color: **Hot Pink (`#FF1493`)**.
+> - **SIGNAL LOCK (Combo $\ge 60$)**: Lasts 14 seconds. **4x Score Multiplier**. Peak visual stability with bright matrix glow. Visual color: **Neon Green (`#39FF14`)**.
+
+---
+
+### SECTION 6: FAILURE PROTOCOL, AUDIO REWIND & CONTINUES
+
+* **3-Miss Limit**: Missing 3 notes within a run triggers **SIGNAL LOST**.
+* **2.5-Second Audio Rewind**: The engine automatically rewinds audio playback by 2.5 seconds.
+* **Reverse Highway Scroll Animation**: The perspective highway visually scrolls backward over 1.2s (`1200ms`), reviving missed notes in the rewind window.
+* **Continues Limit**: Players may use up to **3 Continues** per song run. Using a continue resets miss count to 0, resets combo to 0, and restores all audio bands.
+
+---
+
+### SECTION 7: AUDIO & VISUAL GAMEPLAY MODIFIERS
+
+Equipping cards from your Vault activates distinct gameplay modifiers based on song tags and genres:
+
+1. **VOCAL ISOLATION**
+   - *Trigger*: Acoustic, Pop, Indie, Soul, or BPM $\le 100$.
+   - *Effect*: Amplifies Lane 1 vocals (Gain = 2.2) while dampening low-end and high-end frequencies (Gain = 0.15).
+
+2. **BASS REALM**
+   - *Trigger*: Electro, Hip-Hop, Techno, Dubstep, House, or BPM $> 120$.
+   - *Effect*: Boosts bass channel (Lane 0 Gain = 2.6). Lane 0 notes turn **Neon Purple (`#a855f7`)**, render **60% thicker**, and **28% wider**.
+
+3. **CORRUPTED SIGNAL**
+   - *Trigger*: Glitch, Industrial, Corrupted tags, or BPM $> 138$.
+   - *Effect*: Drives tempo/pitch drift ($\pm 4\%$), translates canvas coordinates randomly (screen shake), and projects CRT scanlines with orange noise blocks.
+
+---
+
+### SECTION 8: CAMPAIGN MAPS, WINDING PATHWAYS & MILESTONE REWARDS
+
+* **Constellation Sector Map**: Navigate through calendar chapters across 365 songs.
+* **Winding Pathway Stages**: Each chapter contains level nodes linked by winding concrete roads.
+* **Star Thresholds**: Earn up to 3 stars per stage based on accuracy ($70\% \to 1\star$, $85\% \to 2\star$, $95\% \to 3\star$).
+* **Milestone Rewards Bar**: Accumulating stars unlocks Milestone Rewards chests containing $V\text{⚡}$ tokens, free Gacha card packs, and exclusive event titles.
+
+---
+
+### SECTION 9: COLLECTIBLES, FORGE & CARD ECONOMY
+
+* **Card Rarity Tiers**: Common $\to$ Uncommon $\to$ Rare $\to$ Legendary $\to$ Mythic.
+* **$V\text{⚡}$ Tokens**: Earned through high accuracy runs and burning duplicate cards.
+* **The Forge**:
+  - *Card Burning*: Recycle owned cards for $V\text{⚡}$ tokens.
+  - *Targeted Pull*: Spend **500 $V\text{⚡}$ tokens** to directly acquire any specific card from the 365 catalog.
+  - *Rarity Upgrade*: Spend **150 $V\text{⚡}$ tokens** to upgrade an owned card to the next rarity tier.
+  - *Duplicate Fusion*: Fuse **3 identical cards** (same day & rarity) to create 1 card of the next higher tier.
+* **Echo Cards & Generational Decay**: Gacha packs have a 15% chance to roll Echo variants. Echo cards yield bonus prestige but suffer generational payout decay (Gen 0 $\to$ Gen 1 $\to$ Gen 2 $\to$ Gen 3+ Entropy Death).
+
+---
+
+### SECTION 10: COMPLETE "WHAT CAN HAPPEN" DYNAMIC EVENTS MATRIX
+
+This matrix details **EVERY SINGLE EVENT, TRIGGER, AND MECHANIC** that can occur in PIM:
+
+| Event Name | Trigger Condition | Immediate System Response | Visual & Audio Signature |
+| :--- | :--- | :--- | :--- |
+| **Note Tap Hit (Perfect+)** | Keypress within $\le \text{TimingWindow}_{\text{P+}}$ | +500 pts, combo +1, maintains audio gain | Bright gold flash, hit splash particle explosion |
+| **Note Tap Hit (Perfect)** | Keypress within $\le \text{TimingWindow}_{\text{P}}$ | +300 pts, combo +1, maintains audio gain | Cyan flash on hit line |
+| **Note Tap Hit (Good)** | Keypress within $\le \text{TimingWindow}_{\text{G}}$ | +150 pts, combo +1, maintains audio gain | Yellow text indicator |
+| **Note Miss** | Note passes hit line without press | 0 pts, combo resets to 0, miss count +1 | Red miss text, screen shudder |
+| **Lane Audio Mute** | Miss note in Lane 0, 1, or 2 | Specific lane gain ramps to 0.04 over 0.12s | Sonic degradation (bass/mids/treble disappears) |
+| **Lane Audio Unmute** | Hit note in a muted lane | Lane gain ramps back to target over 0.25s | Full frequency audio restored instantly |
+| **Passive Auto-Recovery** | Muted lane remains idle for 3.5s | Auto-ramps lane gain back to 1.0 over 0.4s | Gradual audio crossover smoothing |
+| **Fever Mode Activation** | Reach 20 unbroken combo | 2x score multiplier, auto PERFECT $\to$ PERFECT+ | Gold screen border aura (`#E5B800`) |
+| **Surge Mode Activation** | Reach 40 unbroken combo | 3x score multiplier, **Autoplay slide tracking** | Hot pink pulse (`#FF1493`), automated hold tracking |
+| **Signal Lock Activation** | Reach 60 unbroken combo | 4x score multiplier, max flow-state stability | Neon green matrix overlay (`#39FF14`) |
+| **Signal Lost (Failure)** | Accumulate 3 misses in a run | Engine pauses, audio rewinds 2.5s | Red static glitch screen, countdown prompt |
+| **Continue Execution** | Press Continue (up to 3x per run) | Decrements continues, rewinds highway 1.2s | Perspective highway scrolls in reverse |
+| **Bass Realm Activation** | Equip Bass Realm card (BPM > 120) | Lane 0 gain = 2.6; Lanes 1 & 2 = 0.25 | Lane 0 notes turn neon purple (`#a855f7`), 60% thicker |
+| **Vocal Isolation Activation** | Equip Vocal card (Pop/BPM $\le 100$) | Lane 1 gain = 2.2; Lanes 0 & 2 = 0.15 | Clean isolated vocal track focus |
+| **Corrupted Signal Activation** | Equip Glitch/Corrupted card | $\pm 4\%$ tempo/pitch drift, screen shake | CRT scanlines, orange noise block overlays |
+| **Drought Pity Protection** | 25 consecutive pulls without Rare+ | Next pack pull guarantees Rare or higher card | Glowing purple pity floor alert on pack reveal |
+| **Midnight Drop Bonus** | Open pack between 12:00 AM – 2:00 AM | 2x multiplier applied to Legendary drop chance | Golden midnight moon badge on gacha drawer |
+| **Streak Reward Multiplier** | 7+ consecutive daily login streak | +50% bonus to Rare and Legendary drop rates | Flame streak badge counter on vault dashboard |
+| **First Discoverer Award** | First player globally to Platinum a song | Awards unique 1-of-1 First Discoverer Legendary | Permanent username gold foil stamped on card face |
+| **Echo Generation Decay** | Recycle Gen 3+ Echo card | 0.1x token burn multiplier limit reached | "ENTROPY DEATH" warning badge in Forge |
+
+</div>
