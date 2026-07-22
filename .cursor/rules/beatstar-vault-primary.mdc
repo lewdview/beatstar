@@ -1,0 +1,14 @@
+---
+description: Always prioritize beatstar-vault package over rhythm-game package
+globs: **/*
+---
+
+# Primary Target Rule: beatstar-vault First
+
+- **Primary Package**: `artifacts/beatstar-vault` (`@workspace/beatstar-vault`)
+- **Secondary Package**: `artifacts/rhythm-game` (`@workspace/rhythm-game`)
+
+## Work Rules:
+1. Always build, modify, debug, and test features inside `artifacts/beatstar-vault` first.
+2. Only pop back to `artifacts/rhythm-game` to sync changes after `beatstar-vault` is fully validated.
+3. Keep dossiers and documentation synced between root and `artifacts/beatstar-vault/project_dossier.md`.

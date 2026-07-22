@@ -4,6 +4,12 @@
 
 pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
 
+> [!CAUTION]
+> **DEVELOPMENT PRIORITY RULE:**
+> Always work on **`artifacts/beatstar-vault`** (`@workspace/beatstar-vault`) as the **PRIMARY** target.
+> Pop back to **`artifacts/rhythm-game`** (`@workspace/rhythm-game`) as a secondary option to sync features back after completing work in `beatstar-vault`.
+
+
 ## Stack
 
 - **Monorepo tool**: pnpm workspaces

@@ -12,6 +12,11 @@ The project operates under a three-tiered loop designed to maximize user engagem
 > **The Retention Thesis:**
 > **Music Unlocks Gameplay** $\to$ **Gameplay Unlocks Ownership** $\to$ **Ownership Unlocks Status**
 
+> [!CAUTION]
+> **DEVELOPMENT WORKFLOW RULE (BEATSTAR VAULT FIRST):**
+> 1. **Primary Target (`beatstar-vault`)**: All new features, bug fixes, UI improvements, rhythm engine upgrades, and dossier updates MUST be implemented first in **`artifacts/beatstar-vault`** (`@workspace/beatstar-vault`).
+> 2. **Secondary Target (`rhythm-game`)**: **`artifacts/rhythm-game`** is a secondary standalone package. Pop back to sync `rhythm-game` with `beatstar-vault` only after changes are validated in `beatstar-vault`.
+
 1. **Music Unlocks Gameplay**: Fans navigate to the application via deep links (e.g., from TikTok or Spotify) to access a free playable level for the daily song release (365 songs total—one for every day of the year).
 2. **Gameplay Unlocks Ownership**: Reaching specific score and accuracy thresholds on a level awards collectible card packs (Gacha drops) containing card stems, registry proofs, and card burn assets.
 3. **Ownership Unlocks Status**: Players display their earned collections, showcase streaks, view first-discoverer certifications, and connect external Web3 wallets to permanently establish ownership and status.
