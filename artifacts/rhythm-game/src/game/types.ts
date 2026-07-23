@@ -1,11 +1,39 @@
+export type NoteType = 
+  | 'tap' 
+  | 'hold' 
+  | 'swipe' 
+  | 'hold-swipe'
+  | 'double'
+  | 'slide'
+  | 'zigzag'
+  | 'repeater'
+  | 'chain'
+  | 'mine'
+  | 'lift'
+  | 'harmony'
+  | 'scratch'
+  | 'accent'
+  | 'break'
+  | 'choice'
+  | 'burst'
+  | 'remix'
+  | 'stream'
+  | 'spiral'
+  | 'pulse'
+  | 'shift';
+
 export interface Note {
   id: number;
   time: number;
   lane: number;
-  type: 'tap' | 'hold' | 'swipe';
+  type: NoteType;
   holdDuration?: number;
   targetLane?: number;
   swipeDirection?: 'left' | 'right' | 'up' | 'down' | 'up-left' | 'up-right' | 'down-left' | 'down-right';
+  remixEffect?: 'vocals_isolate' | 'drums_mute' | 'bass_boost' | 'lead_solo';
+  choicePath?: 'left' | 'right';
+  zigzagAmplitude?: number;
+  repeaterCount?: number;
   stage?: number;
 }
 

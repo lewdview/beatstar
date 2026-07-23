@@ -9,7 +9,7 @@ const { Client } = pg;
 
 const client = new Client({
   user: 'postgres.pznmptudgicrmljjafex',
-  password: 'runeflow-admin-2025',
+  password: 'giveME1221!sex',
   host: 'aws-1-us-east-1.pooler.supabase.com',
   port: 5432,
   database: 'postgres',

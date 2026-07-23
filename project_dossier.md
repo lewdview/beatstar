@@ -237,11 +237,41 @@ Lanes are segmented into 3 tracks:
 - **Lane 1 (Mids)**: Rendered in the Center.
 - **Lane 2 (Treble)**: Rendered on the Right.
 
-### 3. Note Types
-* **Taps**: Single-hit rectangular targets.
-* **Swipes**: Gated by difficulty levels (unlocked at Level 4+). Checked by touch/swipe vectors or arrow keys (`left`, `right`, `up`, `down`, `up-left`, `up-right`, `down-left`, `down-right`).
-* **Holds & Slides**: Gated by difficulty levels (unlocked at Level 7+). Requires holding and tracking notes across lanes. The visual position of a slide note moves smoothly between lanes using linear interpolation:
+### 3. Note Types & PIM Signature Mechanics
+
+The gameplay engine classifies note mechanics across four distinct operational tiers:
+
+#### A. Core Gameplay Notes (100% of Track Coverage)
+- **Tap**: Standard hit target.
+- **Hold**: Sustained ribbon track requiring key depression until terminus.
+- **Swipe**: Directional flick (`↑`, `↓`, `←`, `→`, diagonals) unlocked at Level 4+.
+- **Hold + Swipe End**: Sustained rail culminating in a directional swipe release.
+- **Double Tap**: Simultaneous dual-lane targets.
+
+#### B. Advanced Notes
+- **Slide (Drag)**: Continuous finger/path tracking across lanes.
   $$\text{visualLane} = \text{lerp}(\text{visualLane}, \text{currentLane}, 0.18)$$
+- **Zigzag Slide**: Snaking left/right trajectory suited for electronic fills and solos.
+- **Repeater**: High-frequency tap train over a sustained rhythm.
+- **Chain**: Automated note sequence activated by hitting the lead note cleanly.
+- **Mine / Ghost**: Hazardous obstacle—hitting causes score penalty (-500), resets combo, and leaks data. Avoiding it passes safely.
+- **Lift**: Timing window calibrated to key *release* on beat.
+- **Harmony**: Dual-lane simultaneous presses during choruses.
+- **Scratch**: Rapid circular gesture for vinyl/DJ breaks.
+
+#### C. Performance & Special Event Notes
+- **Perfect Window Accent Note**: Enhanced target head granting +800 point bonus.
+- **Break Note**: Beat drop target triggering camera shudder, particle burst, and +1200 point reward.
+- **Choice Note**: Branching dual paths (Left/Right) offering dynamic player route choices.
+- **Burst Note**: Pulsing expanding ring requiring precise hit before full expansion.
+
+#### D. PIM Signature Feature: Remix Note ⚡
+> [!IMPORTANT]
+> **Audio-Reactive Remix Note Mechanics:**
+> Hitting a **Remix Note** (styled with a glowing ethereal stem rune) with PERFECT timing triggers real-time stem arrangement mutations:
+> 1. **Web Audio Stem Mutation**: Automatically alters stem balance (`vocals_isolate`, `drums_mute`, `bass_boost`, or `lead_solo`) for 4–8 beats via `audioManager.triggerRemixStemEffect()`.
+> 2. **Visual Palette Inversion**: Temporarily flips the canvas theme and renders a neon HUD banner `⚡ STEM REMIX ACTIVE ⚡`.
+> 3. **Score Amplification**: Awards an instant +1000 point bonus and 1.5x active combo score boost.
 
 ### 4. Timing Windows & Judgment
 Timing window tolerances scale down as difficulty increases:
