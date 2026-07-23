@@ -795,6 +795,29 @@ serve(async (req) => {
           }
         }
 
+        // Normalize and auto-insert special "CHUNKYBITCH" code (day 291 card unlock)
+        if (cleanCode === 'CHUNKYBITCH') {
+          // Auto-provision if missing
+          const { data: existingPromo } = await svc
+            .from('bonus_codes')
+            .select('*')
+            .eq('code', cleanCode)
+            .maybeSingle();
+
+          if (!existingPromo) {
+            const { error: insErr } = await svc.from('bonus_codes').insert({
+              code: cleanCode,
+              reward_type: 'card',
+              reward_value: 'card-291-common',
+              max_uses: 999999,
+              use_count: 0
+            });
+            if (insErr) {
+              console.error('Failed to auto-provision CHUNKYBITCH code:', insErr);
+            }
+          }
+        }
+
         // 1. Fetch promo/bonus code
         const { data: promo, error: promoErr } = await svc
           .from('bonus_codes')
