@@ -1924,7 +1924,9 @@ export default function Game() {
 
     // ── 5. NOTES ────────────────────────────────────────────────
     let dirty = false;
-    for (const ns of notesRef.current) {
+    // Sort notes in back-to-front Z-order (farthest notes near horizon rendered FIRST, closest notes near hit line rendered LAST/ON TOP)
+    const renderNotesSorted = [...notesRef.current].sort((a, b) => b.note.time - a.note.time);
+    for (const ns of renderNotesSorted) {
       if (ns.hit) continue;
       if (!isRewinding && ns.missed) continue;
       const { note } = ns;
