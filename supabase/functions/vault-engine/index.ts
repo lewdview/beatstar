@@ -178,9 +178,9 @@ async function generateCards(svc: any, userId: string, packType: string, count: 
     cards.push(rolledCard);
   }
 
-  const { error } = await svc.from('vault_collections').insert(cards);
+  const { data: insertedCards, error } = await svc.from('vault_collections').insert(cards).select('*');
   if (error) throw new Error(`Database Insert Failed: ${error.message} - details: ${error.details}`);
-  return cards;
+  return insertedCards || cards;
 }
 
 serve(async (req) => {
@@ -355,7 +355,7 @@ serve(async (req) => {
           source: 'daily_claim', is_echo: false, edition,
           max_supply, claimed_at: new Date().toISOString()
         };
-        const { error: insErr } = await svc.from('vault_collections').insert(newCard);
+        const { data: insertedCard, error: insErr } = await svc.from('vault_collections').insert(newCard).select('*').single();
         if (insErr) throw new Error(`Failed to insert daily record: ${insErr.message}`);
 
         let newStreak = (profile?.streak_count || 0) + 1;
@@ -364,7 +364,7 @@ serve(async (req) => {
 
         await logTelemetry(svc, 'daily_claim', user.id, { day: claimDay, rarity: rarityRoll });
 
-        return new Response(JSON.stringify({ success: true, card: newCard }),
+        return new Response(JSON.stringify({ success: true, card: insertedCard || newCard }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
@@ -559,10 +559,11 @@ serve(async (req) => {
           edition, max_supply, proof,
           claimed_at: new Date().toISOString()
         };
-        await svc.from('vault_collections').insert(card);
+        const { data: insertedCard, error: insErr } = await svc.from('vault_collections').insert(card).select('*').single();
+        if (insErr) throw new Error(`Failed to insert targeted pull record: ${insErr.message}`);
         await logTelemetry(svc, 'targeted_pull', user.id, { day, rarity, cost });
 
-        return new Response(JSON.stringify({ success: true, card }),
+        return new Response(JSON.stringify({ success: true, card: insertedCard || card }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
@@ -625,10 +626,11 @@ serve(async (req) => {
           edition: supplyData || 1, max_supply: getSupplyCap(newRarity, day, today),
           claimed_at: new Date().toISOString()
         };
-        await svc.from('vault_collections').insert(fusedCard);
+        const { data: insertedCard, error: insErr } = await svc.from('vault_collections').insert(fusedCard).select('*').single();
+        if (insErr) throw new Error(`Failed to insert fused card record: ${insErr.message}`);
         await logTelemetry(svc, 'duplicate_fusion', user.id, { baseCardId, from: baseRarity, to: newRarity });
 
-        return new Response(JSON.stringify({ success: true, fusedCard }),
+        return new Response(JSON.stringify({ success: true, fusedCard: insertedCard || fusedCard }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
@@ -881,9 +883,9 @@ serve(async (req) => {
             max_supply,
             claimed_at: new Date().toISOString()
           };
-          const { error: insErr } = await svc.from('vault_collections').insert(newCard);
+          const { data: insertedCard, error: insErr } = await svc.from('vault_collections').insert(newCard).select('*').single();
           if (insErr) throw new Error(`Failed to claim card reward: ${insErr.message}`);
-          rewardResult = { card: newCard };
+          rewardResult = { card: insertedCard || newCard };
         } 
         else if (promo.reward_type === 'background_skin') {
           const { data: profile } = await svc.from('profiles').select('unlocked_skins').eq('id', user.id).single();
