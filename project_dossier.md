@@ -1,6 +1,6 @@
-# Project Dossier: th3vault & Beatstar (PIM) Integration
+# Project Dossier: PIM : th3v4ult - poetry in motion
 
-This dossier serves as the comprehensive, authoritative source of truth for **th3vault & Beatstar (PIM) Integration**, a hybrid ecosystem bridging a high-fidelity HTML5 canvas rhythm game and a digital collectible card engine under a unified, premium brutalist cyberpunk aesthetic.
+This dossier serves as the comprehensive, authoritative source of truth for **PIM : th3v4ult - poetry in motion**, a hybrid ecosystem bridging a high-fidelity HTML5 canvas rhythm game and a digital collectible card engine under a unified, premium brutalist cyberpunk aesthetic.
 
 ---
 
@@ -464,13 +464,13 @@ The built-in Beatmap Editor ([BeatmapEditor.tsx](file:///Users/studio/BEATSTAR.t
 </div>
 
 <div class="booklet-header" style="border-bottom: 4px solid #39ff14; padding-bottom: 12px; margin-bottom: 24px;">
-  <h1 style="margin: 0; font-size: 28px; letter-spacing: 2px;">BEATSTAR (PIM) — OFFICIAL OPERATING MANUAL & INSTRUCTION BOOKLET</h1>
+  <h1 style="margin: 0; font-size: 28px; letter-spacing: 2px;">PIM : th3v4ult - POETRY IN MOTION — OFFICIAL OPERATING MANUAL & INSTRUCTION BOOKLET</h1>
   <p style="margin: 6px 0 0 0; color: #a855f7; font-weight: bold; font-family: monospace;">CLASSIFIED FIELD GUIDE // EDITION 2.1 // ALL GAME SYSTEMS & EVENT MECHANICS</p>
 </div>
 
 ### SECTION 1: QUICK START & INPUT CONTROLS
 
-PIM (Performance-Driven Sonic Rhythm Engine) is played across a **3-Lane Highway**.
+PIM (Poetry In Motion — Performance-Driven Sonic Rhythm Engine) is played across a **3-Lane Highway**.
 
 #### Keyboard Keybindings
 * **Lane 0 (Left / Bass)**: Key **`A`** (or `1`, `J`)
@@ -512,6 +512,10 @@ Every audio device (Bluetooth headphones, TV speakers, built-in laptop drivers) 
    - *Unlocked at*: Difficulty Level 7+.
    - *Appearance*: Curved, lane-shifting hold tail that snakes between Lane 0, Lane 1, and Lane 2.
    - *Action*: Hold down your input while tracking the movement of the beam across lanes using Arrow keys or touch dragging.
+
+5. **REMIX NOTES ⚡ (PIM Signature)**
+   - *Appearance*: Pulsing ethereal note with glowing stem runes.
+   - *Action*: Strike with PERFECT timing to trigger live Web Audio stem rearrangement mutations, temporary canvas color inversion, and +1000 bonus points!
 
 ---
 
@@ -618,6 +622,7 @@ This matrix details **EVERY SINGLE EVENT, TRIGGER, AND MECHANIC** that can occur
 | **Note Tap Hit (Perfect)** | Keypress within $\le \text{TimingWindow}_{\text{P}}$ | +300 pts, combo +1, maintains audio gain | Cyan flash on hit line |
 | **Note Tap Hit (Good)** | Keypress within $\le \text{TimingWindow}_{\text{G}}$ | +150 pts, combo +1, maintains audio gain | Yellow text indicator |
 | **Note Miss** | Note passes hit line without press | 0 pts, combo resets to 0, miss count +1 | Red miss text, screen shudder |
+| **Remix Note ⚡ Hit** | Hit Remix Note with PERFECT timing | Triggers audio stem mutation, +1000 pts | Ethereal rune flash, canvas color inversion |
 | **Lane Audio Mute** | Miss note in Lane 0, 1, or 2 | Specific lane gain ramps to 0.04 over 0.12s | Sonic degradation (bass/mids/treble disappears) |
 | **Lane Audio Unmute** | Hit note in a muted lane | Lane gain ramps back to target over 0.25s | Full frequency audio restored instantly |
 | **Passive Auto-Recovery** | Muted lane remains idle for 3.5s | Auto-ramps lane gain back to 1.0 over 0.4s | Gradual audio crossover smoothing |

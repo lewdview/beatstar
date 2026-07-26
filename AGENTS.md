@@ -1,4 +1,4 @@
-# Agent Development Guidelines & Rules
+# Agent Development Guidelines & Rules — PIM : th3v4ult - poetry in motion
 
 ## CRITICAL WORKFLOW DIRECTIVE: BEATSTAR-VAULT IS PRIMARY
 
