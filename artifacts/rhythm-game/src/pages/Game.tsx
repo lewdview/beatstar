@@ -1836,7 +1836,7 @@ export default function Game() {
       );
       ctx.fill();
 
-      // ── Inner radial glow (Beatstar style) ──
+      // ── Inner radial glow (PIM style) ──
       if (pressed || !silenced) {
         ctx.save();
         const lcR2 = parseInt(lc.slice(1, 3), 16);
@@ -2810,7 +2810,7 @@ export default function Game() {
       if (swipeDir) {
         // For keyboard swipes, we apply it to the currently pressed lane
         // or all lanes if no lane key is held? 
-        // Beatstar usually has swipes on specific lanes.
+        // PIM rhythm engine usually has swipes on specific lanes.
         // We'll look for a swipe note in any lane at this time.
         const t = getT();
         const cand = notesRef.current.find(n =>

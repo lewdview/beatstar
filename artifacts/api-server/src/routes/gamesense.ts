@@ -104,8 +104,8 @@ router.post("/register", async (req: Request, res: Response) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        game: "BEATSTAR",
-        game_display_name: "BEATSTAR",
+        game: "PIM_VAULT",
+        game_display_name: "PIM VAULT",
         developer: "th3scr1b3",
       }),
     });
@@ -122,7 +122,7 @@ router.post("/register", async (req: Request, res: Response) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        game: "BEATSTAR",
+        game: "PIM_VAULT",
         event: "HIT_EVENT",
         min_value: 0,
         max_value: 100,
@@ -157,7 +157,7 @@ router.post("/register", async (req: Request, res: Response) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        game: "BEATSTAR",
+        game: "PIM_VAULT",
         event: "MISS_EVENT",
         min_value: 0,
         max_value: 100,
@@ -192,7 +192,7 @@ router.post("/register", async (req: Request, res: Response) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        game: "BEATSTAR",
+        game: "PIM_VAULT",
         event: "COMBO",
         min_value: 0,
         max_value: 100,
@@ -213,7 +213,7 @@ router.post("/register", async (req: Request, res: Response) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        game: "BEATSTAR",
+        game: "PIM_VAULT",
         event: "HEALTH",
         min_value: 0,
         max_value: 3, // Miss limit is 3
@@ -240,7 +240,7 @@ router.post("/register", async (req: Request, res: Response) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        game: "BEATSTAR",
+        game: "PIM_VAULT",
         event: "POWERUP",
         min_value: 0,
         max_value: 3, // 0: Ambient, 1: Fever, 2: Surge, 3: Signal Lock
@@ -268,7 +268,7 @@ router.post("/register", async (req: Request, res: Response) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        game: "BEATSTAR",
+        game: "PIM_VAULT",
         event: "MODIFIER",
         min_value: 0,
         max_value: 3, // 0: Classic, 1: Vocal Isolation, 2: Bass Realm, 3: Corrupted Signal
@@ -316,7 +316,7 @@ router.post("/event", async (req: Request, res: Response) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        game: "BEATSTAR",
+        game: "PIM_VAULT",
         event,
         data,
       }),
@@ -346,7 +346,7 @@ router.post("/heartbeat", async (req: Request, res: Response) => {
     const hbResponse = await fetch(`http://${address}/game_heartbeat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ game: "BEATSTAR" }),
+      body: JSON.stringify({ game: "PIM_VAULT" }),
     });
 
     if (!hbResponse.ok) {
