@@ -251,6 +251,7 @@ export class AudioManager {
    */
   playSfx(name: SfxName, volume = 0.6): void {
     if (!this.ctx || !this.masterGain) return;
+    if (typeof localStorage !== 'undefined' && localStorage.getItem("opt_sfxEnabled") === "false") return;
     let filename = SFX_FILES[name] ?? name;
     if (name === 'rewind') {
       filename = REWIND_TRACKS[nextRewindIdx % REWIND_TRACKS.length];
@@ -267,7 +268,10 @@ export class AudioManager {
     const source = this.ctx.createBufferSource();
     source.buffer = buffer;
     const gain = this.ctx.createGain();
-    gain.gain.value = Math.max(0, Math.min(1, volume));
+
+    // Lower sound FX volume by 20% (80% baseline)
+    const sfxVolume = volume * 0.8;
+    gain.gain.value = Math.max(0, Math.min(1, sfxVolume));
     source.connect(gain);
     gain.connect(this.masterGain);
     source.start(0);
