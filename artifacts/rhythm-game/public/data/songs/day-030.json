@@ -1,0 +1,436 @@
+{
+  "id": "day-030",
+  "day": 30,
+  "date": "2026-01-30",
+  "title": "To Be A Man (Dax Open Verse Challenge)",
+  "artist": "TH3SCR1B3",
+  "bpm": 66,
+  "duration": 51,
+  "mood": "dark",
+  "valence": 0.47410514242767804,
+  "moodTags": [
+    "reflective",
+    "introspective",
+    "ballad"
+  ],
+  "description": "Exploring self-discovery and relationship dynamics.",
+  "audioUrl": "https://pznmptudgicrmljjafex.supabase.co/storage/v1/object/public/releaseready/audio/january/to%20be%20a%20man.mp3",
+  "coverArt": "https://pznmptudgicrmljjafex.supabase.co/storage/v1/object/public/releaseready/covers/january/30%20-%20To%20Be%20a%20Man.jpg",
+  "notes": [
+    {
+      "id": 0,
+      "time": 1.136,
+      "lane": 0,
+      "type": "tap",
+      "stage": 1
+    },
+    {
+      "id": 1,
+      "time": 2.5,
+      "lane": 0,
+      "type": "tap",
+      "stage": 1
+    },
+    {
+      "id": 2,
+      "time": 4.318,
+      "lane": 0,
+      "type": "tap",
+      "stage": 1
+    },
+    {
+      "id": 3,
+      "time": 6.136,
+      "lane": 1,
+      "type": "tap",
+      "stage": 1
+    },
+    {
+      "id": 4,
+      "time": 7.273,
+      "lane": 1,
+      "type": "tap",
+      "stage": 1
+    },
+    {
+      "id": 5,
+      "time": 11.364,
+      "lane": 1,
+      "type": "tap",
+      "stage": 2
+    },
+    {
+      "id": 6,
+      "time": 14.773,
+      "lane": 0,
+      "type": "tap",
+      "stage": 2
+    },
+    {
+      "id": 7,
+      "time": 15.909,
+      "lane": 0,
+      "type": "tap",
+      "stage": 2
+    },
+    {
+      "id": 8,
+      "time": 16.364,
+      "lane": 0,
+      "type": "tap",
+      "stage": 2
+    },
+    {
+      "id": 9,
+      "time": 17.045,
+      "lane": 0,
+      "type": "tap",
+      "stage": 2
+    },
+    {
+      "id": 10,
+      "time": 17.5,
+      "lane": 1,
+      "type": "tap",
+      "stage": 2
+    },
+    {
+      "id": 11,
+      "time": 24.773,
+      "lane": 1,
+      "type": "tap",
+      "stage": 3
+    },
+    {
+      "id": 12,
+      "time": 25.227,
+      "lane": 1,
+      "type": "tap",
+      "stage": 3
+    },
+    {
+      "id": 13,
+      "time": 25.682,
+      "lane": 0,
+      "type": "tap",
+      "stage": 3
+    },
+    {
+      "id": 14,
+      "time": 26.136,
+      "lane": 2,
+      "type": "tap",
+      "swipeDirection": "left",
+      "stage": 3
+    },
+    {
+      "id": 15,
+      "time": 26.591,
+      "lane": 0,
+      "type": "tap",
+      "stage": 3
+    },
+    {
+      "id": 16,
+      "time": 27.045,
+      "lane": 0,
+      "type": "tap",
+      "stage": 3
+    },
+    {
+      "id": 17,
+      "time": 27.5,
+      "lane": 1,
+      "type": "tap",
+      "stage": 3
+    },
+    {
+      "id": 18,
+      "time": 27.727,
+      "lane": 1,
+      "type": "tap",
+      "stage": 3
+    },
+    {
+      "id": 19,
+      "time": 28.182,
+      "lane": 1,
+      "type": "swipe",
+      "stage": 3,
+      "swipeDirection": "up"
+    },
+    {
+      "id": 20,
+      "time": 28.409,
+      "lane": 0,
+      "type": "tap",
+      "stage": 3
+    },
+    {
+      "id": 21,
+      "time": 28.636,
+      "lane": 2,
+      "type": "tap",
+      "stage": 3
+    },
+    {
+      "id": 22,
+      "time": 29.091,
+      "lane": 0,
+      "type": "tap",
+      "holdDuration": 0.682,
+      "swipeDirection": "up",
+      "stage": 3
+    },
+    {
+      "id": 23,
+      "time": 30,
+      "lane": 1,
+      "type": "swipe",
+      "swipeDirection": "left",
+      "stage": 3
+    },
+    {
+      "id": 24,
+      "time": 30.227,
+      "lane": 1,
+      "type": "swipe",
+      "swipeDirection": "right",
+      "stage": 3
+    },
+    {
+      "id": 25,
+      "time": 30.455,
+      "lane": 0,
+      "type": "tap",
+      "stage": 3
+    },
+    {
+      "id": 26,
+      "time": 39.091,
+      "lane": 2,
+      "type": "lift",
+      "swipeDirection": "up",
+      "stage": 4
+    },
+    {
+      "id": 27,
+      "time": 39.773,
+      "lane": 2,
+      "type": "lift",
+      "targetLane": 0,
+      "swipeDirection": "left",
+      "stage": 4
+    },
+    {
+      "id": 28,
+      "time": 40.227,
+      "lane": 0,
+      "type": "tap",
+      "stage": 4
+    },
+    {
+      "id": 29,
+      "time": 40.455,
+      "lane": 0,
+      "type": "lift",
+      "targetLane": 2,
+      "swipeDirection": "right",
+      "stage": 4
+    },
+    {
+      "id": 30,
+      "time": 40.682,
+      "lane": 2,
+      "type": "tap",
+      "stage": 4
+    },
+    {
+      "id": 31,
+      "time": 45.227,
+      "lane": 0,
+      "type": "swipe",
+      "swipeDirection": "down",
+      "stage": 5
+    },
+    {
+      "id": 32,
+      "time": 46.364,
+      "lane": 0,
+      "type": "lift",
+      "swipeDirection": "up",
+      "stage": 5
+    },
+    {
+      "id": 33,
+      "time": 47.045,
+      "lane": 0,
+      "type": "tap",
+      "stage": 5
+    },
+    {
+      "id": 34,
+      "time": 47.273,
+      "lane": 1,
+      "type": "swipe",
+      "stage": 5,
+      "swipeDirection": "down"
+    },
+    {
+      "id": 35,
+      "time": 47.955,
+      "lane": 0,
+      "type": "tap",
+      "stage": 5
+    },
+    {
+      "id": 36,
+      "time": 48.409,
+      "lane": 2,
+      "type": "tap",
+      "stage": 5
+    },
+    {
+      "id": 37,
+      "time": 48.864,
+      "lane": 1,
+      "type": "swipe",
+      "swipeDirection": "down",
+      "stage": 5
+    },
+    {
+      "id": 38,
+      "time": 49.091,
+      "lane": 1,
+      "type": "swipe",
+      "swipeDirection": "up",
+      "stage": 5
+    }
+  ],
+  "stages": [
+    {
+      "stage": 1,
+      "name": "Stage 1",
+      "difficulty": "EASY",
+      "startTime": 0,
+      "endTime": 7.6499999999999995,
+      "noteCount": 5
+    },
+    {
+      "stage": 2,
+      "name": "Stage 2",
+      "difficulty": "MEDIUM",
+      "startTime": 7.6499999999999995,
+      "endTime": 17.849999999999998,
+      "noteCount": 6
+    },
+    {
+      "stage": 3,
+      "name": "Stage 3",
+      "difficulty": "HARD",
+      "startTime": 17.849999999999998,
+      "endTime": 30.599999999999998,
+      "noteCount": 15
+    },
+    {
+      "stage": 4,
+      "name": "Stage 4",
+      "difficulty": "BRUTAL",
+      "startTime": 30.599999999999998,
+      "endTime": 40.800000000000004,
+      "noteCount": 5
+    },
+    {
+      "stage": 5,
+      "name": "FINAL STAGE",
+      "difficulty": "BRUTAL",
+      "startTime": 40.800000000000004,
+      "endTime": 51,
+      "noteCount": 8
+    }
+  ],
+  "key": "D major",
+  "genre": [
+    "Ballad",
+    "Ambient"
+  ],
+  "difficultyLevel": 5,
+  "lyrics": "It's not about how you feel, but what you provide inside that hole I've been up, later and later thinking about my role Not a biological, but still loving hole I know you never saw me as a start But something that tore your whole world apart Hear you say it's not what you feel divided With all of the fancy things that shine I feel good about the love I provided Respect and kindness given to you from the start True wealth kid, comes from your fucking heart I can't hide myself I don't expect you to understand I just hope I can explain What it's like to be a man",
+  "lyricsSegments": [
+    {
+      "end": 6.239999771118164,
+      "text": "It's not about how you feel, but what you provide inside that hole",
+      "start": 0
+    },
+    {
+      "end": 11.039999961853027,
+      "text": "I've been up, later and later thinking about my role",
+      "start": 6.579999923706055
+    },
+    {
+      "end": 14.199999809265137,
+      "text": "Not a biological, but still loving hole",
+      "start": 11.039999961853027
+    },
+    {
+      "end": 16.979999542236328,
+      "text": "I know you never saw me as a start",
+      "start": 14.199999809265137
+    },
+    {
+      "end": 21.239999771118164,
+      "text": "But something that tore your whole world apart",
+      "start": 16.979999542236328
+    },
+    {
+      "end": 24.219999313354492,
+      "text": "Hear you say it's not what you feel divided",
+      "start": 21.239999771118164
+    },
+    {
+      "end": 26.719999313354492,
+      "text": "With all of the fancy things that shine",
+      "start": 24.219999313354492
+    },
+    {
+      "end": 29.040000915527344,
+      "text": "I feel good about the love I provided",
+      "start": 26.719999313354492
+    },
+    {
+      "end": 32.540000915527344,
+      "text": "Respect and kindness given to you from the start",
+      "start": 29.040000915527344
+    },
+    {
+      "end": 36.18000030517578,
+      "text": "True wealth kid, comes from your fucking heart",
+      "start": 32.540000915527344
+    },
+    {
+      "end": 37.619998931884766,
+      "text": "I can't hide myself",
+      "start": 36.18000030517578
+    },
+    {
+      "end": 42.2400016784668,
+      "text": "I don't expect you to understand",
+      "start": 39.08000183105469
+    },
+    {
+      "end": 45.97999954223633,
+      "text": "I just hope I can explain",
+      "start": 42.70000076293945
+    },
+    {
+      "end": 49.439998626708984,
+      "text": "What it's like to be a man",
+      "start": 46.29999923706055
+    }
+  ],
+  "unlock": {
+    "card": "card-30",
+    "fragments": 10
+  },
+  "perfectRunMaxScore": 35000
+}

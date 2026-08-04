@@ -1,6 +1,6 @@
 import { useLocation } from "wouter";
 import { useState, useEffect, useMemo } from "react";
-import { loadCatalog, getHighScore, isSongTimeLocked } from "@/game/api";
+import { loadCatalog, getHighScore, isSongTimeLocked, isOffline } from "@/game/api";
 import type { GameSong } from "@/game/api";
 import { audioManager } from "@/game/audio";
 import { getActiveTheme } from "@/lib/options";
@@ -292,8 +292,13 @@ export default function SongSelect() {
           >
             ← BACK
           </button>
-          <div className="font-mono text-xs tracking-[0.2em] font-bold text-[#39FF14]">
-            {loading ? 'SYNCHRONIZING ARCHIVES...' : `${songs.length} DISPATCH SIGNALS`}
+          <div className="font-mono text-xs tracking-[0.2em] font-bold text-[#39FF14] flex items-center gap-3">
+            <span>{loading ? 'SYNCHRONIZING ARCHIVES...' : `${songs.length} DISPATCH SIGNALS`}</span>
+            {isOffline() && (
+              <span className="bg-amber-500/20 text-amber-400 border border-amber-500/40 px-2 py-0.5 text-[9px] tracking-widest uppercase">
+                OFFLINE ARCHIVE
+              </span>
+            )}
           </div>
           <div className="font-mono text-xs text-white/30 tracking-widest">
             PIM // ARCHIVES

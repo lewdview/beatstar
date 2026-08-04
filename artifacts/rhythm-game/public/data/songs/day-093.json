@@ -1,0 +1,973 @@
+{
+  "id": "day-093",
+  "day": 93,
+  "date": "2026-04-03",
+  "title": "Love Carries",
+  "artist": "TH3SCR1B3",
+  "bpm": 92,
+  "duration": 57,
+  "mood": "dark",
+  "valence": 0.22701076600167056,
+  "moodTags": [
+    "melancholic",
+    "dark",
+    "pop"
+  ],
+  "description": "Exploring loss and fatherhood.",
+  "audioUrl": "https://pznmptudgicrmljjafex.supabase.co/storage/v1/object/public/releaseready/audio/april/love_carries.wav",
+  "coverArt": "https://pznmptudgicrmljjafex.supabase.co/storage/v1/object/public/releaseready/covers/april/03%20-%20love_carries.jpg",
+  "notes": [
+    {
+      "id": 0,
+      "time": 2.935,
+      "lane": 0,
+      "type": "tap",
+      "stage": 1
+    },
+    {
+      "id": 1,
+      "time": 4.239,
+      "lane": 2,
+      "type": "tap",
+      "stage": 1
+    },
+    {
+      "id": 2,
+      "time": 5.543,
+      "lane": 2,
+      "type": "tap",
+      "stage": 1
+    },
+    {
+      "id": 3,
+      "time": 6.196,
+      "lane": 2,
+      "type": "tap",
+      "stage": 1
+    },
+    {
+      "id": 4,
+      "time": 6.848,
+      "lane": 2,
+      "type": "tap",
+      "stage": 1
+    },
+    {
+      "id": 5,
+      "time": 7.5,
+      "lane": 1,
+      "type": "tap",
+      "stage": 1
+    },
+    {
+      "id": 6,
+      "time": 8.152,
+      "lane": 2,
+      "type": "tap",
+      "stage": 1
+    },
+    {
+      "id": 7,
+      "time": 11.576,
+      "lane": 1,
+      "type": "tap",
+      "stage": 2
+    },
+    {
+      "id": 8,
+      "time": 12.228,
+      "lane": 1,
+      "type": "tap",
+      "stage": 2
+    },
+    {
+      "id": 9,
+      "time": 15.815,
+      "lane": 2,
+      "type": "tap",
+      "stage": 2
+    },
+    {
+      "id": 10,
+      "time": 16.467,
+      "lane": 0,
+      "type": "tap",
+      "stage": 2
+    },
+    {
+      "id": 11,
+      "time": 17.283,
+      "lane": 1,
+      "type": "tap",
+      "stage": 2
+    },
+    {
+      "id": 12,
+      "time": 17.609,
+      "lane": 0,
+      "type": "tap",
+      "stage": 2
+    },
+    {
+      "id": 13,
+      "time": 17.935,
+      "lane": 2,
+      "type": "tap",
+      "stage": 2
+    },
+    {
+      "id": 14,
+      "time": 18.261,
+      "lane": 1,
+      "type": "tap",
+      "stage": 2
+    },
+    {
+      "id": 15,
+      "time": 18.587,
+      "lane": 0,
+      "type": "tap",
+      "stage": 2
+    },
+    {
+      "id": 16,
+      "time": 18.913,
+      "lane": 2,
+      "type": "tap",
+      "stage": 2
+    },
+    {
+      "id": 17,
+      "time": 19.239,
+      "lane": 2,
+      "type": "tap",
+      "stage": 2
+    },
+    {
+      "id": 18,
+      "time": 19.728,
+      "lane": 0,
+      "type": "tap",
+      "stage": 2
+    },
+    {
+      "id": 19,
+      "time": 23.478,
+      "lane": 0,
+      "type": "swipe",
+      "stage": 3,
+      "swipeDirection": "down"
+    },
+    {
+      "id": 20,
+      "time": 23.804,
+      "lane": 1,
+      "type": "tap",
+      "stage": 3
+    },
+    {
+      "id": 21,
+      "time": 27.228,
+      "lane": 1,
+      "type": "tap",
+      "stage": 3
+    },
+    {
+      "id": 22,
+      "time": 27.554,
+      "lane": 2,
+      "type": "swipe",
+      "swipeDirection": "down",
+      "stage": 3
+    },
+    {
+      "id": 23,
+      "time": 27.88,
+      "lane": 0,
+      "type": "swipe",
+      "swipeDirection": "up",
+      "stage": 3
+    },
+    {
+      "id": 24,
+      "time": 28.207,
+      "lane": 2,
+      "type": "swipe",
+      "swipeDirection": "down",
+      "stage": 3
+    },
+    {
+      "id": 25,
+      "time": 28.533,
+      "lane": 0,
+      "type": "swipe",
+      "swipeDirection": "up",
+      "stage": 3
+    },
+    {
+      "id": 26,
+      "time": 28.859,
+      "lane": 2,
+      "type": "swipe",
+      "swipeDirection": "down",
+      "stage": 3
+    },
+    {
+      "id": 27,
+      "time": 29.185,
+      "lane": 0,
+      "type": "swipe",
+      "swipeDirection": "up",
+      "stage": 3
+    },
+    {
+      "id": 28,
+      "time": 29.511,
+      "lane": 1,
+      "type": "tap",
+      "stage": 3
+    },
+    {
+      "id": 29,
+      "time": 29.837,
+      "lane": 1,
+      "type": "tap",
+      "stage": 3
+    },
+    {
+      "id": 30,
+      "time": 30.163,
+      "lane": 1,
+      "type": "tap",
+      "stage": 3
+    },
+    {
+      "id": 31,
+      "time": 30.489,
+      "lane": 2,
+      "type": "swipe",
+      "swipeDirection": "down",
+      "stage": 3
+    },
+    {
+      "id": 32,
+      "time": 30.652,
+      "lane": 1,
+      "type": "tap",
+      "stage": 3
+    },
+    {
+      "id": 33,
+      "time": 30.978,
+      "lane": 0,
+      "type": "swipe",
+      "swipeDirection": "up",
+      "stage": 3
+    },
+    {
+      "id": 34,
+      "time": 31.141,
+      "lane": 1,
+      "type": "tap",
+      "stage": 3
+    },
+    {
+      "id": 35,
+      "time": 31.304,
+      "lane": 2,
+      "type": "swipe",
+      "swipeDirection": "down",
+      "stage": 3
+    },
+    {
+      "id": 36,
+      "time": 31.467,
+      "lane": 1,
+      "type": "tap",
+      "stage": 3
+    },
+    {
+      "id": 37,
+      "time": 31.63,
+      "lane": 0,
+      "type": "swipe",
+      "swipeDirection": "up",
+      "stage": 3
+    },
+    {
+      "id": 38,
+      "time": 31.793,
+      "lane": 1,
+      "type": "tap",
+      "stage": 3
+    },
+    {
+      "id": 39,
+      "time": 32.12,
+      "lane": 2,
+      "type": "swipe",
+      "swipeDirection": "down",
+      "stage": 3
+    },
+    {
+      "id": 40,
+      "time": 32.283,
+      "lane": 1,
+      "type": "tap",
+      "stage": 3
+    },
+    {
+      "id": 41,
+      "time": 32.609,
+      "lane": 0,
+      "type": "swipe",
+      "swipeDirection": "up",
+      "stage": 3
+    },
+    {
+      "id": 42,
+      "time": 32.935,
+      "lane": 1,
+      "type": "tap",
+      "stage": 3
+    },
+    {
+      "id": 43,
+      "time": 33.098,
+      "lane": 2,
+      "type": "swipe",
+      "swipeDirection": "down",
+      "stage": 3
+    },
+    {
+      "id": 44,
+      "time": 33.261,
+      "lane": 1,
+      "type": "swipe",
+      "stage": 3,
+      "swipeDirection": "right"
+    },
+    {
+      "id": 45,
+      "time": 33.587,
+      "lane": 0,
+      "type": "swipe",
+      "swipeDirection": "up",
+      "stage": 3
+    },
+    {
+      "id": 46,
+      "time": 33.75,
+      "lane": 1,
+      "type": "tap",
+      "stage": 3
+    },
+    {
+      "id": 47,
+      "time": 33.913,
+      "lane": 2,
+      "type": "swipe",
+      "swipeDirection": "down",
+      "stage": 3
+    },
+    {
+      "id": 48,
+      "time": 36.848,
+      "lane": 1,
+      "type": "tap",
+      "stage": 4
+    },
+    {
+      "id": 49,
+      "time": 37.337,
+      "lane": 2,
+      "type": "swipe",
+      "swipeDirection": "down",
+      "stage": 4
+    },
+    {
+      "id": 50,
+      "time": 37.5,
+      "lane": 1,
+      "type": "tap",
+      "stage": 4
+    },
+    {
+      "id": 51,
+      "time": 37.826,
+      "lane": 0,
+      "type": "swipe",
+      "swipeDirection": "up",
+      "stage": 4
+    },
+    {
+      "id": 52,
+      "time": 37.989,
+      "lane": 1,
+      "type": "tap",
+      "stage": 4
+    },
+    {
+      "id": 53,
+      "time": 38.152,
+      "lane": 2,
+      "type": "swipe",
+      "swipeDirection": "down",
+      "stage": 4
+    },
+    {
+      "id": 54,
+      "time": 41.413,
+      "lane": 1,
+      "type": "tap",
+      "stage": 4
+    },
+    {
+      "id": 55,
+      "time": 41.739,
+      "lane": 1,
+      "type": "remix",
+      "holdDuration": 0.652,
+      "targetLane": 0,
+      "swipeDirection": "left",
+      "stage": 4,
+      "remixEffect": "vocals_isolate"
+    },
+    {
+      "id": 56,
+      "time": 41.902,
+      "lane": 0,
+      "type": "hold",
+      "holdDuration": 0.652,
+      "targetLane": 1,
+      "swipeDirection": "right",
+      "stage": 4
+    },
+    {
+      "id": 57,
+      "time": 42.065,
+      "lane": 2,
+      "type": "tap",
+      "stage": 4
+    },
+    {
+      "id": 58,
+      "time": 42.228,
+      "lane": 1,
+      "type": "tap",
+      "stage": 4
+    },
+    {
+      "id": 59,
+      "time": 42.391,
+      "lane": 1,
+      "type": "hold",
+      "holdDuration": 0.652,
+      "targetLane": 0,
+      "swipeDirection": "left",
+      "stage": 4
+    },
+    {
+      "id": 60,
+      "time": 42.554,
+      "lane": 0,
+      "type": "hold",
+      "holdDuration": 0.652,
+      "targetLane": 1,
+      "swipeDirection": "right",
+      "stage": 4
+    },
+    {
+      "id": 61,
+      "time": 42.88,
+      "lane": 2,
+      "type": "tap",
+      "stage": 4
+    },
+    {
+      "id": 62,
+      "time": 43.043,
+      "lane": 1,
+      "type": "swipe",
+      "stage": 4,
+      "swipeDirection": "left"
+    },
+    {
+      "id": 63,
+      "time": 43.207,
+      "lane": 1,
+      "type": "hold",
+      "holdDuration": 0.652,
+      "targetLane": 0,
+      "swipeDirection": "left",
+      "stage": 4
+    },
+    {
+      "id": 64,
+      "time": 43.37,
+      "lane": 0,
+      "type": "hold",
+      "holdDuration": 0.652,
+      "targetLane": 1,
+      "swipeDirection": "right",
+      "stage": 4
+    },
+    {
+      "id": 65,
+      "time": 43.696,
+      "lane": 2,
+      "type": "swipe",
+      "stage": 4,
+      "swipeDirection": "left"
+    },
+    {
+      "id": 66,
+      "time": 43.859,
+      "lane": 1,
+      "type": "tap",
+      "stage": 4
+    },
+    {
+      "id": 67,
+      "time": 44.022,
+      "lane": 1,
+      "type": "hold",
+      "holdDuration": 0.652,
+      "targetLane": 0,
+      "swipeDirection": "left",
+      "stage": 4
+    },
+    {
+      "id": 68,
+      "time": 44.348,
+      "lane": 0,
+      "type": "hold",
+      "holdDuration": 0.652,
+      "targetLane": 1,
+      "swipeDirection": "right",
+      "stage": 4
+    },
+    {
+      "id": 69,
+      "time": 44.511,
+      "lane": 2,
+      "type": "tap",
+      "stage": 4
+    },
+    {
+      "id": 70,
+      "time": 44.674,
+      "lane": 1,
+      "type": "tap",
+      "stage": 4
+    },
+    {
+      "id": 71,
+      "time": 44.837,
+      "lane": 1,
+      "type": "hold",
+      "holdDuration": 0.652,
+      "targetLane": 0,
+      "swipeDirection": "left",
+      "stage": 4
+    },
+    {
+      "id": 72,
+      "time": 45,
+      "lane": 0,
+      "type": "hold",
+      "holdDuration": 0.652,
+      "targetLane": 1,
+      "swipeDirection": "right",
+      "stage": 4
+    },
+    {
+      "id": 73,
+      "time": 45.163,
+      "lane": 2,
+      "type": "tap",
+      "stage": 4
+    },
+    {
+      "id": 74,
+      "time": 45.326,
+      "lane": 1,
+      "type": "tap",
+      "stage": 4
+    },
+    {
+      "id": 75,
+      "time": 45.489,
+      "lane": 1,
+      "type": "hold",
+      "holdDuration": 0.652,
+      "targetLane": 0,
+      "swipeDirection": "left",
+      "stage": 4
+    },
+    {
+      "id": 76,
+      "time": 49.891,
+      "lane": 1,
+      "type": "tap",
+      "stage": 5
+    },
+    {
+      "id": 77,
+      "time": 50.054,
+      "lane": 1,
+      "type": "hold",
+      "holdDuration": 0.652,
+      "targetLane": 0,
+      "swipeDirection": "left",
+      "stage": 5
+    },
+    {
+      "id": 78,
+      "time": 50.38,
+      "lane": 0,
+      "type": "hold",
+      "holdDuration": 0.652,
+      "targetLane": 1,
+      "swipeDirection": "right",
+      "stage": 5
+    },
+    {
+      "id": 79,
+      "time": 50.543,
+      "lane": 2,
+      "type": "tap",
+      "stage": 5
+    },
+    {
+      "id": 80,
+      "time": 50.707,
+      "lane": 1,
+      "type": "tap",
+      "stage": 5
+    },
+    {
+      "id": 81,
+      "time": 51.196,
+      "lane": 1,
+      "type": "hold",
+      "holdDuration": 0.652,
+      "targetLane": 0,
+      "swipeDirection": "left",
+      "stage": 5
+    },
+    {
+      "id": 82,
+      "time": 51.522,
+      "lane": 0,
+      "type": "hold",
+      "holdDuration": 0.652,
+      "targetLane": 1,
+      "swipeDirection": "right",
+      "stage": 5
+    },
+    {
+      "id": 83,
+      "time": 51.685,
+      "lane": 2,
+      "type": "tap",
+      "stage": 5
+    },
+    {
+      "id": 84,
+      "time": 51.848,
+      "lane": 1,
+      "type": "tap",
+      "stage": 5
+    },
+    {
+      "id": 85,
+      "time": 52.011,
+      "lane": 1,
+      "type": "hold",
+      "holdDuration": 0.652,
+      "targetLane": 0,
+      "swipeDirection": "left",
+      "stage": 5
+    },
+    {
+      "id": 86,
+      "time": 52.174,
+      "lane": 0,
+      "type": "hold",
+      "holdDuration": 0.652,
+      "targetLane": 1,
+      "swipeDirection": "right",
+      "stage": 5
+    },
+    {
+      "id": 87,
+      "time": 52.337,
+      "lane": 2,
+      "type": "tap",
+      "stage": 5
+    },
+    {
+      "id": 88,
+      "time": 52.5,
+      "lane": 1,
+      "type": "tap",
+      "stage": 5
+    },
+    {
+      "id": 89,
+      "time": 52.826,
+      "lane": 1,
+      "type": "hold",
+      "holdDuration": 0.652,
+      "targetLane": 0,
+      "swipeDirection": "left",
+      "stage": 5
+    },
+    {
+      "id": 90,
+      "time": 52.989,
+      "lane": 0,
+      "type": "hold",
+      "holdDuration": 0.652,
+      "targetLane": 1,
+      "swipeDirection": "right",
+      "stage": 5
+    },
+    {
+      "id": 91,
+      "time": 53.315,
+      "lane": 2,
+      "type": "tap",
+      "stage": 5
+    },
+    {
+      "id": 92,
+      "time": 53.478,
+      "lane": 1,
+      "type": "swipe",
+      "stage": 5,
+      "swipeDirection": "up"
+    },
+    {
+      "id": 93,
+      "time": 53.967,
+      "lane": 1,
+      "type": "hold",
+      "holdDuration": 0.652,
+      "targetLane": 0,
+      "swipeDirection": "left",
+      "stage": 5
+    },
+    {
+      "id": 94,
+      "time": 54.13,
+      "lane": 0,
+      "type": "hold",
+      "holdDuration": 0.652,
+      "targetLane": 1,
+      "swipeDirection": "right",
+      "stage": 5
+    },
+    {
+      "id": 95,
+      "time": 54.293,
+      "lane": 2,
+      "type": "tap",
+      "stage": 5
+    },
+    {
+      "id": 96,
+      "time": 54.62,
+      "lane": 1,
+      "type": "tap",
+      "stage": 5
+    },
+    {
+      "id": 97,
+      "time": 55.109,
+      "lane": 1,
+      "type": "hold",
+      "holdDuration": 0.652,
+      "targetLane": 0,
+      "swipeDirection": "left",
+      "stage": 5
+    },
+    {
+      "id": 98,
+      "time": 55.598,
+      "lane": 0,
+      "type": "hold",
+      "holdDuration": 0.652,
+      "targetLane": 1,
+      "swipeDirection": "right",
+      "stage": 5
+    }
+  ],
+  "stages": [
+    {
+      "stage": 1,
+      "name": "Stage 1",
+      "difficulty": "EASY",
+      "startTime": 0,
+      "endTime": 8.549999999999999,
+      "noteCount": 7
+    },
+    {
+      "stage": 2,
+      "name": "Stage 2",
+      "difficulty": "MEDIUM",
+      "startTime": 8.549999999999999,
+      "endTime": 19.95,
+      "noteCount": 12
+    },
+    {
+      "stage": 3,
+      "name": "Stage 3",
+      "difficulty": "HARD",
+      "startTime": 19.95,
+      "endTime": 34.199999999999996,
+      "noteCount": 29
+    },
+    {
+      "stage": 4,
+      "name": "Stage 4",
+      "difficulty": "BRUTAL",
+      "startTime": 34.199999999999996,
+      "endTime": 45.6,
+      "noteCount": 28
+    },
+    {
+      "stage": 5,
+      "name": "FINAL STAGE",
+      "difficulty": "BRUTAL",
+      "startTime": 45.6,
+      "endTime": 57,
+      "noteCount": 23
+    }
+  ],
+  "key": "C minor",
+  "genre": [
+    "Pop",
+    "Indie"
+  ],
+  "difficultyLevel": 7,
+  "lyrics": "I woke up with a hole in my heart beat slurred, black paper on the table like a bladed whip said the blood ain't a match sometimes I'll sever but the love in my chest don't fade not ever I fed him, held him, called him, I see planted dreams in the soil watched him grow like weeds every laugh, every bruise, every bedtime prank got ripped from my soul like it was never ever ever there how you measure what a father is? nothing he ain't stranded, scowl at his hands, it's a yes you can it's the nights with the fever, the fights in the streets the shoes on his feet when the rent ain't cheap but the test don't care about the years you gave or the tears you saved, or the life you paid it's basically cold too with that sterile tone that leaves you standing in a world you don't own yeah, every hobby echoes like a name in the dark I trade every breath just to give him back my spark but the truth hit harder than the shovel in the dirt lost my son to the ink on a lab report so I write like a eulogy disguised in a verse bleed it out cause the silence is worse ain't no closure in the kind of death you can't bury only empty space where my love should still carry",
+  "lyricsSegments": [
+    {
+      "end": 7.260000228881836,
+      "text": "I woke up with a hole in my heart beat slurred, black paper on the table like a bladed whip",
+      "start": 2.9200000762939453
+    },
+    {
+      "end": 9.039999961853027,
+      "text": "said the blood ain't a match sometimes I'll sever",
+      "start": 7.260000228881836
+    },
+    {
+      "end": 13.600000381469727,
+      "text": "but the love in my chest don't fade not ever I fed him, held him, called him, I see planted",
+      "start": 9.039999961853027
+    },
+    {
+      "end": 16.059999465942383,
+      "text": "dreams in the soil watched him grow like weeds",
+      "start": 13.600000381469727
+    },
+    {
+      "end": 20.8799991607666,
+      "text": "every laugh, every bruise, every bedtime prank got ripped from my soul like it was",
+      "start": 16.440000534057617
+    },
+    {
+      "end": 22.540000915527344,
+      "text": "never ever ever there",
+      "start": 20.8799991607666
+    },
+    {
+      "end": 24.8799991607666,
+      "text": "how you measure what a father is?",
+      "start": 23.479999542236328
+    },
+    {
+      "end": 27.479999542236328,
+      "text": "nothing he ain't stranded, scowl at his hands, it's a yes you can",
+      "start": 24.959999084472656
+    },
+    {
+      "end": 29.18000030517578,
+      "text": "it's the nights with the fever, the fights in the streets",
+      "start": 27.479999542236328
+    },
+    {
+      "end": 30.899999618530273,
+      "text": "the shoes on his feet when the rent ain't cheap",
+      "start": 29.18000030517578
+    },
+    {
+      "end": 32.619998931884766,
+      "text": "but the test don't care about the years you gave",
+      "start": 30.899999618530273
+    },
+    {
+      "end": 34.380001068115234,
+      "text": "or the tears you saved, or the life you paid",
+      "start": 32.619998931884766
+    },
+    {
+      "end": 37.47999954223633,
+      "text": "it's basically cold too with that sterile tone that leaves you standing",
+      "start": 34.380001068115234
+    },
+    {
+      "end": 39.79999923706055,
+      "text": "in a world you don't own",
+      "start": 37.47999954223633
+    },
+    {
+      "end": 42.599998474121094,
+      "text": "yeah, every hobby echoes like a name in the dark",
+      "start": 40.36000061035156
+    },
+    {
+      "end": 44.459999084472656,
+      "text": "I trade every breath just to give him back my spark",
+      "start": 42.599998474121094
+    },
+    {
+      "end": 46.119998931884766,
+      "text": "but the truth hit harder than the shovel in the dirt",
+      "start": 44.459999084472656
+    },
+    {
+      "end": 47.7599983215332,
+      "text": "lost my son to the ink on a lab report",
+      "start": 46.119998931884766
+    },
+    {
+      "end": 49.47999954223633,
+      "text": "so I write like a eulogy disguised in a verse",
+      "start": 47.7599983215332
+    },
+    {
+      "end": 51.060001373291016,
+      "text": "bleed it out cause the silence is worse",
+      "start": 49.47999954223633
+    },
+    {
+      "end": 53.02000045776367,
+      "text": "ain't no closure in the kind of death you can't bury",
+      "start": 51.119998931884766
+    },
+    {
+      "end": 55.91999816894531,
+      "text": "only empty space where my love should still carry",
+      "start": 53.02000045776367
+    }
+  ],
+  "unlock": {
+    "card": "card-93",
+    "fragments": 10
+  },
+  "perfectRunMaxScore": 634000
+}

@@ -245,7 +245,7 @@ export default function Options() {
     setOpts(o => ({ ...o, laneColors: newColors }));
   }
 
-  function toggle(k: "missSystem" | "hudMisses" | "comboDisplay" | "judgmentText" | "useLocalFiles" | "bgMusic" | "gameSenseEnabled") {
+  function toggle(k: "missSystem" | "hudMisses" | "comboDisplay" | "judgmentText" | "useLocalFiles" | "forceOfflineMode" | "syntheticAudioFallback" | "bgMusic" | "gameSenseEnabled") {
     if (k === "missSystem" && localStorage.getItem("opt_unlocked_noclip") !== "true") {
       audioManager.playSfx('locked_out', 0.15);
       return;
@@ -254,8 +254,8 @@ export default function Options() {
     localStorage.setItem(`opt_${k}`, String(v));
     setOpts(o => ({ ...o, [k]: v }));
     
-    // Clear catalog cache if we toggled the local files switch
-    if (k === "useLocalFiles") {
+    // Clear catalog cache if we toggled the local files switch or forced offline mode
+    if (k === "useLocalFiles" || k === "forceOfflineMode") {
       clearCatalogCache();
     }
     if (k === "bgMusic") {
@@ -730,11 +730,13 @@ export default function Options() {
           </div>
         </section>
 
-        {/* ── DEVELOPMENT ───────────────────────────────────────── */}
+        {/* ── DEVELOPMENT & OFFLINE ─────────────────────────── */}
         <section className="flex flex-col gap-3">
-          <SectionLabel label="DEVELOPMENT" sub="Debug & local overrides" isAvant={isAvant} />
+          <SectionLabel label="DEVELOPMENT & OFFLINE" sub="Offline cache & synthetic audio" isAvant={isAvant} />
           <div style={{ border: isAvant ? "1px solid rgba(57,255,20,0.2)" : "2px solid rgba(255,255,255,0.08)", background: isAvant ? "rgba(5,5,5,0.4)" : "transparent" }}>
             {([
+              { key: "forceOfflineMode", label: "FORCE OFFLINE MODE", sub: "Load local static /data/song_catalog.json without cloud" },
+              { key: "syntheticAudioFallback", label: "SYNTHETIC AUDIO FALLBACK", sub: "Generate procedural Web Audio when audio is offline" },
               { key: "useLocalFiles", label: "LOCAL RELEASE DATA", sub: "Use local /365-releases when Supabase is down" },
             ] as const).map(({ key, label, sub }, i, arr) => {
               const on = opts[key];

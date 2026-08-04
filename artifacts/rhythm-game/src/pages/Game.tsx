@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
 import { useParams, useLocation } from "wouter";
-import { getSongById, saveHighScore, isSongTimeLocked, getModifierForSong } from "@/game/api";
+import { getSongById, saveHighScore, isSongTimeLocked, getModifierForSong, FALLBACK_SYNTH_AUDIO } from "@/game/api";
+import { generateSyntheticAudioBuffer, audioBufferToWavDataUrl } from "@/game/synthAudio";
 import { saveMedal, saveScoreHistory } from "@/game/progress";
 import type { GameSong } from "@/game/api";
 import type { Note, JudgmentDisplay, GameState } from "@/game/types";
@@ -3976,6 +3977,25 @@ export default function Game() {
         loadTimeoutRef.current = null;
       }
       if (cancelled) return;
+
+      // ── Synthetic Audio Fallback ──────────────────────────────────────────
+      if (!audio.src || audio.error || audio.readyState < 2 || audio.src === FALLBACK_SYNTH_AUDIO) {
+        console.warn('[PIM Engine] Audio stream unavailable or errored. Generating procedural synthetic audio track.');
+        try {
+          let actx = audioManager.getContext();
+          if (!actx) {
+            await audioManager.init();
+            actx = audioManager.getContext();
+          }
+          if (actx) {
+            const synthBuffer = generateSyntheticAudioBuffer(actx, song.bpm || 120, song.duration || 180);
+            audio.src = audioBufferToWavDataUrl(synthBuffer);
+            audio.load();
+          }
+        } catch (synthErr) {
+          console.error('[PIM Engine] Synthetic audio generation error:', synthErr);
+        }
+      }
 
       // ── Audio unlock (mobile autoplay policy) ─────────────────────────────
       // Browsers expire the "user gesture" freshness within ~1s. By the time

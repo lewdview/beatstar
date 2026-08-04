@@ -49,34 +49,46 @@ export function clearCatalogCache() {
   loadingPromise = null;
 }
 
+export const FALLBACK_SYNTH_AUDIO = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+
+export function isOffline(): boolean {
+  if (typeof window === 'undefined') return false;
+  const forceOffline = localStorage.getItem('opt_forceOfflineMode') === 'true' || localStorage.getItem('opt_offlineMode') === 'true';
+  return forceOffline || !navigator.onLine;
+}
+
 export async function loadCatalog(): Promise<GameSong[]> {
   if (catalogCache) return catalogCache;
   if (loadingPromise) return loadingPromise;
 
   const promise = (async (): Promise<GameSong[]> => {
     try {
-      // Development switch for local files
+      const forceOffline = isOffline();
       const useLocal = (typeof localStorage !== 'undefined' && (localStorage.getItem('opt_useLocalFiles') === 'true' || localStorage.getItem('useLocalFiles') === 'true')) || 
                        (import.meta.env && import.meta.env.VITE_USE_LOCAL_FILES === 'true');
 
-      // 1. Try Supabase first if configured and not forcing local
-      if (supabase && !useLocal) {
-        const { data, error } = await supabase
-          .from('releases')
-          .select('*')
-          .eq('status', 'released')
-          .order('day', { ascending: true });
+      // 1. Try Supabase first if online and not forcing local/offline
+      if (supabase && !useLocal && !forceOffline) {
+        try {
+          const { data, error } = await supabase
+            .from('releases')
+            .select('*')
+            .eq('status', 'released')
+            .order('day', { ascending: true });
 
-        if (!error && data && data.length > 0) {
-          console.log('Fetched catalog from Supabase');
-          catalogCache = data.map((r) => buildGameSong(r, false));
-          return catalogCache;
+          if (!error && data && data.length > 0) {
+            console.log('Fetched catalog from Supabase');
+            catalogCache = data.map((r) => buildGameSong(r, false));
+            return catalogCache;
+          }
+          if (error) console.warn('Supabase fetch notice:', error);
+        } catch (err) {
+          console.warn('Supabase fetch network exception:', err);
         }
-        if (error) console.error('Supabase fetch error:', error);
       }
 
-      // 2. Fallback to Firebase if Supabase fails
-      if (!useLocal && db) {
+      // 2. Fallback to Firebase if online and not forcing local/offline
+      if (!useLocal && !forceOffline && db) {
         try {
           const releasesRef = collection(db, 'releases');
           const q = query(releasesRef, where('status', '==', 'released'), orderBy('day', 'asc'));
@@ -88,18 +100,63 @@ export async function loadCatalog(): Promise<GameSong[]> {
             return catalogCache;
           }
         } catch (err) {
-          console.error('Firebase fallback fetch error:', err);
+          console.warn('Firebase fallback fetch error:', err);
         }
       }
 
-      // 3. Fallback to static JSON
-      const r = await fetch(RELEASE_DATA_URL);
-      const data = await r.json();
-      console.log(`Fetched catalog from Static JSON fallback (useLocal: ${useLocal})`);
-      catalogCache = (data.releases as any[]).map((r: any) => buildGameSong(r, useLocal));
+      // 3. Primary Offline / Local Fallback: Local song_catalog.json
+      try {
+        const localRes = await fetch('/data/song_catalog.json');
+        if (localRes.ok) {
+          const catalogData = await localRes.json();
+          if (Array.isArray(catalogData) && catalogData.length > 0) {
+            console.log(`Fetched catalog from local song_catalog.json (${catalogData.length} tracks, forceOffline: ${forceOffline})`);
+            catalogCache = catalogData.map((s: any) => buildGameSong(s, useLocal));
+            return catalogCache;
+          }
+        }
+      } catch (err) {
+        console.warn('Local song_catalog.json fetch failed:', err);
+      }
+
+      // 4. Remote static JSON fallback if online
+      if (!forceOffline) {
+        try {
+          const r = await fetch(RELEASE_DATA_URL);
+          if (r.ok) {
+            const data = await r.json();
+            console.log(`Fetched catalog from Static JSON fallback (useLocal: ${useLocal})`);
+            catalogCache = (data.releases as any[]).map((r: any) => buildGameSong(r, useLocal));
+            return catalogCache;
+          }
+        } catch (err) {
+          console.warn('Remote static release-data.json fetch failed:', err);
+        }
+      }
+
+      // 5. Emergency Fallback: Synthesize catalog entries from local day_file_map.json
+      console.warn('All catalog endpoints unavailable. Generating catalog from day_file_map local entries.');
+      const synthesized: GameSong[] = Object.keys(dayFileMap).map((dayKey) => {
+        const dayNum = parseInt(dayKey, 10);
+        return buildGameSong({
+          id: `day-${String(dayNum).padStart(3, '0')}`,
+          day: dayNum,
+          date: `2026-01-${String(dayNum).padStart(2, '0')}`,
+          title: `PIM Vault Entry #${dayNum}`,
+          artist: 'TH3SCR1B3',
+          tempo: 120,
+          duration: 180,
+          mood: 'dark',
+          valence: 0.5,
+          tags: ['PIM', 'SYNTH', 'OFFLINE'],
+          description: 'Offline local synthesized track catalog entry.'
+        }, useLocal);
+      });
+
+      catalogCache = synthesized;
       return catalogCache;
     } catch (err) {
-      console.error('Failed to load catalog:', err);
+      console.error('Failed to load catalog completely:', err);
       return [];
     }
   })();
@@ -110,17 +167,36 @@ export async function loadCatalog(): Promise<GameSong[]> {
 
 export async function getSongById(id: string): Promise<GameSong | null> {
   const catalog = await loadCatalog();
-  const exact = catalog.find((s) => s.id === id);
-  if (exact) return exact;
+  let basicSong = catalog.find((s) => s.id === id);
 
-  // Robust fallback: extract the day number (e.g., 'card-50' -> 50, 'day-050' -> 50)
-  const match = id.match(/\d+/);
-  if (match) {
-    const dayNum = parseInt(match[0], 10);
-    const foundByDay = catalog.find((s) => s.day === dayNum);
-    if (foundByDay) return foundByDay;
+  if (!basicSong) {
+    const match = id.match(/\d+/);
+    if (match) {
+      const dayNum = parseInt(match[0], 10);
+      basicSong = catalog.find((s) => s.day === dayNum);
+    }
   }
-  return null;
+
+  if (!basicSong) return null;
+
+  // Try fetching full pre-baked beatmap from /data/songs/ if available
+  try {
+    const useLocal = (typeof localStorage !== 'undefined' && (localStorage.getItem('opt_useLocalFiles') === 'true' || localStorage.getItem('useLocalFiles') === 'true')) || 
+                     (import.meta.env && import.meta.env.VITE_USE_LOCAL_FILES === 'true');
+
+    const fileId = basicSong.id.startsWith('day-') ? basicSong.id : `day-${String(basicSong.day).padStart(3, '0')}`;
+    const fetchId = basicSong.id.includes('-') && !basicSong.id.startsWith('day-') ? basicSong.id : fileId;
+
+    const res = await fetch(`/data/songs/${fetchId}.json`);
+    if (res.ok) {
+      const fullDetail = await res.json();
+      return buildGameSong(fullDetail, useLocal);
+    }
+  } catch (err) {
+    console.log(`Using runtime generated beatmap for ${id}`);
+  }
+
+  return basicSong;
 }
 
 interface Stage {

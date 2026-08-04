@@ -7,6 +7,8 @@ export type GameOpts = {
   laneKeys: [string, string, string];
   laneColors: [string, string, string];
   useLocalFiles: boolean;
+  forceOfflineMode: boolean;
+  syntheticAudioFallback: boolean;
   noteGenerationSource: 'auto' | 'lyrics' | 'bpm';
   bgMusic: boolean;
   gameSenseEnabled: boolean;
@@ -21,6 +23,8 @@ export const DEFAULT_OPTS: GameOpts = {
   laneKeys: ["a", "s", "d"],
   laneColors: ["#FF1493", "#00E5FF", "#39FF14"],
   useLocalFiles: false,
+  forceOfflineMode: false,
+  syntheticAudioFallback: true,
   noteGenerationSource: "auto",
   bgMusic: false,
   gameSenseEnabled: false,
@@ -50,6 +54,8 @@ export function loadOpts(): GameOpts {
       localStorage.getItem("opt_laneColor_2") ?? DEFAULT_OPTS.laneColors[2],
     ],
     useLocalFiles: bool("opt_useLocalFiles", false),
+    forceOfflineMode: bool("opt_forceOfflineMode", false),
+    syntheticAudioFallback: bool("opt_syntheticAudioFallback", true),
     noteGenerationSource: (() => {
       if (!isIddqdUnlocked) return "auto";
       const v = localStorage.getItem("opt_noteGenerationSource");
