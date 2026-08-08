@@ -60,8 +60,17 @@ async function logTelemetry(svc: any, type: string, userId: string | null, paylo
 async function generateCards(svc: any, userId: string, packType: string, count: number, today: number, ctx: ModifierContext) {
   let missedDays: number[] = [];
   if (packType === 'miss_out') {
-    const { data: claims } = await svc.from('vault_collections').select('card_id').eq('owner_id', userId).like('card_id', 'card-%');
-    const ownedDays = new Set(claims?.map((c: any) => parseInt(c.card_id.replace('card-', ''), 10)) || []);
+    let claims: any[] = [];
+    let from = 0;
+    const pageSize = 1000;
+    while (true) {
+      const { data } = await svc.from('vault_collections').select('card_id').eq('owner_id', userId).like('card_id', 'card-%').range(from, from + pageSize - 1);
+      if (!data || data.length === 0) break;
+      claims.push(...data);
+      if (data.length < pageSize) break;
+      from += pageSize;
+    }
+    const ownedDays = new Set(claims.map((c: any) => parseInt(c.card_id.replace('card-', ''), 10)));
     for (let i = 1; i <= today; i++) { if (!ownedDays.has(i)) missedDays.push(i); }
   }
 
@@ -725,7 +734,16 @@ serve(async (req) => {
       // ═══════════════════════════════════════════════════════════
       case 'getDebugStats': {
         const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', user.id).single();
-        const { data: cards } = await supabaseClient.from('vault_collections').select('rarity, is_echo, echo_generation').eq('owner_id', user.id);
+        let cards: any[] = [];
+        let from = 0;
+        const pageSize = 1000;
+        while (true) {
+          const { data } = await supabaseClient.from('vault_collections').select('rarity, is_echo, echo_generation').eq('owner_id', user.id).range(from, from + pageSize - 1);
+          if (!data || data.length === 0) break;
+          cards.push(...data);
+          if (data.length < pageSize) break;
+          from += pageSize;
+        }
 
         const rarityDist: Record<string, number> = {};
         let echoCount = 0;
