@@ -53,6 +53,93 @@ serve(async (req) => {
     const email = `${address.toLowerCase()}@smartwallet.th3vault.art`;
     const password = await generateDeterministicPassword(address, supabaseServiceKey);
 
+    // Check if the caller is an anonymous user wanting to upgrade
+    const authHeader = req.headers.get('authorization');
+    let anonymousUserId: string | null = null;
+
+    if (authHeader) {
+      try {
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user: callerUser } } = await supabaseAdmin.auth.getUser(token);
+        if (callerUser?.is_anonymous) {
+          anonymousUserId = callerUser.id;
+        }
+      } catch {
+        // Not a valid token or not anonymous, proceed normally
+      }
+    }
+
+    if (anonymousUserId) {
+      // Check if this wallet already belongs to an existing user
+      const { data: existingProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .ilike('wallet_address', address)
+        .single();
+
+      if (existingProfile && existingProfile.id !== anonymousUserId) {
+        // Wallet belongs to another user — merge anonymous data into that user
+        // Transfer vault_collections
+        await supabaseAdmin.from('vault_collections').update({ owner_id: existingProfile.id }).eq('owner_id', anonymousUserId);
+        // Transfer gameplay_records
+        await supabaseAdmin.from('gameplay_records').update({ user_id: existingProfile.id }).eq('user_id', anonymousUserId);
+        // Transfer user_fragments
+        await supabaseAdmin.from('user_fragments').update({ user_id: existingProfile.id }).eq('user_id', anonymousUserId);
+        // Transfer campaign_milestone_claims
+        await supabaseAdmin.from('campaign_milestone_claims').update({ user_id: existingProfile.id }).eq('user_id', anonymousUserId);
+        // Merge profile tokens/stats
+        const { data: anonProfile } = await supabaseAdmin.from('profiles').select('tokens, total_pulls, streak_count').eq('id', anonymousUserId).single();
+        if (anonProfile) {
+          const { data: targetProfile } = await supabaseAdmin.from('profiles').select('tokens, total_pulls, streak_count').eq('id', existingProfile.id).single();
+          if (targetProfile) {
+            await supabaseAdmin.from('profiles').update({
+              tokens: (targetProfile.tokens || 0) + (anonProfile.tokens || 0),
+              total_pulls: (targetProfile.total_pulls || 0) + (anonProfile.total_pulls || 0),
+              streak_count: Math.max(targetProfile.streak_count || 0, anonProfile.streak_count || 0),
+            }).eq('id', existingProfile.id);
+          }
+        }
+        // Clean up anonymous profile and user
+        await supabaseAdmin.from('profiles').delete().eq('id', anonymousUserId);
+        await supabaseAdmin.auth.admin.deleteUser(anonymousUserId);
+        // Sign in as the existing wallet user
+        const mergeAuth = await supabaseAuthClient.auth.signInWithPassword({ email, password });
+        if (mergeAuth.error) throw new Error(`Failed to sign into merged account: ${mergeAuth.error.message}`);
+        
+        return new Response(JSON.stringify({
+          success: true,
+          session: mergeAuth.data.session,
+          user: mergeAuth.data.user,
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } else {
+        // No existing wallet user — upgrade the anonymous user in place
+        const { error: upgradeError } = await supabaseAdmin.auth.admin.updateUserById(anonymousUserId, {
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: { wallet_address: address, is_smart_wallet: true },
+        });
+        if (upgradeError) throw new Error(`Failed to upgrade anonymous user: ${upgradeError.message}`);
+        
+        // Ensure profile has wallet address
+        await supabaseAdmin.from('profiles').upsert({ id: anonymousUserId, wallet_address: address });
+        
+        // Sign in with the upgraded credentials
+        const upgradeAuth = await supabaseAuthClient.auth.signInWithPassword({ email, password });
+        if (upgradeAuth.error) throw new Error(`Failed to sign into upgraded account: ${upgradeAuth.error.message}`);
+        
+        return new Response(JSON.stringify({
+          success: true,
+          session: upgradeAuth.data.session,
+          user: upgradeAuth.data.user,
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     // 1. Try to sign in deterministically
     let authResponse = await supabaseAuthClient.auth.signInWithPassword({ email, password });
 
@@ -117,8 +204,8 @@ serve(async (req) => {
     // 3. Return the full session to the frontend!
     return new Response(JSON.stringify({ 
       success: true, 
-      session: authResponse.data.session,
-      user: authResponse.data.user
+      session,
+      user
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

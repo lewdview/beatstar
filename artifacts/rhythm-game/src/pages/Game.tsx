@@ -18,6 +18,39 @@ const LANE_COUNT = 3;
 function approachTime(diffLevel: number): number {
   return Math.max(1.35, 2.5 - (diffLevel - 1) * 0.128);
 }
+
+export interface TransmissionLoadState {
+  step: number;
+  stepLabel: string;
+  detailMsg: string;
+  bytesLoaded: number;
+  bytesTotal: number;
+  speedBps: number;
+  etaSeconds: number;
+  pct: number;
+  isStreaming: boolean;
+  logs: string[];
+}
+
+export function formatLoadBytes(bytes: number): string {
+  if (!bytes || isNaN(bytes) || bytes <= 0) return "--";
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+export function formatLoadSpeed(bytesPerSec: number): string {
+  if (!bytesPerSec || isNaN(bytesPerSec) || bytesPerSec <= 0) return "-- MB/s";
+  if (bytesPerSec < 1024 * 1024) return `${(bytesPerSec / 1024).toFixed(1)} KB/s`;
+  return `${(bytesPerSec / (1024 * 1024)).toFixed(2)} MB/s`;
+}
+
+export function formatLoadEta(seconds: number): string {
+  if (seconds === undefined || seconds === null || isNaN(seconds) || !isFinite(seconds) || seconds <= 0) return "--";
+  if (seconds < 1) return "< 1s left";
+  if (seconds > 60) return `~${(seconds / 60).toFixed(1)}m left`;
+  return `~${seconds.toFixed(1)}s left`;
+}
+
 const HIT_RATIO = 0.7;
 
 // Hit windows scale with difficulty — easier = more forgiving
@@ -390,6 +423,19 @@ export default function Game() {
   const [displayJudge, setDisplayJudge] = useState<JudgmentDisplay[]>([]);
   const [bufferPct, setBufferPct] = useState(0);
   const [loadMsg, setLoadMsg] = useState("FETCHING TRANSMISSION...");
+  const [loadState, setLoadState] = useState<TransmissionLoadState>({
+    step: 1,
+    stepLabel: "FETCHING TRANSMISSION METADATA",
+    detailMsg: "Querying track catalog & JSON manifest...",
+    bytesLoaded: 0,
+    bytesTotal: 0,
+    speedBps: 0,
+    etaSeconds: 0,
+    pct: 8,
+    isStreaming: false,
+    logs: [" [SYS] Connecting to transmission gateway..."],
+  });
+
   const puPanelRef = useRef<HTMLDivElement | null>(null);
   const puTextRef = useRef<HTMLDivElement | null>(null);
   const puBarRef = useRef<HTMLDivElement | null>(null);
@@ -4846,75 +4892,164 @@ export default function Game() {
             );
           })()}
 
-          {/* Loading overlay */}
+          {/* Comprehensive Transmission Loading HUD */}
           {(phase === "loading" || phase === "buffering") && (
             <div
-              className="absolute inset-0 flex flex-col items-center justify-center gap-5"
-              style={{ background: "rgba(12,12,20,0.92)", backdropFilter: "blur(12px)" }}
+              className="absolute inset-0 flex flex-col items-center justify-center p-4 sm:p-6 z-[90] overflow-y-auto"
+              style={{
+                background: "radial-gradient(ellipse 80% 80% at 50% 50%, rgba(14,14,26,0.96) 0%, rgba(6,6,12,0.98) 100%)",
+                backdropFilter: "blur(16px)",
+              }}
             >
-              <div
-                className="font-mono text-xs tracking-[0.3em]"
-                style={{ color: "#39FF14", textShadow: "0 0 10px rgba(57,255,20,0.3)" }}
-              >
-                {loadMsg}
+              {/* Transmission Signal Header */}
+              <div className="w-full max-w-lg flex items-center justify-between mb-4 border-b border-white/10 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                  </span>
+                  <span className="font-mono text-[11px] font-bold tracking-[0.25em] text-emerald-400 uppercase">
+                    📡 TRANSMISSION RECEIVER ONLINE
+                  </span>
+                </div>
+                <div className="font-mono text-[10px] tracking-widest px-2.5 py-1 rounded bg-white/5 border border-white/10 text-white/70 uppercase">
+                  STEP {loadState.step} / 5
+                </div>
               </div>
+
+              {/* Song Card */}
               {song && (
-                <div className="glass-panel text-center p-6" style={{ borderRadius: 16 }}>
-                  {song.coverArt && (
+                <div className="w-full max-w-lg glass-panel p-4 mb-4 rounded-xl border border-white/10 flex items-center gap-4 bg-black/40">
+                  {song.coverArt ? (
                     <img
                       src={song.coverArt}
                       alt={song.title}
-                      className="w-24 h-24 object-cover mx-auto mb-3 opacity-70"
-                      style={{ borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 4px 20px rgba(0,0,0,0.4)" }}
+                      className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-lg border border-white/15 shadow-lg flex-shrink-0 animate-pulse"
                     />
+                  ) : (
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg bg-zinc-800 border border-white/10 flex items-center justify-center text-white/30 flex-shrink-0">
+                      ✦
+                    </div>
                   )}
-                  <div
-                    className="font-mono font-bold text-lg"
-                    style={{ color: "#F2EDE5" }}
-                  >
-                    {song.title}
-                  </div>
-                  <div
-                    className="font-mono text-xs mt-1"
-                    style={{ color: "rgba(255,255,255,0.35)" }}
-                  >
-                    DAY {song.day} · {song.bpm} BPM · {song.notes.length} NOTES
-                  </div>
-                </div>
-              )}
-              {phase === "buffering" && bufferPct > 0 && (
-                <div className="w-48">
-                  <div
-                    style={{ height: 4, borderRadius: 999, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}
-                  >
-                    <div
-                      style={{ height: "100%", borderRadius: 999, width: `${bufferPct}%`, background: "linear-gradient(90deg, #FF1493, #FF7A33)", boxShadow: "0 0 8px rgba(255,20,147,0.3)" }}
-                    />
-                  </div>
-                  <div
-                    className="font-mono text-xs text-center mt-1"
-                    style={{ color: "rgba(255,255,255,0.3)" }}
-                  >
-                    {bufferPct}%
+                  <div className="flex-1 min-w-0">
+                    <div className="font-mono text-[10px] tracking-widest text-[#FF1493] font-bold uppercase mb-0.5">
+                      SIGNAL: TRANSMISSION #{song.day || songId}
+                    </div>
+                    <h3 className="font-mono font-black text-base sm:text-lg text-white truncate leading-tight">
+                      {song.title}
+                    </h3>
+                    <div className="font-mono text-[11px] text-white/50 mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+                      <span>{song.bpm || 120} BPM</span>
+                      <span>•</span>
+                      <span>{song.notes?.length || 0} NOTES</span>
+                      {song.difficultyLevel && (
+                        <>
+                          <span>•</span>
+                          <span className="text-amber-400 font-bold">DIFF {song.difficultyLevel}</span>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
-              <div className="flex gap-1.5">
-                {[0, 1, 2].map((i) => (
+
+              {/* Current Step Label & Main Progress Bar */}
+              <div className="w-full max-w-lg mb-4">
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="font-mono text-xs font-bold tracking-wider text-cyan-300 uppercase flex items-center gap-2">
+                    <span>✦ {loadState.stepLabel}</span>
+                  </div>
+                  <div className="font-mono text-sm font-black text-cyan-400">
+                    {loadState.pct}%
+                  </div>
+                </div>
+
+                {/* Main Dual-Layer Progress Bar */}
+                <div className="relative w-full h-3.5 bg-black/60 rounded-full overflow-hidden border border-white/15 p-0.5 shadow-inner">
                   <div
-                    key={i}
-                    className="rounded-full animate-pulse"
-                    style={{
-                      width: 6, height: 6,
-                      background: opts.laneColors[i],
-                      boxShadow: `0 0 8px ${opts.laneColors[i]}60`,
-                      animationDelay: `${i * 0.15}s`,
-                    }}
+                    className="h-full rounded-full transition-all duration-200 bg-gradient-to-r from-emerald-400 via-cyan-400 to-[#FF1493] shadow-[0_0_12px_rgba(0,240,255,0.6)]"
+                    style={{ width: `${Math.max(3, loadState.pct)}%` }}
                   />
-                ))}
+                </div>
+
+                <div className="font-mono text-[11px] text-white/60 mt-1.5 truncate">
+                  {loadState.detailMsg || loadMsg}
+                </div>
+              </div>
+
+              {/* Detailed Metrics 4-Grid */}
+              <div className="w-full max-w-lg grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+                {/* Metric 1: Downloaded / Total */}
+                <div className="glass-panel p-2.5 rounded-lg border border-white/10 bg-white/[0.02]">
+                  <div className="font-mono text-[9px] text-white/40 tracking-wider uppercase mb-1">
+                    DOWNLOADED
+                  </div>
+                  <div className="font-mono text-xs font-bold text-white truncate">
+                    {formatLoadBytes(loadState.bytesLoaded)}
+                    {loadState.bytesTotal > 0 && (
+                      <span className="text-[10px] text-white/40 font-normal block truncate">
+                        / {formatLoadBytes(loadState.bytesTotal)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Metric 2: Download Left */}
+                <div className="glass-panel p-2.5 rounded-lg border border-white/10 bg-white/[0.02]">
+                  <div className="font-mono text-[9px] text-white/40 tracking-wider uppercase mb-1">
+                    DATA LEFT
+                  </div>
+                  <div className="font-mono text-xs font-bold text-amber-300 truncate">
+                    {loadState.bytesTotal > 0 && loadState.bytesLoaded > 0 ? (
+                      formatLoadBytes(Math.max(0, loadState.bytesTotal - loadState.bytesLoaded))
+                    ) : (
+                      <span className="text-white/40">--</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Metric 3: Download Speed */}
+                <div className="glass-panel p-2.5 rounded-lg border border-white/10 bg-white/[0.02]">
+                  <div className="font-mono text-[9px] text-white/40 tracking-wider uppercase mb-1">
+                    SPEED
+                  </div>
+                  <div className="font-mono text-xs font-bold text-emerald-400 truncate">
+                    {formatLoadSpeed(loadState.speedBps)}
+                  </div>
+                </div>
+
+                {/* Metric 4: EST. Time */}
+                <div className="glass-panel p-2.5 rounded-lg border border-white/10 bg-white/[0.02]">
+                  <div className="font-mono text-[9px] text-white/40 tracking-wider uppercase mb-1">
+                    EST. TIME
+                  </div>
+                  <div className="font-mono text-xs font-bold text-cyan-300 truncate">
+                    {formatLoadEta(loadState.etaSeconds)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Live Diagnostic Terminal Ticker */}
+              <div className="w-full max-w-lg glass-panel p-3 rounded-lg border border-white/10 bg-black/60 font-mono text-[10px] leading-relaxed">
+                <div className="text-white/30 uppercase tracking-widest text-[9px] mb-1 flex items-center justify-between border-b border-white/5 pb-1">
+                  <span>ENGINE DIAGNOSTIC FEED</span>
+                  <span className="text-emerald-400 font-bold">LIVE</span>
+                </div>
+                <div className="space-y-0.5 text-white/70">
+                  {loadState.logs.length > 0 ? (
+                    loadState.logs.slice(-3).map((log, idx) => (
+                      <div key={idx} className="truncate">
+                        <span className="text-cyan-400 font-bold">&gt;</span> {log}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-white/30 italic">&gt; Initializing signal telemetry...</div>
+                  )}
+                </div>
               </div>
             </div>
           )}
+
 
           {/* Audio error recovery — tap to unlock audio.play() with a fresh gesture */}
           {phase === "audioError" && (
