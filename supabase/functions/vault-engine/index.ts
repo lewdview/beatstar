@@ -9,6 +9,7 @@ import {
   MINTABLE_CAPS, NFT_MINT_COSTS,
   type Rarity, type ModifierContext
 } from "./gameLogic.ts";
+import bombshellCoversMap from "./bombshell_covers_map.json" assert { type: "json" };
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -241,10 +242,33 @@ async function generateCards(svc: any, userId: string, packType: string, count: 
           ultra_reward = { type: 'custom_song', label: 'Custom Theme', description: 'You unlocked an ultra-rare secret theme!' };
         }
         rolledCard = {
-          owner_id: userId, card_id: `card-${day}`, rarity, source: `pack_${packType}`,
+          owner_id: userId, card_id: packType === 'bombshell' ? `bombshell-${day}` : `card-${day}`, rarity, source: `pack_${packType}`,
           is_echo: false, echo_generation: 0, echo_source_day: null,
           edition, max_supply, proof, ultra_reward, claimed_at: new Date().toISOString()
         };
+
+        if (packType === 'bombshell') {
+          const dayEntry = (bombshellCoversMap as any)[String(day)];
+          let selectedFile = '';
+          if (dayEntry) {
+            const isLB = rarity === 'common' || rarity === 'uncommon';
+            let pool = isLB ? dayEntry.lbFiles : dayEntry.normalFiles;
+            if (!pool || pool.length === 0) {
+              pool = isLB ? dayEntry.normalFiles : dayEntry.lbFiles;
+            }
+            if (pool && pool.length > 0) {
+              selectedFile = pool[Math.floor(Math.random() * pool.length)];
+            }
+          }
+          if (!selectedFile) {
+            const padDay = String(day).padStart(3, '0');
+            selectedFile = (rarity === 'common' || rarity === 'uncommon')
+              ? `lb day ${padDay} - 01.jpg`
+              : `day ${padDay} - 01.jpg`;
+          }
+          rolledCard.fingerprint = selectedFile;
+          rolledCard.proof = { cover_artwork: selectedFile, set: 'bombshell' } as any;
+        }
         break;
       }
 
@@ -261,10 +285,16 @@ async function generateCards(svc: any, userId: string, packType: string, count: 
       const { data } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity });
       const edition = data || 1;
       rolledCard = {
-        owner_id: userId, card_id: `card-${day}`, rarity, source: `pack_${packType}`,
+        owner_id: userId, card_id: packType === 'bombshell' ? `bombshell-${day}` : `card-${day}`, rarity, source: `pack_${packType}`,
         is_echo: false, echo_generation: 0, echo_source_day: null,
         edition, max_supply, proof: null, ultra_reward: null, claimed_at: new Date().toISOString()
       };
+      if (packType === 'bombshell') {
+        const padDay = String(day).padStart(3, '0');
+        const selectedFile = `lb day ${padDay} - 01.jpg`;
+        rolledCard.fingerprint = selectedFile;
+        rolledCard.proof = { cover_artwork: selectedFile, set: 'bombshell' } as any;
+      }
     }
 
     cards.push(rolledCard);

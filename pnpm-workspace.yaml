@@ -36,7 +36,6 @@ minimumReleaseAgeExclude:
 
 packages:
   - artifacts/*
-  - artifacts/beatstar-vault/artifacts/*
   - lib/*
   - lib/integrations/*
   - scripts
