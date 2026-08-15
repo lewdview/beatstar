@@ -1,10 +1,9 @@
 import { expect } from "chai";
 import hre from "hardhat";
 const { ethers } = hre;
-import { BeatstarCardNFT } from "../typechain-types";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 
-describe("BeatstarCardNFT", function () {
+describe("PIM", function () {
   let nft: any;
   let owner: SignerWithAddress;
   let minter: SignerWithAddress;
@@ -14,8 +13,8 @@ describe("BeatstarCardNFT", function () {
   beforeEach(async function () {
     [owner, minter, user, otherUser] = await ethers.getSigners();
 
-    const BeatstarCardNFTFactory = await ethers.getContractFactory("BeatstarCardNFT");
-    nft = await BeatstarCardNFTFactory.deploy(owner.address);
+    const PIMFactory = await ethers.getContractFactory("PIM");
+    nft = await PIMFactory.deploy(owner.address);
     await nft.waitForDeployment();
 
     // Set minter role

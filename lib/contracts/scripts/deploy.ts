@@ -6,14 +6,14 @@ async function main() {
 
   console.log("Deploying contracts with the account:", deployer.address);
 
-  // Deploying BeatstarCardNFT contract, passing deployer as initialOwner
-  const Contract = await ethers.getContractFactory("BeatstarCardNFT");
+  // Deploying PIM contract, passing deployer as initialOwner
+  const Contract = await ethers.getContractFactory("PIM");
   const contract = await Contract.deploy(deployer.address);
 
   await contract.waitForDeployment();
 
   const contractAddress = await contract.getAddress();
-  console.log("BeatstarCardNFT deployed to:", contractAddress);
+  console.log("PIM deployed to:", contractAddress);
 }
 
 main()

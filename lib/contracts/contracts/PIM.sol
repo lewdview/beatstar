@@ -9,12 +9,12 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/utils/Base64.sol";
 
 /**
- * @title BeatstarCardNFT
- * @notice NFT contract for the "Poetry in Motion: th3v4ult" (PIM) ecosystem.
+ * @title PIM
+ * @notice Official NFT smart contract for "Poetry in Motion: th3v4ult" (PIM) on Base.
  * Stores card attributes and music stream URLs on-chain and generates dynamic
  * metadata fully on-chain.
  */
-contract BeatstarCardNFT is ERC721, Ownable {
+contract PIM is ERC721, Ownable {
     using Strings for uint256;
 
     struct Card {
