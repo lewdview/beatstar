@@ -1112,6 +1112,7 @@ serve(async (req) => {
                 product_data: {
                   name: `${pack.label} (${(size || 'single').toUpperCase()})`,
                   description: `${tier.cardCount} Digital Rhythm & Card Pack for PIM : th3v4ult`,
+                  tax_code: 'txcd_10000000', // General Digital Content / Electronically Supplied Services
                 },
               },
               quantity: 1,
