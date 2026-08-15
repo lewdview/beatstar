@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+import Stripe from "https://esm.sh/stripe@17.5.0?target=deno";
 import {
   getCurrentDay, getRarityRoll, drawCardDays, RARITY_CONFIG, rollDailyClaimRarity,
   degradeRarity, upgradeRarity, getEchoSpawnChance, getEffectiveBurnYield,
@@ -12,6 +13,88 @@ import {
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+function getStripeClient(): Stripe {
+  const secretKey = Deno.env.get('STRIPE_SECRET_KEY') || Deno.env.get('STRIPE_SECRET_KEY_TEST');
+  if (!secretKey) {
+    throw new Error('Missing STRIPE_SECRET_KEY or STRIPE_SECRET_KEY_TEST in Supabase environment secrets');
+  }
+  return new Stripe(secretKey, {
+    apiVersion: '2024-12-18.acacia',
+    httpClient: Stripe.createFetchHttpClient(),
+  });
+}
+
+const STRIPE_PACK_CONFIG: Record<string, { label: string; tiers: Record<string, { cardCount: number; priceCents: number }> }> = {
+  taste: {
+    label: 'Taste Pack',
+    tiers: {
+      single: { cardCount: 2, priceCents: 25 },
+      triple: { cardCount: 5, priceCents: 100 },
+      bulk:   { cardCount: 15, priceCents: 250 }
+    }
+  },
+  light: {
+    label: 'Light Pack',
+    tiers: {
+      single: { cardCount: 2, priceCents: 25 },
+      triple: { cardCount: 5, priceCents: 100 },
+      bulk:   { cardCount: 15, priceCents: 250 }
+    }
+  },
+  dark: {
+    label: 'Dark Pack',
+    tiers: {
+      single: { cardCount: 2, priceCents: 25 },
+      triple: { cardCount: 5, priceCents: 100 },
+      bulk:   { cardCount: 15, priceCents: 250 }
+    }
+  },
+  bombshell: {
+    label: 'Bombshell Pack',
+    tiers: {
+      single:     { cardCount: 1, priceCents: 25 },
+      double:     { cardCount: 2, priceCents: 50 },
+      triple:     { cardCount: 5, priceCents: 100 },
+      ten:        { cardCount: 10, priceCents: 200 },
+      twentyfive: { cardCount: 25, priceCents: 500 },
+      fifty:      { cardCount: 50, priceCents: 1000 }
+    }
+  },
+  month: {
+    label: 'Month Pack',
+    tiers: {
+      single: { cardCount: 2, priceCents: 100 },
+      triple: { cardCount: 5, priceCents: 200 }
+    }
+  },
+  miss_out: {
+    label: 'Miss Out Pack',
+    tiers: {
+      single: { cardCount: 2, priceCents: 25 },
+      triple: { cardCount: 5, priceCents: 100 }
+    }
+  },
+  special_picks: {
+    label: 'Special Picks Pack',
+    tiers: {
+      single: { cardCount: 2, priceCents: 25 },
+      triple: { cardCount: 5, priceCents: 100 }
+    }
+  },
+  prophecy: {
+    label: 'Prophecy Pack',
+    tiers: {
+      single: { cardCount: 1, priceCents: 500 }
+    }
+  },
+  alpha: {
+    label: 'Alpha Pack',
+    tiers: {
+      single: { cardCount: 1, priceCents: 100 }
+    }
+  }
 };
 
 function getSupplyCap(rarity: string, cardDay: number, currentDay: number): number {
@@ -995,6 +1078,180 @@ serve(async (req) => {
 
         return new Response(JSON.stringify({ success: true }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      // ═══════════════════════════════════════════════════════════
+      // CREATE STRIPE CHECKOUT SESSION (Hosted Checkout)
+      // ═══════════════════════════════════════════════════════════
+      case 'createStripeCheckoutSession': {
+        const { category, size, origin } = payload;
+        if (!category) throw new Error('Missing pack category');
+        const pack = STRIPE_PACK_CONFIG[category];
+        if (!pack) throw new Error(`Invalid pack category: ${category}`);
+        const tier = pack.tiers[size || 'single'];
+        if (!tier || tier.priceCents <= 0) throw new Error(`Invalid pack tier: ${category} / ${size}`);
+
+        const stripe = getStripeClient();
+        const returnOrigin = origin || 'https://pim.th3scr1b3.art';
+
+        const session = await stripe.checkout.sessions.create({
+          mode: 'payment',
+          client_reference_id: user.id,
+          customer_email: user.email || undefined,
+          metadata: {
+            userId: user.id,
+            packCategory: category,
+            packSize: size || 'single',
+            cardCount: String(tier.cardCount),
+          },
+          line_items: [
+            {
+              price_data: {
+                currency: 'usd',
+                unit_amount: tier.priceCents,
+                product_data: {
+                  name: `${pack.label} (${(size || 'single').toUpperCase()})`,
+                  description: `${tier.cardCount} Digital Rhythm & Card Pack for PIM : th3v4ult`,
+                },
+              },
+              quantity: 1,
+            },
+          ],
+          success_url: `${returnOrigin}/vault/reveal?session_id={CHECKOUT_SESSION_ID}&category=${category}&size=${size || 'single'}`,
+          cancel_url: `${returnOrigin}/?canceled=true`,
+        });
+
+        // Pre-record order in stripe_orders
+        try {
+          await svc.from('stripe_orders').upsert({
+            user_id: user.id,
+            stripe_session_id: session.id,
+            pack_category: category,
+            pack_size: size || 'single',
+            amount_cents: tier.priceCents,
+            currency: 'usd',
+            status: 'pending',
+          }, { onConflict: 'stripe_session_id' });
+        } catch (orderErr) {
+          console.warn('Could not pre-insert stripe order:', orderErr);
+        }
+
+        return new Response(JSON.stringify({
+          success: true,
+          checkoutUrl: session.url,
+          sessionId: session.id
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      // ═══════════════════════════════════════════════════════════
+      // VERIFY STRIPE SESSION & MINT CARDS (Instant Return Fallback)
+      // ═══════════════════════════════════════════════════════════
+      case 'verifyStripeSession': {
+        const { sessionId } = payload;
+        if (!sessionId) throw new Error('Missing sessionId');
+
+        // Check if already fulfilled by webhook or previous call
+        const { data: existingOrder } = await svc
+          .from('stripe_orders')
+          .select('*')
+          .eq('stripe_session_id', sessionId)
+          .single();
+
+        if (existingOrder && existingOrder.status === 'completed' && Array.isArray(existingOrder.cards_minted) && existingOrder.cards_minted.length > 0) {
+          return new Response(JSON.stringify({
+            success: true,
+            cards: existingOrder.cards_minted,
+            alreadyMinted: true,
+          }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+
+        // Verify with Stripe API
+        const stripe = getStripeClient();
+        const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+        if (session.payment_status !== 'paid') {
+          throw new Error(`Payment not completed. Status: ${session.payment_status}`);
+        }
+
+        const packCategory = session.metadata?.packCategory || payload.category || 'taste';
+        const packSize = session.metadata?.packSize || payload.size || 'single';
+        const pack = STRIPE_PACK_CONFIG[packCategory];
+        const tier = pack?.tiers[packSize] || { cardCount: 1 };
+        const cardCount = tier.cardCount;
+
+        const { count: collSize } = await supabaseClient
+          .from('vault_collections')
+          .select('*', { count: 'exact', head: true })
+          .eq('owner_id', user.id);
+
+        const { data: profile } = await supabaseClient
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        const now = new Date();
+        const ctx: ModifierContext = {
+          streak: profile?.streak_count || 0,
+          collectionSize: collSize || 0,
+          totalPulls: profile?.total_pulls || 0,
+          pullsSinceRarePlus: profile?.pulls_since_rare_plus || 0,
+          isFirstPack: (profile?.total_pulls || 0) === 0,
+          currentHour: now.getUTCHours(),
+          currentMinute: now.getUTCMinutes(),
+          currentDayOfWeek: now.getUTCDay(),
+          currentVaultDay: today,
+        };
+
+        const generatedCards = await generateCards(svc, user.id, packCategory, cardCount, today, ctx);
+
+        let newTotalPulls = (profile?.total_pulls || 0) + cardCount;
+        let newPullsSinceRarePlus = profile?.pulls_since_rare_plus || 0;
+        let newPityCounter = profile?.pity_counter || 0;
+
+        for (const card of generatedCards) {
+          if (['rare', 'legendary', 'mythic'].includes(card.rarity)) {
+            newPullsSinceRarePlus = 0;
+            newPityCounter = 0;
+          } else {
+            newPullsSinceRarePlus++;
+            newPityCounter++;
+          }
+        }
+
+        await svc.from('profiles').update({
+          total_pulls: newTotalPulls,
+          pulls_since_rare_plus: newPullsSinceRarePlus,
+          pity_counter: newPityCounter,
+          last_purchase_day: today,
+        }).eq('id', user.id);
+
+        // Record completed order in stripe_orders
+        await svc.from('stripe_orders').upsert({
+          user_id: user.id,
+          stripe_session_id: session.id,
+          pack_category: packCategory,
+          pack_size: packSize,
+          amount_cents: session.amount_total || 0,
+          currency: session.currency || 'usd',
+          status: 'completed',
+          cards_minted: generatedCards,
+          completed_at: new Date().toISOString(),
+        }, { onConflict: 'stripe_session_id' });
+
+        await logTelemetry(svc, 'stripe_pack_purchase', user.id, {
+          sessionId,
+          packCategory,
+          packSize,
+          count: cardCount,
+          amountCents: session.amount_total,
+          rarities: generatedCards.map((c: any) => c.rarity),
+        });
+
+        return new Response(JSON.stringify({
+          success: true,
+          cards: generatedCards,
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
       default:
