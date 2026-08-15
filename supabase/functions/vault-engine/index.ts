@@ -21,7 +21,7 @@ function getStripeClient(): Stripe {
     throw new Error('Missing STRIPE_SECRET_KEY or STRIPE_SECRET_KEY_TEST in Supabase environment secrets');
   }
   return new Stripe(secretKey, {
-    apiVersion: '2024-12-18.acacia',
+    apiVersion: '2025-03-31.basil' as any,
     httpClient: Stripe.createFetchHttpClient(),
   });
 }

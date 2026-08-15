@@ -23,7 +23,7 @@ serve(async (req: Request) => {
   }
 
   const stripe = new Stripe(stripeSecretKey, {
-    apiVersion: '2024-12-18.acacia',
+    apiVersion: '2025-03-31.basil' as any,
     httpClient: Stripe.createFetchHttpClient(),
   });
 
