@@ -382,9 +382,11 @@ export function drawCardDays(category: string, count: number, today: number, uno
   }
   
   // Taste, free, default: pick random up to today
-  let pool = Array.from({length: today}, (_, i) => i + 1);
-  
-  if (category === 'light') {
+  if (category === 'bombshell') {
+    // Days 1 through 207 exist in the bombshell release ready set
+    const maxBombshellDay = Math.min(Math.max(today, 1), 207);
+    pool = Array.from({length: maxBombshellDay}, (_, i) => i + 1);
+  } else if (category === 'light') {
     pool = pool.filter(d => getCardMood(d) === 'light');
     if (pool.length === 0) pool = [1];
   } else if (category === 'dark') {

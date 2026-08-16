@@ -86,7 +86,7 @@ serve(async (req: Request) => {
         const { data: mintResult, error: mintError } = await svc.functions.invoke('vault-engine', {
           body: {
             action: 'verifyStripeSession',
-            payload: { sessionId, category: packCategory, size: packSize }
+            payload: { sessionId, category: packCategory, size: packSize, userId }
           },
           headers: {
             Authorization: `Bearer ${supabaseServiceKey}`,

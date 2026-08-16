@@ -55,6 +55,23 @@
       { "size": "bulk", "cardCount": 15, "price": "$2.50", "priceValue": 2.50 }
     ]
   },
+  "bombshell": {
+    "category": "bombshell",
+    "label": "BOMBSHELL PACK",
+    "description": "Exclusive bombshell artwork cards",
+    "icon": "💖",
+    "accent": "#FF1493",
+    "gradient": "linear-gradient(160deg, #300a1e 0%, #501234 40%, #200816 100%)",
+    "rates": [60, 25, 12, 3, 0],
+    "tiers": [
+      { "size": "single", "cardCount": 1, "price": "$0.25", "priceValue": 0.25 },
+      { "size": "double", "cardCount": 2, "price": "$0.50", "priceValue": 0.50 },
+      { "size": "triple", "cardCount": 5, "price": "$1.00", "priceValue": 1.00 },
+      { "size": "ten", "cardCount": 10, "price": "$2.00", "priceValue": 2.00 },
+      { "size": "twentyfive", "cardCount": 25, "price": "$5.00", "priceValue": 5.00 },
+      { "size": "fifty", "cardCount": 50, "price": "$10.00", "priceValue": 10.00 }
+    ]
+  },
   "miss_out": {
     "category": "miss_out",
     "label": "MISS OUT PACK",

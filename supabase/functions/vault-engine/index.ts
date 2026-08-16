@@ -313,17 +313,27 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
     const token = authHeader ? authHeader.replace('Bearer ', '') : undefined;
 
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!serviceKey) throw new Error('Edge Function Error: SUPABASE_SERVICE_ROLE_KEY is missing');
+    const svc = createClient(Deno.env.get('SUPABASE_URL') || '', serviceKey);
+
+    const isServiceRole = !!(serviceKey && token === serviceKey);
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') || '', Deno.env.get('SUPABASE_ANON_KEY') || '',
       { global: { headers: { Authorization: authHeader || '' } } }
     );
-    const { data: { user }, error: authErr } = await supabaseClient.auth.getUser(token);
+    let user: any = null;
+    let authErr: any = null;
+
+    if (!isServiceRole && token) {
+      const userRes = await supabaseClient.auth.getUser(token);
+      user = userRes.data?.user;
+      authErr = userRes.error;
+    }
 
     // Allow invite code redemption without full auth (user may be mid-signup)
     if (action === 'redeemInviteCode') {
-      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-      if (!serviceKey) throw new Error('Missing service key');
-      const svc = createClient(Deno.env.get('SUPABASE_URL') || '', serviceKey);
       const { code } = payload;
       const { data: valid } = await svc.rpc('redeem_invite_code', {
         p_code: (code || '').toUpperCase().trim(),
@@ -336,9 +346,6 @@ serve(async (req) => {
 
     // Allow telemetry logging without full auth (e.g. for guest funnel tracking)
     if (action === 'logClientTelemetry') {
-      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-      if (!serviceKey) throw new Error('Missing service key');
-      const svc = createClient(Deno.env.get('SUPABASE_URL') || '', serviceKey);
       const { eventType, payload: eventPayload } = payload;
       if (!eventType) throw new Error('Missing event type');
       await logTelemetry(svc, eventType, user?.id || null, eventPayload || {});
@@ -346,21 +353,22 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    if (!user || authErr) {
-      if (!authHeader) throw new Error('Not authenticated: Missing Authorization Header');
-      throw new Error(`Not authenticated: ${authErr?.message || 'Invalid or Expired Token'}`);
+    // Allow verifyStripeSession for service role (webhook) or authenticated users
+    if (action !== 'verifyStripeSession' && !isServiceRole) {
+      if (!user || authErr) {
+        if (!authHeader) throw new Error('Not authenticated: Missing Authorization Header');
+        throw new Error(`Not authenticated: ${authErr?.message || 'Invalid or Expired Token'}`);
+      }
     }
 
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    if (!serviceKey) throw new Error('Edge Function Error: SUPABASE_SERVICE_ROLE_KEY is missing');
-    const svc = createClient(Deno.env.get('SUPABASE_URL') || '', serviceKey);
-
-    // Ensure profile
-    const { error: profileErr } = await svc.from('profiles')
-      .insert({ id: user.id, wallet_address: user.user_metadata?.wallet_address || null })
-      .select().maybeSingle();
-    if (profileErr && !profileErr.message?.includes('duplicate') && !profileErr.code?.includes('23505')) {
-      console.error('Profile guard failed:', profileErr.message);
+    // Ensure profile if user exists
+    if (user?.id) {
+      const { error: profileErr } = await svc.from('profiles')
+        .insert({ id: user.id, wallet_address: user.user_metadata?.wallet_address || null })
+        .select().maybeSingle();
+      if (profileErr && !profileErr.message?.includes('duplicate') && !profileErr.code?.includes('23505')) {
+        console.error('Profile guard failed:', profileErr.message);
+      }
     }
 
     const today = getCurrentDay();
@@ -1204,22 +1212,27 @@ serve(async (req) => {
           throw new Error(`Payment not completed. Status: ${session.payment_status}`);
         }
 
+        const targetUserId = user?.id || session.client_reference_id || session.metadata?.userId || payload.userId;
+        if (!targetUserId) {
+          throw new Error('No user ID associated with this Stripe checkout session');
+        }
+
         const packCategory = session.metadata?.packCategory || payload.category || 'taste';
         const packSize = session.metadata?.packSize || payload.size || 'single';
         const pack = STRIPE_PACK_CONFIG[packCategory];
         const tier = pack?.tiers[packSize] || { cardCount: 1 };
         const cardCount = tier.cardCount;
 
-        const { count: collSize } = await supabaseClient
+        const { count: collSize } = await svc
           .from('vault_collections')
           .select('*', { count: 'exact', head: true })
-          .eq('owner_id', user.id);
+          .eq('owner_id', targetUserId);
 
-        const { data: profile } = await supabaseClient
+        const { data: profile } = await svc
           .from('profiles')
           .select('*')
-          .eq('id', user.id)
-          .single();
+          .eq('id', targetUserId)
+          .maybeSingle();
 
         const now = new Date();
         const ctx: ModifierContext = {
@@ -1234,7 +1247,7 @@ serve(async (req) => {
           currentVaultDay: today,
         };
 
-        const generatedCards = await generateCards(svc, user.id, packCategory, cardCount, today, ctx);
+        const generatedCards = await generateCards(svc, targetUserId, packCategory, cardCount, today, ctx);
 
         let newTotalPulls = (profile?.total_pulls || 0) + cardCount;
         let newPullsSinceRarePlus = profile?.pulls_since_rare_plus || 0;
@@ -1250,16 +1263,17 @@ serve(async (req) => {
           }
         }
 
-        await svc.from('profiles').update({
+        await svc.from('profiles').upsert({
+          id: targetUserId,
           total_pulls: newTotalPulls,
           pulls_since_rare_plus: newPullsSinceRarePlus,
           pity_counter: newPityCounter,
           last_purchase_day: today,
-        }).eq('id', user.id);
+        }).eq('id', targetUserId);
 
         // Record completed order in stripe_orders
         await svc.from('stripe_orders').upsert({
-          user_id: user.id,
+          user_id: targetUserId,
           stripe_session_id: session.id,
           pack_category: packCategory,
           pack_size: packSize,
@@ -1270,7 +1284,7 @@ serve(async (req) => {
           completed_at: new Date().toISOString(),
         }, { onConflict: 'stripe_session_id' });
 
-        await logTelemetry(svc, 'stripe_pack_purchase', user.id, {
+        await logTelemetry(svc, 'stripe_pack_purchase', targetUserId, {
           sessionId,
           packCategory,
           packSize,
