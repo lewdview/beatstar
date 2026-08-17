@@ -45,8 +45,9 @@ CREATE POLICY "Users can insert their own gameplay records" ON public.gameplay_r
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 DROP POLICY IF EXISTS "Users can view their own gameplay records" ON public.gameplay_records;
-CREATE POLICY "Users can view their own gameplay records" ON public.gameplay_records
-    FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Gameplay records are readable for leaderboards" ON public.gameplay_records;
+CREATE POLICY "Gameplay records are readable for leaderboards" ON public.gameplay_records
+    FOR SELECT USING (true);
 
 -- user_fragments
 DROP POLICY IF EXISTS "Users can manage their own fragments" ON public.user_fragments;
