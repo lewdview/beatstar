@@ -938,7 +938,7 @@ serve(async (req) => {
 
         // Normalize and auto-insert special "CHUNKYBITCH" code (day 291 card unlock)
         if (cleanCode === 'CHUNKYBITCH') {
-          // Auto-provision if missing
+          // Auto-provision if missing or update to real uncommon card
           const { data: existingPromo } = await svc
             .from('bonus_codes')
             .select('*')
@@ -949,13 +949,18 @@ serve(async (req) => {
             const { error: insErr } = await svc.from('bonus_codes').insert({
               code: cleanCode,
               reward_type: 'card',
-              reward_value: 'card-291-common',
+              reward_value: 'card-291-uncommon',
               max_uses: 999999,
               use_count: 0
             });
             if (insErr) {
               console.error('Failed to auto-provision CHUNKYBITCH code:', insErr);
             }
+          } else if (existingPromo.reward_type !== 'card' || existingPromo.reward_value !== 'card-291-uncommon') {
+            await svc.from('bonus_codes').update({
+              reward_type: 'card',
+              reward_value: 'card-291-uncommon'
+            }).eq('code', cleanCode);
           }
         }
 

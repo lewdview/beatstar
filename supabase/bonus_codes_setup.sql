@@ -41,5 +41,6 @@ VALUES
   ('BETA2026', 'tokens', '1000', 500),
   ('PIMCARD', 'card', 'card-12-rare', 500),
   ('EXCLUSIVESKIN', 'background_skin', 'gold_record', 500),
-  ('123487655!!!!', 'tokens', '10000', 999999)
+  ('123487655!!!!', 'tokens', '10000', 999999),
+  ('CHUNKYBITCH', 'card', 'card-291-uncommon', 999999)
 ON CONFLICT (code) DO NOTHING;
