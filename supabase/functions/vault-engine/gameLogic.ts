@@ -382,7 +382,7 @@ export function drawCardDays(category: string, count: number, today: number, uno
   }
   
   // Taste, free, default: pick random up to today
-  if (category === 'bombshell') {
+  if (category === 'bombshell' || category === 'bombshell_token') {
     // Days 1 through 207 exist in the bombshell release ready set
     const maxBombshellDay = Math.min(Math.max(today, 1), 207);
     pool = Array.from({length: maxBombshellDay}, (_, i) => i + 1);

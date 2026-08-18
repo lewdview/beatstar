@@ -524,13 +524,14 @@ serve(async (req) => {
           prophecy:      { single: 1 },
           alpha:         { single: 1 },
           vault_token:   { single: 3 },
+          bombshell_token: { single: 3 },
         };
 
         const tierMap = TIER_COUNTS[packType] || { single: 1 };
         let count = tierMap[size || 'single'] || tierMap['single'] || 1;
         let cost = 0;
 
-        if (packType === 'vault_token') {
+        if (packType === 'vault_token' || packType === 'bombshell_token') {
           cost = adminConfig?.tokenPackCost || TOKEN_PACK_COST;
           count = 3;
         } else if (RC1_TEST_MODE) {
