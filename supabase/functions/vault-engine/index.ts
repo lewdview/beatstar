@@ -66,7 +66,7 @@ const STRIPE_PACK_CONFIG: Record<string, { label: string; tiers: Record<string, 
   month: {
     label: 'Month Pack',
     tiers: {
-      single: { cardCount: 2, priceCents: 25 },
+      single: { cardCount: 2, priceCents: 50 },
       triple: { cardCount: 5, priceCents: 100 }
     }
   },
