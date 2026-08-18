@@ -95,6 +95,15 @@ const STRIPE_PACK_CONFIG: Record<string, { label: string; tiers: Record<string, 
     tiers: {
       single: { cardCount: 1, priceCents: 100 }
     }
+  },
+  token_bundle: {
+    label: 'Vault Tokens',
+    tiers: {
+      pouch: { tokenAmount: 200, priceCents: 99, cardCount: 0, label: 'Pouch of Sparks' },
+      crate: { tokenAmount: 1150, priceCents: 499, cardCount: 0, label: 'Cipher Crate' },
+      stash: { tokenAmount: 2500, priceCents: 999, cardCount: 0, label: 'Vault Stash' },
+      hoard: { tokenAmount: 7000, priceCents: 2499, cardCount: 0, label: 'Archon Hoard' }
+    }
   }
 };
 
@@ -1124,6 +1133,43 @@ serve(async (req) => {
       }
 
       // ═══════════════════════════════════════════════════════════
+      // CREDIT CRYPTO TOKEN BUNDLE (Base EVM / Coinbase Smart Wallet)
+      // ═══════════════════════════════════════════════════════════
+      case 'creditCryptoTokenBundle': {
+        const { size, tokenAmount, txHash } = payload;
+        const grantTokens = Number(tokenAmount) || 200;
+
+        const { data: profile } = await svc
+          .from('profiles')
+          .select('tokens, tokens_earned_total')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        const currentTokens = profile?.tokens || 0;
+        const currentTotal = profile?.tokens_earned_total || 0;
+        const newTokens = currentTokens + grantTokens;
+
+        await svc.from('profiles').upsert({
+          id: user.id,
+          tokens: newTokens,
+          tokens_earned_total: currentTotal + grantTokens,
+          last_purchase_day: today,
+        }).eq('id', user.id);
+
+        await logTelemetry(svc, 'crypto_token_bundle_purchase', user.id, {
+          size,
+          tokenAmount: grantTokens,
+          txHash,
+        });
+
+        return new Response(JSON.stringify({
+          success: true,
+          tokenAmount: grantTokens,
+          newBalance: newTokens,
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      // ═══════════════════════════════════════════════════════════
       // CREATE STRIPE CHECKOUT SESSION (Hosted Checkout)
       // ═══════════════════════════════════════════════════════════
       case 'createStripeCheckoutSession': {
@@ -1145,7 +1191,8 @@ serve(async (req) => {
             userId: user.id,
             packCategory: category,
             packSize: size || 'single',
-            cardCount: String(tier.cardCount),
+            cardCount: String(tier.cardCount || 0),
+            tokenAmount: String((tier as any).tokenAmount || 0),
           },
           line_items: [
             {
@@ -1153,8 +1200,12 @@ serve(async (req) => {
                 currency: 'usd',
                 unit_amount: tier.priceCents,
                 product_data: {
-                  name: `${pack.label} (${(size || 'single').toUpperCase()})`,
-                  description: `${tier.cardCount} Digital Rhythm & Card Pack for PIM : th3v4ult`,
+                  name: category === 'token_bundle' 
+                    ? `PIM Vault Tokens - ${(tier as any).label || (size || 'pouch').toUpperCase()} (${(tier as any).tokenAmount} V⚡)`
+                    : `${pack.label} (${(size || 'single').toUpperCase()})`,
+                  description: category === 'token_bundle'
+                    ? `${(tier as any).tokenAmount} V⚡ Sparks for Vault Packs (3% Mythic rate), Targeted Pulls, and Tier Upgrades`
+                    : `${tier.cardCount} Digital Rhythm & Card Pack for PIM : th3v4ult`,
                   tax_code: 'txcd_10000000', // General Digital Content / Electronically Supplied Services
                 },
               },
@@ -1201,12 +1252,22 @@ serve(async (req) => {
           .eq('stripe_session_id', sessionId)
           .single();
 
-        if (existingOrder && existingOrder.status === 'completed' && Array.isArray(existingOrder.cards_minted) && existingOrder.cards_minted.length > 0) {
-          return new Response(JSON.stringify({
-            success: true,
-            cards: existingOrder.cards_minted,
-            alreadyMinted: true,
-          }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        if (existingOrder && existingOrder.status === 'completed') {
+          if (existingOrder.pack_category === 'token_bundle') {
+            return new Response(JSON.stringify({
+              success: true,
+              isTokenBundle: true,
+              tokenAmount: (existingOrder as any).amount_cents,
+              alreadyCredited: true,
+            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          }
+          if (Array.isArray(existingOrder.cards_minted) && existingOrder.cards_minted.length > 0) {
+            return new Response(JSON.stringify({
+              success: true,
+              cards: existingOrder.cards_minted,
+              alreadyMinted: true,
+            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          }
         }
 
         // Verify with Stripe API
@@ -1226,6 +1287,54 @@ serve(async (req) => {
         const packSize = session.metadata?.packSize || payload.size || 'single';
         const pack = STRIPE_PACK_CONFIG[packCategory];
         const tier = pack?.tiers[packSize] || { cardCount: 1 };
+
+        // ── HANDLE TOKEN BUNDLE FULFILLMENT ─────────────────────
+        if (packCategory === 'token_bundle') {
+          const tokenAmount = Number(session.metadata?.tokenAmount) || (tier as any).tokenAmount || 200;
+          const { data: profile } = await svc
+            .from('profiles')
+            .select('tokens, tokens_earned_total')
+            .eq('id', targetUserId)
+            .maybeSingle();
+
+          const currentTokens = profile?.tokens || 0;
+          const currentTotal = profile?.tokens_earned_total || 0;
+          const newTokens = currentTokens + tokenAmount;
+
+          await svc.from('profiles').upsert({
+            id: targetUserId,
+            tokens: newTokens,
+            tokens_earned_total: currentTotal + tokenAmount,
+            last_purchase_day: today,
+          }).eq('id', targetUserId);
+
+          await svc.from('stripe_orders').upsert({
+            user_id: targetUserId,
+            stripe_session_id: session.id,
+            pack_category: packCategory,
+            pack_size: packSize,
+            amount_cents: session.amount_total || 0,
+            currency: session.currency || 'usd',
+            status: 'completed',
+            cards_minted: [],
+            completed_at: new Date().toISOString(),
+          }, { onConflict: 'stripe_session_id' });
+
+          await logTelemetry(svc, 'stripe_token_bundle_purchase', targetUserId, {
+            sessionId,
+            tokenAmount,
+            packSize,
+            amountCents: session.amount_total,
+          });
+
+          return new Response(JSON.stringify({
+            success: true,
+            isTokenBundle: true,
+            tokenAmount,
+            newBalance: newTokens,
+          }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+
         const cardCount = tier.cardCount;
 
         const { count: collSize } = await svc

@@ -157,5 +157,20 @@
     "tiers": [
       { "size": "single", "cardCount": 1, "price": "150 V⚡", "priceValue": 0 }
     ]
+  },
+  "token_bundle": {
+    "category": "token_bundle",
+    "label": "VAULT TOKENS",
+    "description": "Acquire V⚡ sparks to unlock Vault Packs (3% Mythic rate), Targeted Pulls, and Tier Upgrades",
+    "icon": "⚡",
+    "accent": "#ffb800",
+    "gradient": "linear-gradient(160deg, #1c1400 0%, #382800 40%, #1a1200 100%)",
+    "rates": [0, 0, 0, 0, 0],
+    "tiers": [
+      { "size": "pouch", "cardCount": 0, "tokenAmount": 200, "bonus": 0, "price": "$0.99", "priceValue": 0.99, "label": "Pouch of Sparks", "packsUnlocked": 1 },
+      { "size": "crate", "cardCount": 0, "tokenAmount": 1150, "bonus": 150, "price": "$4.99", "priceValue": 4.99, "label": "Cipher Crate", "packsUnlocked": 4, "popular": true },
+      { "size": "stash", "cardCount": 0, "tokenAmount": 2500, "bonus": 500, "price": "$9.99", "priceValue": 9.99, "label": "Vault Stash", "packsUnlocked": 9, "bestValue": true },
+      { "size": "hoard", "cardCount": 0, "tokenAmount": 7000, "bonus": 2000, "price": "$24.99", "priceValue": 24.99, "label": "Archon Hoard", "packsUnlocked": 25 }
+    ]
   }
 }
