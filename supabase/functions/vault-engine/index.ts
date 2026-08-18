@@ -66,15 +66,15 @@ const STRIPE_PACK_CONFIG: Record<string, { label: string; tiers: Record<string, 
   month: {
     label: 'Month Pack',
     tiers: {
-      single: { cardCount: 2, priceCents: 100 },
-      triple: { cardCount: 5, priceCents: 200 }
+      single: { cardCount: 2, priceCents: 25 },
+      triple: { cardCount: 5, priceCents: 100 }
     }
   },
   miss_out: {
     label: 'Miss Out Pack',
     tiers: {
-      single: { cardCount: 2, priceCents: 25 },
-      triple: { cardCount: 5, priceCents: 100 }
+      single: { cardCount: 2, priceCents: 100 },
+      triple: { cardCount: 5, priceCents: 200 }
     }
   },
   special_picks: {
