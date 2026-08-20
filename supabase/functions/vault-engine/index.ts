@@ -525,7 +525,7 @@ serve(async (req) => {
           alpha:         { single: 1 },
           vault_token:   { single: 3 },
           bombshell_token: { single: 3 },
-          bombshell:     { single: 1, double: 2, triple: 5, ten: 10, twentyfive: 25, fifty: 50 },
+          bombshell:     { single: 3, double: 6, triple: 15, ten: 30 },
         };
 
         const tierMap = TIER_COUNTS[packType] || { single: 1 };
