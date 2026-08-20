@@ -276,7 +276,6 @@ async function generateCards(svc: any, userId: string, packType: string, count: 
               : `day ${padDay} - 01.jpg`;
           }
           rolledCard.fingerprint = selectedFile;
-          rolledCard.proof = { cover_artwork: selectedFile, set: 'bombshell' } as any;
         }
         break;
       }
@@ -302,7 +301,6 @@ async function generateCards(svc: any, userId: string, packType: string, count: 
         const padDay = String(day).padStart(3, '0');
         const selectedFile = `lb day ${padDay} - 01.jpg`;
         rolledCard.fingerprint = selectedFile;
-        rolledCard.proof = { cover_artwork: selectedFile, set: 'bombshell' } as any;
       }
     }
 
