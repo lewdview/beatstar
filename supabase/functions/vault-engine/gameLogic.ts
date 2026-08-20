@@ -365,7 +365,7 @@ export function drawCardDays(category: string, count: number, today: number, uno
   const chosen: number[] = [];
   
   if (category === 'miss_out') {
-    const pool = unownedMissedOut.length > 0 ? unownedMissedOut : Array.from({length: today}, (_, i) => i + 1);
+    const pool = unownedMissedOut.length > 0 ? unownedMissedOut : Array.from({length: Math.max(1, today)}, (_, i) => i + 1);
     for (let i = 0; i < count; i++) {
       chosen.push(pool[Math.floor(Math.random() * pool.length)]);
     }
@@ -381,12 +381,9 @@ export function drawCardDays(category: string, count: number, today: number, uno
     return chosen;
   }
   
-  // Taste, free, default: pick random up to today
-  if (category === 'bombshell' || category === 'bombshell_token') {
-    // Days 1 through 207 exist in the bombshell release ready set
-    const maxBombshellDay = Math.min(Math.max(today, 1), 207);
-    pool = Array.from({length: maxBombshellDay}, (_, i) => i + 1);
-  } else if (category === 'light') {
+  // Taste, free, bombshell, bombshell_token, default: pick random up to today (e.g. Day 231)
+  let pool = Array.from({length: Math.max(1, today)}, (_, i) => i + 1);
+  if (category === 'light') {
     pool = pool.filter(d => getCardMood(d) === 'light');
     if (pool.length === 0) pool = [1];
   } else if (category === 'dark') {

@@ -251,12 +251,12 @@ async function generateCards(svc: any, userId: string, packType: string, count: 
           ultra_reward = { type: 'custom_song', label: 'Custom Theme', description: 'You unlocked an ultra-rare secret theme!' };
         }
         rolledCard = {
-          owner_id: userId, card_id: packType === 'bombshell' ? `bombshell-${day}` : `card-${day}`, rarity, source: `pack_${packType}`,
+          owner_id: userId, card_id: (packType === 'bombshell' || packType === 'bombshell_token') ? `bombshell-${day}` : `card-${day}`, rarity, source: `pack_${packType}`,
           is_echo: false, echo_generation: 0, echo_source_day: null,
           edition, max_supply, proof, ultra_reward, claimed_at: new Date().toISOString()
         };
 
-        if (packType === 'bombshell') {
+        if (packType === 'bombshell' || packType === 'bombshell_token') {
           const dayEntry = (bombshellCoversMap as any)[String(day)];
           let selectedFile = '';
           if (dayEntry) {
@@ -294,11 +294,11 @@ async function generateCards(svc: any, userId: string, packType: string, count: 
       const { data } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity });
       const edition = data || 1;
       rolledCard = {
-        owner_id: userId, card_id: packType === 'bombshell' ? `bombshell-${day}` : `card-${day}`, rarity, source: `pack_${packType}`,
+        owner_id: userId, card_id: (packType === 'bombshell' || packType === 'bombshell_token') ? `bombshell-${day}` : `card-${day}`, rarity, source: `pack_${packType}`,
         is_echo: false, echo_generation: 0, echo_source_day: null,
         edition, max_supply, proof: null, ultra_reward: null, claimed_at: new Date().toISOString()
       };
-      if (packType === 'bombshell') {
+      if (packType === 'bombshell' || packType === 'bombshell_token') {
         const padDay = String(day).padStart(3, '0');
         const selectedFile = `lb day ${padDay} - 01.jpg`;
         rolledCard.fingerprint = selectedFile;
@@ -525,6 +525,7 @@ serve(async (req) => {
           alpha:         { single: 1 },
           vault_token:   { single: 3 },
           bombshell_token: { single: 3 },
+          bombshell:     { single: 1, double: 2, triple: 5, ten: 10, twentyfive: 25, fifty: 50 },
         };
 
         const tierMap = TIER_COUNTS[packType] || { single: 1 };
