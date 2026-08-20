@@ -533,6 +533,10 @@ serve(async (req) => {
         if (packType === 'vault_token' || packType === 'bombshell_token') {
           cost = adminConfig?.tokenPackCost || TOKEN_PACK_COST;
           count = 3;
+        } else if (packType === 'bombshell' && !payload.sessionId && !payload.txHash && !isGameplayReward) {
+          const baseCost = adminConfig?.tokenPackCost || TOKEN_PACK_COST;
+          const mult = Math.max(1, Math.round(count / 3));
+          cost = baseCost * mult;
         } else if (RC1_TEST_MODE) {
           cost = 0; // All packs free in RC1
         }
@@ -576,7 +580,7 @@ serve(async (req) => {
               throw new Error(`Daily premium limit reached (${preLimit}/day). Come back tomorrow.`);
             }
             dailyPremium += 1;
-          } else {
+          } else if (packType !== 'free' && packType !== 'vault_token' && packType !== 'bombshell_token') {
             if (dailyStandard >= stdLimit) {
               throw new Error(`Daily standard limit reached (${stdLimit}/day). Come back tomorrow.`);
             }
@@ -634,8 +638,14 @@ serve(async (req) => {
           packType, size, count, cost, rarities: generatedCards.map((c: any) => c.rarity)
         });
 
-        return new Response(JSON.stringify({ success: true, cards: generatedCards }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        const { data: refreshedProfile } = await svc.from('profiles').select('tokens').eq('id', user.id).single();
+
+        return new Response(JSON.stringify({
+          success: true,
+          cards: generatedCards,
+          tokenCost: cost,
+          remainingTokens: refreshedProfile?.tokens ?? ((profile?.tokens || 0) - cost)
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
       // ═══════════════════════════════════════════════════════════
