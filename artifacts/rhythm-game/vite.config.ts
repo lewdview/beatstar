@@ -12,6 +12,7 @@ const isReplit = process.env.REPL_ID !== undefined;
 
 export default defineConfig({
   base: basePath,
+  envPrefix: ['VITE_', 'SUPABASE_', 'NEXT_PUBLIC_'],
   plugins: [
     react(),
     tailwindcss(),
