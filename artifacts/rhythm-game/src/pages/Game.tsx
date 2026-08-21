@@ -117,8 +117,10 @@ function isWidescreenDisplay(W: number, H: number = 0): boolean {
   return W >= 768;
 }
 
-function getHitRatio(W: number, H: number = 0): number {
-  return isWidescreenDisplay(W, H) ? 0.85 : 0.78;
+function getHitRatio(W: number = 0, H: number = 0): number {
+  void W;
+  void H;
+  return 0.78;
 }
 
 function getHighwayMaxWidth(W: number, H: number = 0): number {
@@ -1781,12 +1783,12 @@ export default function Game() {
     // Left rail
     ctx.beginPath();
     ctx.moveTo(hwTop.left, 0);
-    ctx.quadraticCurveTo(hwTop.left - hillBow, bowY, hwBot.left, hitY);
+    ctx.lineTo(hwBot.left, hitY);
     ctx.stroke();
     // Right rail
     ctx.beginPath();
     ctx.moveTo(hwTop.right, 0);
-    ctx.quadraticCurveTo(hwTop.right + hillBow, bowY, hwBot.right, hitY);
+    ctx.lineTo(hwBot.right, hitY);
     ctx.stroke();
     ctx.restore();
 
@@ -1799,11 +1801,11 @@ export default function Game() {
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(hwTop.left, 0);
-    ctx.quadraticCurveTo(hwTop.left - hillBow, bowY, hwBot.left, hitY);
+    ctx.lineTo(hwBot.left, hitY);
     ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(hwTop.right, 0);
-    ctx.quadraticCurveTo(hwTop.right + hillBow, bowY, hwBot.right, hitY);
+    ctx.lineTo(hwBot.right, hitY);
     ctx.stroke();
 
     // ── 4. POWER-UP SCREEN EDGE GLOW ───────────────────────────
@@ -2209,10 +2211,17 @@ export default function Game() {
       }
       if (noteY < -80) continue;
 
-      const { x: lx, w: lw } = laneAt(note.lane, prog, W);
-      const noteH = lerp(22, 54, prog); // perspective scale — bigger closer
-      const noteX = lx + 7;
-      const noteW = lw - 14;
+      const c0 = laneAt(note.lane, 0, W, undefined, undefined, H);
+      const c1 = laneAt(note.lane, 1, W, undefined, undefined, H);
+      const dx = (c1.x + c1.w / 2) - (c0.x + c0.w / 2);
+      const noteRot = Math.atan2(dx, hitY);
+
+      const { x: lx, w: lw } = laneAt(note.lane, prog, W, undefined, undefined, H);
+      const isWide = isWidescreenDisplay(W, H);
+      const noteH = isWide ? lerp(45, 88, prog) : lerp(22, 54, prog);
+      const noteMargin = isWide ? 6 : 8;
+      const noteW = Math.max(20, lw - noteMargin);
+      const noteX = lx + (lw - noteW) / 2;
       const r = noteH * 0.32;
 
       // Spawn note trail particles as the note descends
@@ -2231,7 +2240,7 @@ export default function Game() {
       }
 
       if (note.type === "tap" || note.type === "swipe") {
-        drawKey(ctx, noteX, noteY, noteW, noteH, r, lc, prog, false, note.swipeDirection);
+        drawKey(ctx, noteX, noteY, noteW, noteH, r, lc, prog, false, note.swipeDirection, noteRot);
       } else {
         // Hold/Slide trail — ivory ribbon with colored stripe
         const holdDur = note.holdDuration || 0.5;
@@ -2457,7 +2466,7 @@ export default function Game() {
             ctx.restore();
           }
         }
-        drawKey(ctx, noteX, noteY, noteW, noteH, r, lc, prog, true, note.swipeDirection);
+        drawKey(ctx, noteX, noteY, noteW, noteH, r, lc, prog, true, note.swipeDirection, noteRot);
       }
     }
 
@@ -2471,32 +2480,42 @@ export default function Game() {
       const dt = (nowMs - e.startMs) / 1000; // seconds
       const easeOut = 1 - t01;
 
-      // ─ Lane flash: bright overlay on the key area fading fast ─
-      if (t01 < 0.18) {
-        const flashAlpha =
-          (1 - t01 / 0.18) * (e.kind === "PERFECT+" ? 0.55 : 0.35);
-        const { x: fx, w: fw } = laneAt(e.lane, 1, W);
-        const flashGrad = ctx.createLinearGradient(
-          fx,
-          e.cy - 60,
-          fx,
-          e.cy + 40,
-        );
-        flashGrad.addColorStop(0, `${e.color}00`);
-        flashGrad.addColorStop(
-          0.4,
-          `${e.color}${Math.round(flashAlpha * 255)
-            .toString(16)
-            .padStart(2, "0")}`,
-        );
-        flashGrad.addColorStop(
-          1,
-          `${e.color}${Math.round(flashAlpha * 0.5 * 255)
-            .toString(16)
-            .padStart(2, "0")}`,
-        );
-        ctx.fillStyle = flashGrad;
-        ctx.fillRect(fx + 4, e.cy - 60, fw - 8, 100);
+      // ─ Subtle perspective lane highway highlight on note hit ─
+      if (t01 < 0.65) {
+        const laneHighlightAlpha = Math.pow(1 - t01 / 0.65, 1.8) * (e.kind === "PERFECT+" ? 0.36 : 0.24);
+        const topProg = 0.22;
+        const topY = topProg * hitY;
+        const pTop = laneAt(e.lane, topProg, W, undefined, undefined, H);
+        const pBot = laneAt(e.lane, 1.0, W, undefined, undefined, H);
+
+        ctx.save();
+        const beamGrad = ctx.createLinearGradient(0, topY, 0, hitY);
+        beamGrad.addColorStop(0, "rgba(255, 255, 255, 0.0)");
+        beamGrad.addColorStop(0.35, `${e.color}${Math.round(laneHighlightAlpha * 0.3 * 255).toString(16).padStart(2, "0")}`);
+        beamGrad.addColorStop(0.75, `${e.color}${Math.round(laneHighlightAlpha * 0.75 * 255).toString(16).padStart(2, "0")}`);
+        beamGrad.addColorStop(1, `${e.color}${Math.round(laneHighlightAlpha * 255).toString(16).padStart(2, "0")}`);
+
+        ctx.fillStyle = beamGrad;
+        ctx.beginPath();
+        ctx.moveTo(pTop.x + 2, topY);
+        ctx.lineTo(pTop.x + pTop.w - 2, topY);
+        ctx.lineTo(pBot.x + pBot.w - 3, hitY);
+        ctx.lineTo(pBot.x + 3, hitY);
+        ctx.closePath();
+        ctx.fill();
+
+        // Subtle side rail laser line accents along the lane dividers
+        const railAlpha = Math.pow(1 - t01 / 0.65, 1.5) * 0.55;
+        ctx.strokeStyle = `${e.color}${Math.round(railAlpha * 255).toString(16).padStart(2, "0")}`;
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.moveTo(pTop.x + 2, topY);
+        ctx.lineTo(pBot.x + 3, hitY);
+        ctx.moveTo(pTop.x + pTop.w - 2, topY);
+        ctx.lineTo(pBot.x + pBot.w - 3, hitY);
+        ctx.stroke();
+
+        ctx.restore();
       }
 
       // ─ Expanding rings ─
@@ -5435,12 +5454,16 @@ function drawKey(
   prog: number,
   isHold: boolean,
   swipeDirection?: Note['swipeDirection'],
+  rot: number = 0
 ) {
   const centerX = noteX + noteW / 2;
   const centerY = noteY;
 
   ctx.save();
   ctx.translate(centerX, centerY);
+  if (Number.isFinite(rot) && rot !== 0) {
+    ctx.rotate(rot);
+  }
 
   // ── Rotations ──
   const rotations: Record<string, number> = {
