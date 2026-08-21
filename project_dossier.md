@@ -98,6 +98,14 @@ The monorepo contains two primary packages:
   * [useVaultStore.ts](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/src/store/useVaultStore.ts) (Global collection, tokens balance, and reveal state)
   * [useAuthStore.ts](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/src/store/useAuthStore.ts) (Web3 wallet connect and email/anonymous fallback state)
   * [progress.ts (Vault)](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/src/game/progress.ts) | [progress.ts (Rhythm)](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/rhythm-game/src/game/progress.ts) (Medal and high score persistence layer)
+  * [desktop.ts](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/src/utils/desktop.ts) (Cross-platform Tauri 2.0 runtime bridge and window controls)
+
+### Desktop Native Engine (Tauri 2.0)
+* **App Identifier**: `art.th3scr1b3.pim`
+* **Canonical Domain**: `pim.th3scr1b3.art`
+* **Desktop Core**: `artifacts/beatstar-vault/src-tauri` (`pim-vault-desktop`)
+* **Targets**: macOS Universal (`.dmg` / `.app`), Windows (`.msi` / `.exe`), Linux / Steam Deck (`.AppImage` / `.deb`)
+* **Storefront Integration Channels**: Steam (Steamworks), Epic Games Store (EOS), GOG (DRM-free standalone)
 
 ---
 
