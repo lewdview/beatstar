@@ -57,6 +57,7 @@ const STRIPE_PACK_CONFIG: Record<string, { label: string; tiers: Record<string, 
     tiers: {
       single:     { cardCount: 1, priceCents: 25 },
       double:     { cardCount: 2, priceCents: 50 },
+      five:       { cardCount: 5, priceCents: 100 },
       triple:     { cardCount: 5, priceCents: 100 },
       ten:        { cardCount: 10, priceCents: 200 },
       twentyfive: { cardCount: 25, priceCents: 500 },
@@ -522,21 +523,21 @@ serve(async (req) => {
           prophecy:      { single: 1 },
           alpha:         { single: 1 },
           vault_token:   { single: 3 },
-          bombshell_token: { single: 3 },
-          bombshell:     { single: 3, double: 6, triple: 15, ten: 30 },
+          bombshell_token: { single: 1, double: 2, five: 5, triple: 5, ten: 10, twentyfive: 25, fifty: 50 },
+          bombshell:     { single: 1, double: 2, five: 5, triple: 5, ten: 10, twentyfive: 25, fifty: 50 },
         };
 
         const tierMap = TIER_COUNTS[packType] || { single: 1 };
         let count = tierMap[size || 'single'] || tierMap['single'] || 1;
         let cost = 0;
 
-        if (packType === 'vault_token' || packType === 'bombshell_token') {
+        if (packType === 'vault_token') {
           cost = adminConfig?.tokenPackCost || TOKEN_PACK_COST;
           count = 3;
+        } else if (packType === 'bombshell_token') {
+          cost = 100 * count;
         } else if (packType === 'bombshell' && !payload.sessionId && !payload.txHash && !isGameplayReward) {
-          const baseCost = adminConfig?.tokenPackCost || TOKEN_PACK_COST;
-          const mult = Math.max(1, Math.round(count / 3));
-          cost = baseCost * mult;
+          cost = 100 * count;
         } else if (RC1_TEST_MODE) {
           cost = 0; // All packs free in RC1
         }
