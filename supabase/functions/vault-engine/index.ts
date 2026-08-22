@@ -523,7 +523,7 @@ serve(async (req) => {
           prophecy:      { single: 1 },
           alpha:         { single: 1 },
           vault_token:   { single: 3 },
-          bombshell_token: { single: 3 },
+          bombshell_token: { single: 1 },
           bombshell:     { single: 1, double: 2, five: 5, triple: 5, ten: 10, twentyfive: 25, fifty: 50 },
         };
 
@@ -531,9 +531,12 @@ serve(async (req) => {
         let count = tierMap[size || 'single'] || tierMap['single'] || 1;
         let cost = 0;
 
-        if (packType === 'vault_token' || packType === 'bombshell_token') {
+        if (packType === 'vault_token') {
           cost = adminConfig?.tokenPackCost || TOKEN_PACK_COST;
           count = 3;
+        } else if (packType === 'bombshell_token') {
+          cost = 100;
+          count = 1;
         } else if (packType === 'bombshell' && !payload.sessionId && !payload.txHash && !isGameplayReward) {
           cost = 100 * count;
         } else if (RC1_TEST_MODE) {
