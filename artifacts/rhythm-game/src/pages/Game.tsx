@@ -112,53 +112,13 @@ function lerp(a: number, b: number, t: number) {
   return a + (b - a) * Math.max(0, Math.min(1, t));
 }
 
-function isWidescreenDisplay(W: number, H: number = 0): boolean {
-  if (H > 0) return (W / H) >= 1.05 || W >= 768;
-  return W >= 768;
-}
-
-function getHitRatio(W: number = 0, H: number = 0): number {
-  void W;
-  void H;
-  return 0.78;
-}
-
-function getHighwayMaxWidth(W: number, H: number = 0): number {
-  if (isWidescreenDisplay(W, H)) {
-    const hLimit = H > 0 ? H * 0.52 : 400;
-    return Math.max(340, Math.min(410, Math.min(W * 0.34, hLimit)));
-  }
-  return Math.min(W, 580);
-}
-
-function hwAtProgress(
-  p: number,
-  W: number,
-  topRatio?: number,
-  botRatio?: number,
-  H: number = 0
-) {
-  const isWide = isWidescreenDisplay(W, H);
-  const defaultTop = isWide ? 0.44 : HW_TOP;
-  const defaultBot = isWide ? 0.98 : HW_BOT;
-  const actualTop = topRatio !== undefined ? topRatio : defaultTop;
-  const actualBot = botRatio !== undefined ? botRatio : defaultBot;
-
-  const maxHighwayWidth = getHighwayMaxWidth(W, H);
-  const w = maxHighwayWidth * lerp(actualTop, actualBot, p);
+function hwAtProgress(p: number, W: number) {
+  const w = W * lerp(HW_TOP, HW_BOT, p);
   const l = (W - w) / 2;
   return { left: l, right: l + w, width: w };
 }
-
-function laneAt(
-  lane: number,
-  progress: number,
-  W: number,
-  topRatio?: number,
-  botRatio?: number,
-  H: number = 0
-) {
-  const { left, width } = hwAtProgress(progress, W, topRatio, botRatio, H);
+function laneAt(lane: number, progress: number, W: number) {
+  const { left, width } = hwAtProgress(progress, W);
   const lw = width / LANE_COUNT;
   return { x: left + lane * lw, w: lw };
 }
@@ -1143,38 +1103,10 @@ export default function Game() {
           n.currentLane === lane &&
           !n.hit,
       );
-      if (ns) {
-        completeHoldNote(ns);
-        return;
-      }
-      const t = getT();
-      const dl = songRef.current?.difficultyLevel ?? 5;
-      const gw = goodWindow(dl);
-      const liftCandidate = notesRef.current.find(
-        (n) =>
-          n.note.type === "lift" &&
-          !n.hit &&
-          !n.missed &&
-          (Math.round(n.currentLane) === lane || n.note.lane === lane) &&
-          Math.abs(n.note.time - t) <= gw
-      );
-      if (liftCandidate) {
-        liftCandidate.hit = true;
-        const diff = Math.abs(liftCandidate.note.time - t);
-        const j = diff <= perfectPlusWindow(dl) ? "PERFECT+" : diff <= perfectWindow(dl) ? "PERFECT" : "GOOD";
-        const gs = gsRef.current;
-        gs.score += calcScore(gs.combo, j);
-        gs.combo++;
-        gs.maxCombo = Math.max(gs.maxCombo, gs.combo);
-        if (j === "PERFECT+") gs.perfectPlus++;
-        else if (j === "PERFECT") gs.perfects++;
-        else gs.goods++;
-        audioManager.playSfx("tap_perfect", 0.25);
-        triggerHitFx(liftCandidate.currentLane, j);
-        syncDisplay();
-      }
+      if (!ns) return;
+      completeHoldNote(ns);
     },
-    [completeHoldNote, getT, calcScore, triggerHitFx, syncDisplay],
+    [completeHoldNote],
   );
 
   const moveHold = useCallback(
@@ -1783,12 +1715,12 @@ export default function Game() {
     // Left rail
     ctx.beginPath();
     ctx.moveTo(hwTop.left, 0);
-    ctx.lineTo(hwBot.left, hitY);
+    ctx.quadraticCurveTo(hwTop.left - hillBow, bowY, hwBot.left, hitY);
     ctx.stroke();
     // Right rail
     ctx.beginPath();
     ctx.moveTo(hwTop.right, 0);
-    ctx.lineTo(hwBot.right, hitY);
+    ctx.quadraticCurveTo(hwTop.right + hillBow, bowY, hwBot.right, hitY);
     ctx.stroke();
     ctx.restore();
 
@@ -1801,11 +1733,11 @@ export default function Game() {
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(hwTop.left, 0);
-    ctx.lineTo(hwBot.left, hitY);
+    ctx.quadraticCurveTo(hwTop.left - hillBow, bowY, hwBot.left, hitY);
     ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(hwTop.right, 0);
-    ctx.lineTo(hwBot.right, hitY);
+    ctx.quadraticCurveTo(hwTop.right + hillBow, bowY, hwBot.right, hitY);
     ctx.stroke();
 
     // ── 4. POWER-UP SCREEN EDGE GLOW ───────────────────────────
@@ -2211,17 +2143,10 @@ export default function Game() {
       }
       if (noteY < -80) continue;
 
-      const c0 = laneAt(note.lane, 0, W, undefined, undefined, H);
-      const c1 = laneAt(note.lane, 1, W, undefined, undefined, H);
-      const dx = (c1.x + c1.w / 2) - (c0.x + c0.w / 2);
-      const noteRot = Math.atan2(dx, hitY);
-
-      const { x: lx, w: lw } = laneAt(note.lane, prog, W, undefined, undefined, H);
-      const isWide = isWidescreenDisplay(W, H);
-      const noteH = isWide ? lerp(45, 88, prog) : lerp(22, 54, prog);
-      const noteMargin = isWide ? 6 : 8;
-      const noteW = Math.max(20, lw - noteMargin);
-      const noteX = lx + (lw - noteW) / 2;
+      const { x: lx, w: lw } = laneAt(note.lane, prog, W);
+      const noteH = lerp(22, 54, prog); // perspective scale — bigger closer
+      const noteX = lx + 7;
+      const noteW = lw - 14;
       const r = noteH * 0.32;
 
       // Spawn note trail particles as the note descends
@@ -2240,7 +2165,7 @@ export default function Game() {
       }
 
       if (note.type === "tap" || note.type === "swipe") {
-        drawKey(ctx, noteX, noteY, noteW, noteH, r, lc, prog, false, note.swipeDirection, noteRot);
+        drawKey(ctx, noteX, noteY, noteW, noteH, r, lc, prog, false, note.swipeDirection);
       } else {
         // Hold/Slide trail — ivory ribbon with colored stripe
         const holdDur = note.holdDuration || 0.5;
@@ -2466,7 +2391,7 @@ export default function Game() {
             ctx.restore();
           }
         }
-        drawKey(ctx, noteX, noteY, noteW, noteH, r, lc, prog, true, note.swipeDirection, noteRot);
+        drawKey(ctx, noteX, noteY, noteW, noteH, r, lc, prog, true, note.swipeDirection);
       }
     }
 
@@ -2480,42 +2405,32 @@ export default function Game() {
       const dt = (nowMs - e.startMs) / 1000; // seconds
       const easeOut = 1 - t01;
 
-      // ─ Subtle perspective lane highway highlight on note hit ─
-      if (t01 < 0.65) {
-        const laneHighlightAlpha = Math.pow(1 - t01 / 0.65, 1.8) * (e.kind === "PERFECT+" ? 0.36 : 0.24);
-        const topProg = 0.22;
-        const topY = topProg * hitY;
-        const pTop = laneAt(e.lane, topProg, W, undefined, undefined, H);
-        const pBot = laneAt(e.lane, 1.0, W, undefined, undefined, H);
-
-        ctx.save();
-        const beamGrad = ctx.createLinearGradient(0, topY, 0, hitY);
-        beamGrad.addColorStop(0, "rgba(255, 255, 255, 0.0)");
-        beamGrad.addColorStop(0.35, `${e.color}${Math.round(laneHighlightAlpha * 0.3 * 255).toString(16).padStart(2, "0")}`);
-        beamGrad.addColorStop(0.75, `${e.color}${Math.round(laneHighlightAlpha * 0.75 * 255).toString(16).padStart(2, "0")}`);
-        beamGrad.addColorStop(1, `${e.color}${Math.round(laneHighlightAlpha * 255).toString(16).padStart(2, "0")}`);
-
-        ctx.fillStyle = beamGrad;
-        ctx.beginPath();
-        ctx.moveTo(pTop.x + 2, topY);
-        ctx.lineTo(pTop.x + pTop.w - 2, topY);
-        ctx.lineTo(pBot.x + pBot.w - 3, hitY);
-        ctx.lineTo(pBot.x + 3, hitY);
-        ctx.closePath();
-        ctx.fill();
-
-        // Subtle side rail laser line accents along the lane dividers
-        const railAlpha = Math.pow(1 - t01 / 0.65, 1.5) * 0.55;
-        ctx.strokeStyle = `${e.color}${Math.round(railAlpha * 255).toString(16).padStart(2, "0")}`;
-        ctx.lineWidth = 1.6;
-        ctx.beginPath();
-        ctx.moveTo(pTop.x + 2, topY);
-        ctx.lineTo(pBot.x + 3, hitY);
-        ctx.moveTo(pTop.x + pTop.w - 2, topY);
-        ctx.lineTo(pBot.x + pBot.w - 3, hitY);
-        ctx.stroke();
-
-        ctx.restore();
+      // ─ Lane flash: bright overlay on the key area fading fast ─
+      if (t01 < 0.18) {
+        const flashAlpha =
+          (1 - t01 / 0.18) * (e.kind === "PERFECT+" ? 0.55 : 0.35);
+        const { x: fx, w: fw } = laneAt(e.lane, 1, W);
+        const flashGrad = ctx.createLinearGradient(
+          fx,
+          e.cy - 60,
+          fx,
+          e.cy + 40,
+        );
+        flashGrad.addColorStop(0, `${e.color}00`);
+        flashGrad.addColorStop(
+          0.4,
+          `${e.color}${Math.round(flashAlpha * 255)
+            .toString(16)
+            .padStart(2, "0")}`,
+        );
+        flashGrad.addColorStop(
+          1,
+          `${e.color}${Math.round(flashAlpha * 0.5 * 255)
+            .toString(16)
+            .padStart(2, "0")}`,
+        );
+        ctx.fillStyle = flashGrad;
+        ctx.fillRect(fx + 4, e.cy - 60, fw - 8, 100);
       }
 
       // ─ Expanding rings ─
@@ -3105,21 +3020,17 @@ export default function Game() {
 
         if (swipeDir) {
           const t = getTRef.current ? getTRef.current() : 0;
-          const cand = notesRef.current.find(n => {
-            const isLiftOrSwipe = n.note.type === 'swipe' || n.note.type === 'lift' || n.note.swipeDirection !== undefined;
-            const reqDir = n.note.swipeDirection || (n.note.type === 'lift' ? 'up' : undefined);
-            return (
-              !n.hit && !n.missed && isLiftOrSwipe &&
-              isDirectionMatch(reqDir, swipeDir) &&
-              Math.abs(n.note.time - t) < missWindow(songRef.current?.difficultyLevel ?? 5)
-            );
-          });
+          const cand = notesRef.current.find(n =>
+            !n.hit && !n.missed && n.note.type === 'swipe' &&
+            n.note.swipeDirection === swipeDir &&
+            Math.abs(n.note.time - t) < missWindow(songRef.current?.difficultyLevel ?? 5)
+          );
           if (cand && hitLaneRef.current) {
             hitLaneRef.current(cand.note.lane, swipeDir);
           } else {
             const activeHoldWithSwipe = notesRef.current.find(n =>
               n.holdActive && !n.hit && !n.missed &&
-              isDirectionMatch(n.note.swipeDirection, swipeDir) &&
+              n.note.swipeDirection === swipeDir &&
               Math.abs((n.note.time + (n.note.holdDuration || 0.5)) - t) < missWindow(songRef.current?.difficultyLevel ?? 5)
             );
             if (activeHoldWithSwipe && hitSwipeReleaseRef.current) {
@@ -3196,21 +3107,17 @@ export default function Game() {
           else if (dRight) dpadSwipe = 'right';
           if (dpadSwipe) {
             const t = getTRef.current ? getTRef.current() : 0;
-            const cand = notesRef.current.find(n => {
-              const isLiftOrSwipe = n.note.type === 'swipe' || n.note.type === 'lift' || n.note.swipeDirection !== undefined;
-              const reqDir = n.note.swipeDirection || (n.note.type === 'lift' ? 'up' : undefined);
-              return (
-                !n.hit && !n.missed && isLiftOrSwipe &&
-                isDirectionMatch(reqDir, dpadSwipe) &&
-                Math.abs(n.note.time - t) < missWindow(songRef.current?.difficultyLevel ?? 5)
-              );
-            });
+            const cand = notesRef.current.find(n =>
+              !n.hit && !n.missed && n.note.type === 'swipe' &&
+              n.note.swipeDirection === dpadSwipe &&
+              Math.abs(n.note.time - t) < missWindow(songRef.current?.difficultyLevel ?? 5)
+            );
             if (cand && hitLaneRef.current) {
               hitLaneRef.current(cand.note.lane, dpadSwipe);
             } else {
               const activeHoldWithSwipe = notesRef.current.find(n =>
                 n.holdActive && !n.hit && !n.missed &&
-                isDirectionMatch(n.note.swipeDirection, dpadSwipe) &&
+                n.note.swipeDirection === dpadSwipe &&
                 Math.abs((n.note.time + (n.note.holdDuration || 0.5)) - t) < missWindow(songRef.current?.difficultyLevel ?? 5)
               );
               if (activeHoldWithSwipe && hitSwipeReleaseRef.current) {
@@ -3246,13 +3153,13 @@ export default function Game() {
         // Button 3 is Y (Center lane -> 1)
         // Button 1 is B (Right lane -> 2)
         // Button 0 is A + D-pad Left/Right = slide trigger
-        // Shoulder buttons: L1/LB=4, L2/LT=6 -> Lane 0; R1/RB=5, R2/RT=7 -> Lane 2
+        // NOTE: A alone does NOT fire any lane — needs explicit D-pad direction
         const isAPressed = gp.buttons[0]?.pressed || false;
         
         const lanePressed: [boolean, boolean, boolean] = [
-          (gp.buttons[2]?.pressed || false) || (gp.buttons[4]?.pressed || false) || (gp.buttons[6]?.pressed || false) || (isAPressed && slideDir === 'left'),
+          (gp.buttons[2]?.pressed || false) || (isAPressed && slideDir === 'left'),
           (gp.buttons[3]?.pressed || false) || (isAPressed && slideDir === 'center'),
-          (gp.buttons[1]?.pressed || false) || (gp.buttons[5]?.pressed || false) || (gp.buttons[7]?.pressed || false) || (isAPressed && slideDir === 'right')
+          (gp.buttons[1]?.pressed || false) || (isAPressed && slideDir === 'right')
         ];
 
         // Process presses and releases
@@ -5454,16 +5361,12 @@ function drawKey(
   prog: number,
   isHold: boolean,
   swipeDirection?: Note['swipeDirection'],
-  rot: number = 0
 ) {
   const centerX = noteX + noteW / 2;
   const centerY = noteY;
 
   ctx.save();
   ctx.translate(centerX, centerY);
-  if (Number.isFinite(rot) && rot !== 0) {
-    ctx.rotate(rot);
-  }
 
   // ── Rotations ──
   const rotations: Record<string, number> = {
