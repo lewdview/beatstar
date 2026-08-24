@@ -4525,7 +4525,14 @@ export default function Game() {
             <div
               className="font-mono font-bold leading-none"
               data-testid="text-score"
-              style={{ fontSize: 26, color: "#F2EDE5", letterSpacing: "0.03em", textShadow: "0 0 14px rgba(242,237,229,0.25)" }}
+              style={{
+                fontSize: 26,
+                color: "#F2EDE5",
+                letterSpacing: "0.03em",
+                WebkitTextStroke: "1px #000000",
+                paintOrder: "stroke fill",
+                textShadow: "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 0 10px rgba(0,0,0,0.9)",
+              }}
             >
               {animatedScore.toLocaleString()}
             </div>
