@@ -36,6 +36,9 @@ CREATE TABLE IF NOT EXISTS public.releases (
   created_at timestamp with time zone NOT NULL DEFAULT now()
 );
 
+-- Ensure all expected columns exist if table was created previously
+ALTER TABLE public.releases ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'released';
+
 -- Enable Row Level Security (RLS)
 ALTER TABLE public.releases ENABLE ROW LEVEL SECURITY;
 

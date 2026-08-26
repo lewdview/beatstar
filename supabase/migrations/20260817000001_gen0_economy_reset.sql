@@ -16,24 +16,44 @@ ALTER TABLE public.gameplay_records
   ADD COLUMN IF NOT EXISTS season_tag TEXT DEFAULT 'gen_0';
 
 -- 2. RESET MUTABLE PLAYER CARD OWNERSHIP & RECYCLING POOLS
-TRUNCATE TABLE public.vault_collections CASCADE;
-TRUNCATE TABLE public.user_cards CASCADE;
-TRUNCATE TABLE public.echo_pool CASCADE;
-TRUNCATE TABLE public.nft_mint_requests CASCADE;
+TRUNCATE TABLE ONLY public.vault_collections CASCADE;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_cards') THEN
+    TRUNCATE TABLE public.user_cards CASCADE;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'echo_pool') THEN
+    TRUNCATE TABLE public.echo_pool CASCADE;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'nft_mint_requests') THEN
+    TRUNCATE TABLE public.nft_mint_requests CASCADE;
+  END IF;
+END $$;
 
 -- Reset global card edition tracking counters so public players claim Edition #1
-TRUNCATE TABLE public.global_supply CASCADE;
+TRUNCATE TABLE ONLY public.global_supply CASCADE;
 
 -- 3. RESET GAMEPLAY RECORDS, LEADERBOARDS & MILESTONES
-TRUNCATE TABLE public.gameplay_records CASCADE;
-TRUNCATE TABLE public.user_fragments CASCADE;
-TRUNCATE TABLE public.campaign_milestone_claims CASCADE;
-TRUNCATE TABLE public.telemetry_events CASCADE;
-TRUNCATE TABLE public.play_events CASCADE;
-TRUNCATE TABLE public.play_events_universal CASCADE;
-
--- Reset promo code redemption logs
-TRUNCATE TABLE public.bonus_code_redemptions CASCADE;
+TRUNCATE TABLE ONLY public.gameplay_records CASCADE;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_fragments') THEN
+    TRUNCATE TABLE public.user_fragments CASCADE;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'campaign_milestone_claims') THEN
+    TRUNCATE TABLE public.campaign_milestone_claims CASCADE;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'telemetry_events') THEN
+    TRUNCATE TABLE public.telemetry_events CASCADE;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'play_events') THEN
+    TRUNCATE TABLE public.play_events CASCADE;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'play_events_universal') THEN
+    TRUNCATE TABLE public.play_events_universal CASCADE;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'bonus_code_redemptions') THEN
+    TRUNCATE TABLE public.bonus_code_redemptions CASCADE;
+  END IF;
+END $$;
 
 -- 4. ARCHIVE CORE CREATOR / QA PROFILES
 UPDATE public.profiles
