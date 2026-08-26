@@ -4,6 +4,7 @@ import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { loadOpts } from '@/lib/options';
 import dayFileMap from './day_file_map.json';
+import staticSongCatalog from '../data/song_catalog.json';
 
 const RELEASE_DATA_URL = 'https://th3scr1b3.art/release-data.json';
 
@@ -132,6 +133,13 @@ export async function loadCatalog(): Promise<GameSong[]> {
         } catch (err) {
           console.warn('Remote static release-data.json fetch failed:', err);
         }
+      }
+
+      // 4. Infallible Static Catalog Fallback
+      if (Array.isArray(staticSongCatalog) && staticSongCatalog.length > 0) {
+        console.log(`Fetched catalog from bundled staticSongCatalog (${staticSongCatalog.length} tracks)`);
+        catalogCache = (staticSongCatalog as any[]).map((s: any) => buildGameSong(s, useLocal));
+        return catalogCache;
       }
 
       // 5. Emergency Fallback: Synthesize catalog entries from local day_file_map.json
@@ -377,7 +385,8 @@ function buildGameSong(r: any, useLocal = false): GameSong {
     // Online mode: Correct URLs using database-storage mappings
     if (mapped) {
       if (mapped.audio) {
-        audioUrl = SUPABASE_BASE + encodeURIComponent(mapped.audio).replace(/%2F/g, '/');
+        const audioPath = mapped.audio.replace(/\.wav$/i, '.mp3');
+        audioUrl = SUPABASE_BASE + encodeURIComponent(audioPath).replace(/%2F/g, '/');
       }
       if (mapped.cover) {
         coverArt = SUPABASE_BASE + encodeURIComponent(mapped.cover).replace(/%2F/g, '/');
