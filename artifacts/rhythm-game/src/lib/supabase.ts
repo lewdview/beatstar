@@ -4,7 +4,7 @@ const supabaseUrl = (
   import.meta.env.VITE_SUPABASE_URL || 
   import.meta.env.SUPABASE_URL || 
   import.meta.env.NEXT_PUBLIC_SUPABASE_URL || 
-  'https://pznmptudgicrmljjafex.supabase.co'
+  'https://toemkhrfsbkfkutwcjkd.supabase.co'
 ).trim();
 
 const supabaseAnonKey = (
@@ -13,7 +13,7 @@ const supabaseAnonKey = (
   import.meta.env.SUPABASE_ANON_KEY || 
   import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 
   import.meta.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6bm1wdHVkZ2ljcm1samphZmV4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQzMDE4ODUsImV4cCI6MjA3OTg3Nzg4NX0.syu1bbr9OJ5LxCnTrybLVgsjac4UOkFVdAHuvhKMY2g'
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvZW1raHJmc2JrZmt1dHdjamtkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc2MTQxNTQsImV4cCI6MjEwMzE5MDE1NH0.nAtlMU_ukqXMkIhKppwv1mxDKpxuwHa6ddQBBwK3Iu8'
 ).trim();
 
 if (!supabaseUrl || !supabaseAnonKey) {
