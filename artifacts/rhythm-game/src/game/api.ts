@@ -336,7 +336,13 @@ function buildGameSong(r: any, useLocal = false): GameSong {
     coverArt = coverArt.replace(/\.png$/i, '.jpg');
   }
 
-  const SUPABASE_BASE = 'https://pznmptudgicrmljjafex.supabase.co/storage/v1/object/public/releaseready/';
+  const SUPABASE_BASE = (
+    import.meta.env.VITE_STORAGE_BASE_URL ||
+    import.meta.env.VITE_R2_URL ||
+    import.meta.env.VITE_WASABI_URL ||
+    import.meta.env.VITE_MEDIA_BASE_URL ||
+    `${import.meta.env.VITE_SUPABASE_URL || 'https://toemkhrfsbkfkutwcjkd.supabase.co'}/storage/v1/object/public/releaseready/`
+  ).replace(/\/?$/, '/');
   const LOCAL_BASE = '/@fs/Volumes/extremeUno/th3scr1b3-365-warp/365-releases/';
 
   if (useLocal) {
