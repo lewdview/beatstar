@@ -493,7 +493,10 @@ serve(async (req) => {
           source: 'daily_claim', is_echo: false, edition,
           max_supply, claimed_at: new Date().toISOString()
         };
-        const { data: insertedCard, error: insErr } = await svc.from('vault_collections').insert(newCard).select('*').single();
+        const { data: insertedCard, error: insErr } = await svc.from('vault_collections')
+          .upsert(newCard, { onConflict: 'owner_id,card_id,rarity' })
+          .select('*')
+          .single();
         if (insErr) throw new Error(`Failed to insert daily record: ${insErr.message}`);
 
         let newStreak = (profile?.streak_count || 0) + 1;
