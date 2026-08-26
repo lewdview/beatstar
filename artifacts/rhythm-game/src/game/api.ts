@@ -175,7 +175,7 @@ export async function loadCatalog(): Promise<GameSong[]> {
 
 export async function getSongById(id: string): Promise<GameSong | null> {
   const catalog = await loadCatalog();
-  let basicSong = catalog.find((s) => s.id === id);
+  let basicSong = catalog.find((s) => s.id === id || (s as any).uuid === id);
 
   if (!basicSong) {
     const match = id.match(/\d+/);
@@ -192,8 +192,18 @@ export async function getSongById(id: string): Promise<GameSong | null> {
     const useLocal = (typeof localStorage !== 'undefined' && (localStorage.getItem('opt_useLocalFiles') === 'true' || localStorage.getItem('useLocalFiles') === 'true')) || 
                      (import.meta.env && import.meta.env.VITE_USE_LOCAL_FILES === 'true');
 
-    const fileId = basicSong.id.startsWith('day-') ? basicSong.id : `day-${String(basicSong.day).padStart(3, '0')}`;
-    const fetchId = basicSong.id.includes('-') && !basicSong.id.startsWith('day-') ? basicSong.id : fileId;
+    let fetchId = '';
+    if (basicSong.day && basicSong.day >= 1 && basicSong.day <= 365) {
+      fetchId = `day-${String(basicSong.day).padStart(3, '0')}`;
+    } else if (['transmission-001', 'signal-rising', 'break-of-light'].includes(basicSong.id)) {
+      fetchId = basicSong.id;
+    } else if (basicSong.id.startsWith('day-')) {
+      fetchId = basicSong.id;
+    } else if (basicSong.day) {
+      fetchId = `day-${String(basicSong.day).padStart(3, '0')}`;
+    } else {
+      fetchId = basicSong.id;
+    }
 
     const res = await fetch(`/data/songs/${fetchId}.json`);
     if (res.ok) {
