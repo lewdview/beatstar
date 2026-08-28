@@ -1,73 +1,89 @@
 # Project Dossier: PIM : th3v4ult - poetry in motion
 
-This dossier serves as the comprehensive, authoritative source of truth for **PIM : th3v4ult - poetry in motion**, a hybrid ecosystem bridging a high-fidelity HTML5 canvas rhythm game and a digital collectible card engine under a unified, premium brutalist cyberpunk aesthetic.
+This dossier serves as the comprehensive, authoritative source of truth and master technical specification for **PIM : th3v4ult - poetry in motion**, a hybrid live-service ecosystem bridging a high-precision HTML5 canvas rhythm game, an audio-reactive collectible card engine, and decentralized ownership on Base EVM under a unified, technical brutalist cyberpunk aesthetic.
 
 ---
 
 ## 1. Project Vision & Core Thesis
 
-The project operates under a three-tiered loop designed to maximize user engagement and capture value:
+The project operates under a three-tiered loop designed to maximize user engagement, convert music discovery into recurring gameplay, and capture long-term collector value:
 
 > [!IMPORTANT]
-> **The Retention Thesis:**
-> **Music Unlocks Gameplay** $\to$ **Gameplay Unlocks Ownership** $\to$ **Ownership Unlocks Status**
+> ### The Retention Thesis
+> $$\textbf{Music Unlocks Gameplay} \longrightarrow \textbf{Gameplay Unlocks Ownership} \longrightarrow \textbf{Ownership Unlocks Status}$$
 
 > [!CAUTION]
-> **DEVELOPMENT WORKFLOW RULE (BEATSTAR VAULT FIRST):**
-> 1. **Primary Target (`beatstar-vault`)**: All new features, bug fixes, UI improvements, rhythm engine upgrades, and dossier updates MUST be implemented first in **`artifacts/beatstar-vault`** (`@workspace/beatstar-vault`).
-> 2. **Secondary Target (`rhythm-game`)**: **`artifacts/rhythm-game`** is a secondary standalone package. Pop back to sync `rhythm-game` with `beatstar-vault` only after changes are validated in `beatstar-vault`.
+> ### CRITICAL DEVELOPMENT WORKFLOW DIRECTIVE: BEATSTAR-VAULT IS PRIMARY
+> 1. **Primary Target (`@workspace/beatstar-vault`)** at `artifacts/beatstar-vault`:
+>    - ALL feature development, bug fixes, UI/UX polish, rhythm engine updates, database logic, gacha tuning, audio DSP filters, and documentation MUST occur first in **`artifacts/beatstar-vault`**.
+>    - `beatstar-vault` is the single source of truth and primary live-service client application.
+> 2. **Secondary Target (`@workspace/rhythm-game`)** at `artifacts/rhythm-game`:
+>    - Standalone rhythm client package. Only sync features, maps, tutorials, or fixes back to `rhythm-game` **AFTER** they have been fully built, tested, and validated in `beatstar-vault`.
 
-1. **Music Unlocks Gameplay**: Fans navigate to the application via deep links (e.g., from TikTok or Spotify) to access a free playable level for the daily song release (365 songs total—one for every day of the year).
-2. **Gameplay Unlocks Ownership**: Reaching specific score and accuracy thresholds on a level awards collectible card packs (Gacha drops) containing card stems, registry proofs, and card burn assets.
-3. **Ownership Unlocks Status**: Players display their earned collections, showcase streaks, view first-discoverer certifications, and connect external Web3 wallets to permanently establish ownership and status.
+1. **Music Unlocks Gameplay**: Fans navigate to the application via deep links (e.g., from TikTok, Spotify, or social channels) to access a free playable arcade level for each daily song release (365 unique songs total—one for every day of the calendar year).
+2. **Gameplay Unlocks Ownership**: Achieving performance accuracy and score thresholds on a level awards collectible card packs (Gacha drops) containing card session stems, cryptographic registry proofs, and card burn assets.
+3. **Ownership Unlocks Status**: Players showcase their earned collections, maintain daily streaks, unlock first-discoverer certifications, forge cards to elevate prestige scores, and connect external Web3 wallets to permanently establish on-chain ownership on Base Mainnet.
 
-### The Three Simultaneous Economies
-To sustain long-term engagement, the application orchestrates three interlocking value systems:
-* **The Skill Economy**: Driven by gameplay accuracy, timing windows, swipe precision, hold tracking, and high scores.
-* **The Scarcity Economy**: Powered by global hard supply caps, rarity tiers (Common, Uncommon, Rare, Legendary, Mythic), mintable vs gameplay copy splits, and card burning sinks.
-* **The Social Economy**: Expressed through collection prestige scores, provenance tracking, replay ghosts, and first-discoverer status.
+### The Three Interlocking Economies
+To sustain long-term engagement and economic balance, the application orchestrates three simultaneous value systems:
+* **The Skill Economy**: Governed by millisecond timing windows, swipe precision, hold ribbon tracking, unbroken combo multipliers (up to $5\times$), and adaptive audio degradation.
+* **The Scarcity Economy**: Powered by global hard supply caps, rarity tiers (Common $\to$ Mythic), mintable vs. gameplay copy splits, and card burning sinks.
+* **The Social Economy**: Expressed through collection prestige scores, global leaderboard telemetry, replay ghosts, and 1-of-1 First Discoverer gold stamps.
 
-### Product Classification: Systems Product
+### Product Classification: Live-Service Systems Platform
 Moving beyond a simple rhythm prototype or static NFT gallery, the project is classified as an **Experimental Live-Service Platform**. It features server-authoritative transactions, progression currencies ($V\text{⚡}$ tokens), audio-reactive gameplay mutations (Vocal Isolation, Bass Realm, Corrupted Signal), and stateful longitudinal player telemetry.
 
 ---
 
-## 2. Technical Architecture & Workspace Layout
+## 2. Technical Architecture & Monorepo Layout
 
-The codebase is organized as a React 19 + TypeScript monorepo managed with **pnpm workspaces**.
+The codebase is organized as a React 19 + TypeScript monorepo managed with **pnpm workspaces** (`pnpm-workspace.yaml`).
 
 ```mermaid
 graph TD
-    Root[beatstar workspace root] --> Workspaces[Workspaces]
-    Workspaces --> BV[artifacts/beatstar-vault]
-    Workspaces --> RG[artifacts/rhythm-game]
+    Root[beatstar workspace root] --> Workspaces[pnpm Workspaces]
+    Workspaces --> BV[artifacts/beatstar-vault (Primary Source of Truth)]
+    Workspaces --> RG[artifacts/rhythm-game (Secondary Standalone Client)]
+    Workspaces --> API[artifacts/api-server (Express API Server)]
+    Workspaces --> MOCK[artifacts/mockup-sandbox (Visual Sandbox)]
+    Workspaces --> LIB[lib/]
     
-    BV --> BV_Src[src/]
-    BV_Src --> BV_Pages[pages/]
-    BV_Src --> BV_Comp[components/]
-    BV_Src --> BV_Game[game/]
-    BV_Src --> BV_Store[store/]
-    BV_Src --> BV_Serv[services/]
+    LIB --> CONTRACTS[lib/contracts (Solidity Smart Contracts / Hardhat)]
+    LIB --> DB[lib/db (Drizzle ORM & Supabase DB Client)]
+    LIB --> SPEC[lib/api-spec (OpenAPI Specifications)]
+    LIB --> ZOD[lib/api-zod (Zod Validation Schemas)]
+    LIB --> CLIENT[lib/api-client-react (React Query Hooks)]
     
-    RG --> RG_Src[src/]
-    RG_Src --> RG_Pages[pages/]
-    RG_Src --> RG_Game[game/]
-    RG_Src --> RG_Comp[components/]
+    Root --> SUPA[supabase/ (Migrations & Deno Edge Functions)]
+    SUPA --> EF1[vault-engine]
+    SUPA --> EF2[auth-smart-wallet]
+    SUPA --> EF3[stripe-webhook]
 ```
 
 ### Core Technologies
-- **Client Framework**: React 19, TypeScript
+- **Client Framework**: React 19, TypeScript, Vite 7
 - **Routing**: `wouter` (lightweight declarative routing for React)
-- **State Management**: `zustand` (fast, reactive global stores for vault, audio, and auth state)
-- **Styling**: Vanilla CSS + TailwindCSS 4, modern Outfit & Roboto Mono Google Fonts, customized HSL dark-mode palettes
-- **Database & Auth**: Supabase (Auth, Row Level Security, PostgreSQL storage, Edge Functions)
+- **State Management**: `zustand` (fast, reactive global stores for vault, audio, rhythm, and auth state)
+- **Styling**: Vanilla CSS + TailwindCSS 4, modern Outfit & Roboto / JetBrains Mono typography, custom HSL design tokens
 - **Animations**: Framer Motion (used for cinematic card reveals, pack opening overlays, stickers, and page transitions)
-- **Audio & Rendering**: Web Audio API (3-way crossover split filters) + HTML5 2D Canvas 60fps rendering loop
+- **Audio & Rendering**: Web Audio API (3-way crossover split filters) + HTML5 2D Canvas 60fps rendering highway
+- **Database & Auth**: Supabase (PostgreSQL with RLS, Auth, Deno Edge Functions)
+- **Blockchain / Smart Contracts**: Base Mainnet (Chain ID `8453` / `0x2105`), Coinbase Smart Wallet (EIP-1271), Hardhat, OpenZeppelin ERC-721 (`PIM.sol`)
+- **Desktop Runtime**: Tauri 2.0 (`art.th3scr1b3.pim`)
 
-### Client Package Configurations
-The monorepo contains two primary packages:
-1. **`@workspace/beatstar-vault` ([beatstar-vault](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault))**: The primary portal containing the collectible card vault dashboard, Web3 wallet auth, card forge rarity upgrade, duplicate fusion engine, gacha pack shop, pitch deck presentation, beatmap editor, listen jukebox, voyeur telemetry, and embedded rhythm gameplay engine.
-2. **`@workspace/rhythm-game` ([rhythm-game](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/rhythm-game))**: A dedicated standalone client package representing the rhythm game component (with campaign chapter maps, stage winding roads, interactive tutorial, options, calibration offsets, and independent play mode).
+### Package Directory Breakdown
+1. **`@workspace/beatstar-vault` ([beatstar-vault](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault))**:
+   - The primary live portal containing the collectible card vault dashboard, Web3 wallet auth, card forge rarity upgrade, duplicate fusion engine, gacha pack shop, pitch deck presentation, beatmap editor, listen jukebox, voyeur telemetry, and embedded rhythm gameplay engine.
+2. **`@workspace/rhythm-game` ([rhythm-game](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/rhythm-game))**:
+   - A dedicated standalone client package representing the rhythm game component (with campaign chapter maps, stage winding roads, interactive tutorial, options, calibration offsets, passkey auth, and independent play mode).
+3. **`artifacts/api-server`**:
+   - Backend Express + TypeScript server supporting custom data endpoints, middleware, and database connections.
+4. **`lib/contracts`**:
+   - Hardhat development suite with Solidity contracts (`PIM.sol`), Cancun EVM configuration, Base network bindings, and automated tests.
+5. **`lib/db`**:
+   - Shared database definitions, Drizzle ORM schema mapping, and client initializers.
+6. **`lib/api-spec`, `lib/api-zod`, `lib/api-client-react`**:
+   - Contract-first API specifications, runtime Zod validators, and generated React Query client hooks.
 
 ### Key Files & Pathways
 * **App Shell & Router**: [App.tsx (Vault)](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/src/App.tsx) | [App.tsx (Rhythm)](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/rhythm-game/src/App.tsx)
@@ -89,7 +105,7 @@ The monorepo contains two primary packages:
 * **Creation & Platform Tools**:
   * [BeatmapEditor.tsx](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/src/pages/BeatmapEditor.tsx) (Interactive visual beatmap creation and editing suite)
   * [AdminPage.tsx](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/src/pages/AdminPage.tsx) (Live service economy balance & gacha drop tuning dashboard)
-  * [PitchDeck.tsx](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/src/pages/PitchDeck.tsx) (Interactive ecosystem presentation deck)
+  * [PitchDeck.tsx](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/src/pages/PitchDeck.tsx) (Interactive 12-slide ecosystem presentation deck)
   * [ListenPage.tsx](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/src/pages/ListenPage.tsx) (Full track & audio stems player)
   * [VoyeurPage.tsx](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/src/pages/VoyeurPage.tsx) (Real-time global telemetry feed)
 * **API, State & Data Layer**:
@@ -105,15 +121,82 @@ The monorepo contains two primary packages:
 * **Canonical Domain**: `pim.th3scr1b3.art`
 * **Desktop Core**: `artifacts/beatstar-vault/src-tauri` (`pim-vault-desktop`)
 * **Targets**: macOS Universal (`.dmg` / `.app`), Windows (`.msi` / `.exe`), Linux / Steam Deck (`.AppImage` / `.deb`)
-* **Storefront Integration Channels**: Steam (Steamworks), Epic Games Store (EOS), GOG (DRM-free standalone)
+* **Storefront Channels**: Steam (Steamworks), Epic Games Store (EOS), GOG (DRM-free standalone)
 
 ---
 
-## 3. Database Schema & Data Flows
+## 3. Database Schema, Data Flows & Migrations
 
-The backend is powered by a shared Supabase database with PostgreSQL tables protected by Row Level Security (RLS) rules.
+The backend is powered by a Supabase PostgreSQL database protected by Row Level Security (RLS) policies.
 
-### A. Profiles (`public.profiles`)
+```mermaid
+erDiagram
+    PROFILES ||--o{ VAULT_COLLECTIONS : owns
+    PROFILES ||--o{ GAMEPLAY_RECORDS : plays
+    RELEASES ||--o{ VAULT_COLLECTIONS : originates
+    GLOBAL_SUPPLY ||--o{ VAULT_COLLECTIONS : tracks
+
+    PROFILES {
+        uuid id PK
+        text username
+        text wallet_address
+        int tokens
+        int daily_standard_claims
+        int daily_premium_claims
+        int streak_count
+        int total_pulls
+        int pulls_since_rare_plus
+        timestamptz created_at
+    }
+
+    VAULT_COLLECTIONS {
+        uuid id PK
+        uuid owner_id FK
+        text card_id
+        text rarity
+        text source
+        int edition
+        int max_supply
+        bool is_echo
+        int echo_generation
+        text proof
+        text blockchain_status
+        timestamptz claimed_at
+    }
+
+    GAMEPLAY_RECORDS {
+        uuid id PK
+        uuid user_id FK
+        text song_id
+        int score
+        numeric accuracy
+        int max_combo
+        text medal
+        bool pack_rewarded
+        text reward_tier
+        timestamptz timestamp
+    }
+
+    GLOBAL_SUPPLY {
+        text card_id_rarity PK
+        int supply
+    }
+
+    RELEASES {
+        text id PK
+        int day
+        text title
+        text artist
+        text cover_art
+        text stored_audio_url
+        int bpm
+        text genre
+    }
+```
+
+### Core Supabase Tables
+
+#### A. Profiles (`public.profiles`)
 Stores account telemetry, wallet bindings, token balance, and streak counts.
 ```sql
 CREATE TABLE public.profiles (
@@ -133,8 +216,8 @@ CREATE TABLE public.profiles (
 );
 ```
 
-### B. Vault Collections (`public.vault_collections`)
-Records owned cards, acquired dates, and gacha origin.
+#### B. Vault Collections (`public.vault_collections`)
+Records owned cards, acquired dates, echo generational inheritance, and gacha origin.
 ```sql
 CREATE TABLE public.vault_collections (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -155,8 +238,8 @@ CREATE TABLE public.vault_collections (
 );
 ```
 
-### C. Gameplay Records (`public.gameplay_records`)
-Logs game history and marks earned rewards to prevent double-claiming.
+#### C. Gameplay Records (`public.gameplay_records`)
+Logs game history, prevents duplicate medal reward claims, and powers global leaderboards.
 ```sql
 CREATE TABLE public.gameplay_records (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -172,8 +255,8 @@ CREATE TABLE public.gameplay_records (
 );
 ```
 
-### D. Global Supply (`public.global_supply`)
-Tracks print numbers of cards globally to enforce hard caps on card availability.
+#### D. Global Supply (`public.global_supply`)
+Tracks print numbers globally to enforce hard caps on card rarity editions.
 ```sql
 CREATE TABLE public.global_supply (
     card_id_rarity TEXT PRIMARY KEY, -- Formatted as "{cardId}-{rarity}"
@@ -181,21 +264,47 @@ CREATE TABLE public.global_supply (
 );
 ```
 
-### E. Supabase Edge Functions
-Security is enforced by processing all economy and claim transactions server-side inside Deno-based Supabase Edge Functions:
+#### E. Releases (`public.releases`)
+Full catalog of all 365 daily release tracks seeded with CDN endpoints (`https://files.th3scr1b3.art` and `https://th3scr1b3.art`).
+```sql
+CREATE TABLE public.releases (
+    id TEXT PRIMARY KEY,
+    day INT UNIQUE NOT NULL,
+    title TEXT NOT NULL,
+    artist TEXT NOT NULL,
+    cover_art TEXT NOT NULL,
+    stored_audio_url TEXT NOT NULL,
+    bpm INT DEFAULT 120,
+    genre TEXT DEFAULT 'Electronic',
+    tags TEXT[] DEFAULT ARRAY[]::TEXT[]
+);
+```
+
+### Server-Authoritative Deno Edge Functions
+Security is enforced by processing all economy and claim transactions inside Deno Edge Functions:
 1. **`vault-engine`**:
-   - `claimDailyDrop`: Checks daily limits, increments profile claim count, rolls rarity, mints a `vault_collections` entry, and registers edition supply.
-   - `purchasePack`: Implements gacha algorithm, evaluates active conditional modifiers, rolls rates, charges tokens, and inserts rolled cards.
+   - `claimDailyDrop`: Checks daily limits, increments profile claim count, rolls rarity, mints a `vault_collections` entry, and registers edition supply with upsert safety.
+   - `purchasePack`: Implements gacha algorithm, evaluates active pity/streak/midnight modifiers, rolls rates, charges $V\text{⚡}$ tokens, and inserts rolled cards.
    - `burnCard`: Burns/sells a card for tokens. Handles generational Echo variant creation and split payouts securely.
-   - `targetedPull`: Deducts 500 V⚡ tokens and awards a specific card.
-   - `rarityUpgrade`: Deducts 150 V⚡ tokens and upgrades a card's rarity by 1 tier.
+   - `targetedPull`: Deducts 500 $V\text{⚡}$ tokens and awards a specific card from the 365 catalog.
+   - `rarityUpgrade`: Deducts 150 $V\text{⚡}$ tokens and upgrades a card's rarity by 1 tier.
    - `duplicateFusion`: Combines 3 identical cards (same day and rarity) into 1 card of the next tier.
 2. **`auth-smart-wallet`**:
-   - Verifies Ethereum/EVM signatures (MetaMask personal signs & Coinbase Smart Wallet EIP-1271 signatures) on Base Mainnet to authorize account creation and session establishment.
+   - Verifies EVM `personal_sign` and Coinbase Smart Wallet EIP-1271 signatures on Base Mainnet to authorize account creation and issue JWT sessions.
+3. **`stripe-webhook`**:
+   - Handles fiat pack purchases with session signature verification to mint card packs directly to player accounts.
+
+### Production Migrations & Data State
+The database contains full un-truncated imported production telemetry:
+- **900 Auth Users & Profiles**
+- **10,764+ Gameplay Records**
+- **630+ Vault Card Records**
+- **416+ Global Supply Counters**
+- **365 Seeded Release Tracks** connected to Cloudflare R2 / CDN.
 
 ---
 
-## 4. EVM & Smart Wallet Web3 Authentication
+## 4. Web3, Smart Contracts & Dual Identity Layer
 
 Auth routes users through standard EVM wallets or the Coinbase Smart Wallet using signature-based authorization constraints, designed with a **progressive decentralization** strategy.
 
@@ -222,214 +331,195 @@ sequenceDiagram
     C->>C: supabase.auth.setSession()
 ```
 
-### Core Configuration
-- **Network**: **Base Mainnet (Chain ID `8453` / Hex `0x2105`)**
+### Core Blockchain Parameters
+- **Target Network**: **Base Mainnet (Chain ID `8453` / Hex `0x2105`)**
 - **RPC URL**: `https://mainnet.base.org`
-- **Block Explorer**: `https://base.blockscout.com`
+- **Block Explorer**: `https://basescan.org` / `https://base.blockscout.com`
+
+### Smart Contract Specification (`PIM.sol`)
+Located at `lib/contracts/contracts/PIM.sol`:
+- **Standard**: ERC-721 with OpenZeppelin `Ownable`, `ECDSA`, `MessageHashUtils`, `Base64`.
+- **Dynamic On-Chain Metadata**: Generates base64 data URIs completely on-chain inside `tokenURI(uint256 tokenId)` containing traits for Day, Rarity, Edition, Proof, Lifecycle, and Echo Generation.
+- **Backend-Authorized Minting**: Supports both direct owner/minter minting and signature-based minting (`mintCardWithSignature`) where users pay gas accompanied by a backend cryptographic authorization signature.
+
+### Dual Identity Modes
+1. **Web3 EVM / Smart Wallet**: Connects via MetaMask, Rainbow, or Coinbase Smart Wallet (EIP-1271 signature verification).
+2. **Web2 Fallback with Local Ephemeral Keypair**: Email/password authentication automatically creates a client-side ephemeral EVM wallet stored in encrypted LocalStorage. Daily claims and gacha rolls execute gaslessly on the backend.
+3. **Fiat Onramp Intercept**: Credit/debit card pack purchases route through Stripe checkout intercepts, delivering cards directly to the user's vault profile.
 
 ---
 
-## 5. Rhythm Gameplay & Canvas Render Engine
+## 5. Rhythm Engine & HTML5 Canvas 3D Highway
 
 Gameplay rendering operates via an HTML5 Canvas drawing loop triggered by `requestAnimationFrame`, projecting descending note coordinates onto a perspective 3D highway.
 
 ### 1. Approach Time Scaling
-The speed at which notes travel from the horizon to the hit line scales dynamically with difficulty level:
+The speed at which notes travel from the horizon ($P = 0$) to the hit line ($P = 1.0$) scales dynamically with difficulty level:
 $$\text{Approach Time (seconds)} = \max(1.35, 2.5 - (\text{Difficulty Level} - 1) \times 0.128)$$
 
 ### 2. Perspective Geometry Mapping
-The perspective highway maps notes from 3D space onto the 2D canvas. The progression $P$ of a note (where $P = 0$ is the horizon, and $P = 1.0$ is the hit line) maps screen Y coordinate:
+The perspective highway maps notes from 3D space onto the 2D canvas:
 $$Y_{\text{note}} = Y_{\text{top}} + (Y_{\text{bottom}} - Y_{\text{top}}) \times P$$
+$$\text{Width}_{\text{lane}}(P) = \text{Width}_{\text{top}} + (\text{Width}_{\text{bottom}} - \text{Width}_{\text{top}}) \times P$$
+
 Lanes are segmented into 3 tracks:
 - **Lane 0 (Bass)**: Rendered on the Left. Under the **Bass Realm** modifier, Lane 0 notes are rendered **60% thicker**, **28% wider**, and styled with a glowing neon purple accent (`#a855f7`).
 - **Lane 1 (Mids)**: Rendered in the Center.
 - **Lane 2 (Treble)**: Rendered on the Right.
 
-### 3. Note Types & PIM Signature Mechanics
+### 3. Note Taxonomy & Mechanics
+1. **Core Notes**:
+   - **Tap**: Solid rectangular bar hit at the target line.
+   - **Hold**: Sustained beam requiring continuous press until release.
+   - **Swipe**: Directional chevrons (`↑`, `↓`, `←`, `→`, diagonals) unlocked at Level 4+.
+   - **Hold + Swipe End**: Sustained rail culminating in a flick release.
+   - **Double Tap**: Simultaneous dual-lane targets.
+2. **Advanced Mechanics**:
+   - **Slide (Drag)**: Curved path tracking across lanes ($\text{visualLane} = \text{lerp}(\text{visualLane}, \text{targetLane}, 0.18)$).
+   - **Zigzag Slide**: Snaking trajectory for synth/electronic solos.
+   - **Mine / Ghost**: Hazard obstacle; hitting deducts 500 pts, resets combo, and triggers glitch static.
+   - **Lift**: Release timing note on the exact beat.
+   - **Scratch**: Circular touch/gesture motion during breakbeats.
+3. **PIM Signature Feature — Remix Note ⚡**:
+   - Glowing ethereal rune head.
+   - Hitting with PERFECT timing executes `audioManager.triggerRemixStemEffect()`, isolating or boosting stems (`vocals_isolate`, `drums_mute`, `bass_boost`) for 4–8 beats, inverting the canvas palette, and awarding +1000 bonus points.
 
-The gameplay engine classifies note mechanics across four distinct operational tiers:
-
-#### A. Core Gameplay Notes (100% of Track Coverage)
-- **Tap**: Standard hit target.
-- **Hold**: Sustained ribbon track requiring key depression until terminus.
-- **Swipe**: Directional flick (`↑`, `↓`, `←`, `→`, diagonals) unlocked at Level 4+.
-- **Hold + Swipe End**: Sustained rail culminating in a directional swipe release.
-- **Double Tap**: Simultaneous dual-lane targets.
-
-#### B. Advanced Notes
-- **Slide (Drag)**: Continuous finger/path tracking across lanes.
-  $$\text{visualLane} = \text{lerp}(\text{visualLane}, \text{currentLane}, 0.18)$$
-- **Zigzag Slide**: Snaking left/right trajectory suited for electronic fills and solos.
-- **Repeater**: High-frequency tap train over a sustained rhythm.
-- **Chain**: Automated note sequence activated by hitting the lead note cleanly.
-- **Mine / Ghost**: Hazardous obstacle—hitting causes score penalty (-500), resets combo, and leaks data. Avoiding it passes safely.
-- **Lift**: Timing window calibrated to key *release* on beat.
-- **Harmony**: Dual-lane simultaneous presses during choruses.
-- **Scratch**: Rapid circular gesture for vinyl/DJ breaks.
-
-#### C. Performance & Special Event Notes
-- **Perfect Window Accent Note**: Enhanced target head granting +800 point bonus.
-- **Break Note**: Beat drop target triggering camera shudder, particle burst, and +1200 point reward.
-- **Choice Note**: Branching dual paths (Left/Right) offering dynamic player route choices.
-- **Burst Note**: Pulsing expanding ring requiring precise hit before full expansion.
-
-#### D. PIM Signature Feature: Remix Note ⚡
-> [!IMPORTANT]
-> **Audio-Reactive Remix Note Mechanics:**
-> Hitting a **Remix Note** (styled with a glowing ethereal stem rune) with PERFECT timing triggers real-time stem arrangement mutations:
-> 1. **Web Audio Stem Mutation**: Automatically alters stem balance (`vocals_isolate`, `drums_mute`, `bass_boost`, or `lead_solo`) for 4–8 beats via `audioManager.triggerRemixStemEffect()`.
-> 2. **Visual Palette Inversion**: Temporarily flips the canvas theme and renders a neon HUD banner `⚡ STEM REMIX ACTIVE ⚡`.
-> 3. **Score Amplification**: Awards an instant +1000 point bonus and 1.5x active combo score boost.
-
-### 4. Timing Windows & Judgment
-Timing window tolerances scale down as difficulty increases:
-
-| Judgment | Timing Window Formula (Seconds) | Base Score |
+### 4. Timing Windows & Judgment Tolerances
+| Judgment | Tolerance Formula (Seconds) | Base Score |
 | :--- | :--- | :--- |
-| **Perfect+** | $\le \max(0.030, 0.060 - (\text{diff} - 1) \times 0.0033)$ | 500 points |
-| **Perfect** | $\le \max(0.055, 0.110 - (\text{diff} - 1) \times 0.0061)$ | 300 points |
-| **Good** | $\le \max(0.100, 0.190 - (\text{diff} - 1) \times 0.010)$ | 150 points |
-| **Miss** | $> \max(0.190, 0.360 - (\text{diff} - 1) \times 0.019)$ | 0 points (Resets Combo) |
+| **PERFECT+** | $\le \max(0.030, 0.060 - (\text{diff} - 1) \times 0.0033)$ | 500 pts |
+| **PERFECT** | $\le \max(0.055, 0.110 - (\text{diff} - 1) \times 0.0061)$ | 300 pts |
+| **GOOD** | $\le \max(0.100, 0.190 - (\text{diff} - 1) \times 0.010)$ | 150 pts |
+| **MISS** | $> \max(0.190, 0.360 - (\text{diff} - 1) \times 0.019)$ | 0 pts (Breaks Combo) |
 
-### 5. Difficulty Combo Multipliers
-Active score multiplier caps are determined by track difficulties:
-- **LIGHT (Level 1-3)**: Cap of 3x.
-- **DARK (Level 4-6)**: Cap of 4x.
-- **VOID (Level 7-10)**: Cap of 5x.
+### 5. Multipliers & Overdrive Flow States
+* **Difficulty Multiplier Caps**: LIGHT (Levels 1–3) $\to 3\times$; DARK (Levels 4–6) $\to 4\times$; VOID (Levels 7–10) $\to 5\times$.
+* **FEVER (Combo $\ge 20$)**: 9s duration, $2\times$ multiplier, automatically upgrades standard `PERFECT` hits to `PERFECT+` (Gold `#E5B800` aura).
+* **SURGE (Combo $\ge 40$)**: 11s duration, $3\times$ multiplier, **Autoplay Assist** locks onto complex slide paths and hold tails (Hot Pink `#FF1493`).
+* **SIGNAL LOCK (Combo $\ge 60$)**: 14s duration, $4\times$ multiplier, peak visual stability and matrix grid glow (Neon Green `#39FF14`).
 
-### 6. Power-Up Overlays (Flow-State Amplification)
-Maintaining high combos unlocks dynamic flow-state overlays:
-- **FEVER (Combo $\ge 20$)**: 9-second duration. Score multiplier is 2x. Upgrades all standard `PERFECT` hits to `PERFECT+` automatically. Styled in gold (`#E5B800`).
-- **SURGE (Combo $\ge 40$)**: 11-second duration. Score multiplier is 3x. **Autoplay Mode**: Automatically grabs hold notes and tracks slide paths. Styled in hot pink (`#FF1493`).
-- **SIGNAL LOCK (Combo $\ge 60$)**: 14-second duration. Score multiplier is 4x. Styled in neon green (`#39FF14`).
-
-### 7. Death & Continue System
-- **Miss Limit**: Accumulating 3 misses triggers a failure state.
-- **Rewind Logic**: The engine pauses and rewinds the audio track by 2.5 seconds.
-- **Continues**: Up to **3 continues** per song. Retrying a continue decreases remaining continue count, resets miss count, and triggers a backward scroll animation over 1.2s.
+### 6. Failure & Rewind System
+* **3 Miss Limit**: Accumulating 3 misses triggers `SIGNAL LOST`.
+* **Audio Rewind**: Automatically rewinds audio playback by 2.5 seconds.
+* **Canvas Rewind**: Perspective highway scrolls in reverse over 1.2s (`1200ms`) to restore missed notes.
+* **Continues**: Up to 3 continues allowed per song run.
 
 ---
 
-## 6. Split-band Audio & Lane Muting Subsystem (Sonic Punishment)
+## 6. Split-Band Audio & Sonic Punishment Subsystem
 
 The game feeds physical performance accuracy back to the user through real-time audio channel filtering, creating **performance-driven adaptive music degradation**.
 
-```mermaid
-graph LR
-    AudioSrc[Audio Element Source] --> Split{Split Signal}
-    Split --> BassFilter[Lane 0: Lowpass Filter]
-    Split --> MidFilter[Lane 1: Bandpass Filter]
-    Split --> TrebleFilter[Lane 2: Highpass Filter]
-    
-    BassFilter --> BassGain[Lane 0 Gain Node]
-    MidFilter --> MidGain[Lane 1 Gain Node]
-    TrebleFilter --> TrebleGain[Lane 2 Gain Node]
-    
-    BassGain --> Destination[Audio Destination]
-    MidGain --> Destination
-    TrebleGain --> Destination
+```
+[Audio Source Element]
+       │
+       ├───> [Lowpass Filter: 300Hz, Q:0.8]  ───> [Lane 0 Gain] ───┐
+       ├───> [Bandpass Filter: 1200Hz, Q:0.7] ───> [Lane 1 Gain] ───┼───> [Audio Destination]
+       └───> [Highpass Filter: 3200Hz, Q:0.8] ───> [Lane 2 Gain] ───┘
 ```
 
-### Frequency Band Routing
-- **Lane 0 (Bass)**: `lowpass` filter (Frequency: `300 Hz` | Q-factor: `0.8`).
-- **Lane 1 (Mids)**: `bandpass` filter (Frequency: `1200 Hz` | Q-factor: `0.7`).
-- **Lane 2 (Treble)**: `highpass` filter (Frequency: `3200 Hz` | Q-factor: `0.8`).
-
-### Muting & Recovery Rules
-- **Muting on Miss**: Ramps gain node down to `0.04` over `0.12 seconds`.
-- **Active Restore on Hit**: Striking a note in a muted lane instantly un-silences that band, ramping gain back over `0.25 seconds`.
-- **Passive Auto-Recovery**: If a lane is muted and no note appears, gain automatically recovers after a `3.5-second` (3500ms) safety window, ramping up over `0.4 seconds`.
+* **Lane 0 (Bass)**: `lowpass` filter ($300\text{Hz}$, Q: 0.8) controlling sub-bass, kick, and 808s.
+* **Lane 1 (Mids)**: `bandpass` filter ($1200\text{Hz}$, Q: 0.7) controlling lead vocals, lead synth, and guitar.
+* **Lane 2 (Treble)**: `highpass` filter ($3200\text{Hz}$, Q: 0.8) controlling hi-hats, cymbals, and top-end air.
+* **Muting on Miss**: Missing in a lane instantly drops its gain node to `0.04` over `0.12s`.
+* **Active Restore on Hit**: Striking a note in a muted lane ramps its gain back to `1.0` over `0.25s`.
+* **Passive Auto-Recovery**: If a lane remains muted for `3.5s` without incoming notes, auto-recovery ramps gain back over `0.4s` to prevent silent audio stalls.
 
 ---
 
-## 7. Codex, Audio Previews & Active Modifiers
+## 7. Active Modifiers, Codex & Jukebox
 
-### 1. Codex Sorting & Filtering
-Supports multi-tier organization across all 365 songs:
-- **Sort Modes**: `day-asc`, `day-desc`, `rarity`.
-- **Filter Modes**: `all`, `owned`, `missing`, `beyond`.
+### Active Gameplay Modifiers
+Equipping cards from your Vault activates distinct audio and visual modifiers based on song tags and genres:
+1. **Vocal Isolation**: Triggered on Acoustic, Pop, Indie, Soul, or BPM $\le 100$. Boosts Lane 1 vocals (Gain = 2.2) while dampening low and high bands (Gain = 0.15).
+2. **Bass Realm**: Triggered on Electro, Hip-Hop, Techno, Dubstep, House, or BPM $> 120$. Boosts Lane 0 bass (Gain = 2.6). Lane 0 notes turn **Neon Purple (`#a855f7`)**, render **60% thicker**, and **28% wider**.
+3. **Corrupted Signal**: Triggered on Glitch, Industrial, Corrupted tags, or BPM $> 138$. Drives tempo/pitch drift ($\pm 4\%$), canvas coordinate screen shake, and CRT scanlines with orange noise blocks.
 
-### 2. Audio Preview Duration Constraints
+### Audio Preview Duration Constraints
 - **Common Cards**: 15 seconds audio preview.
 - **Uncommon Cards**: 60 seconds preview.
-- **Rare, Legendary, & Mythic Cards**: Unlimited/Full song preview.
-- **Mythic Stems**: Owning Mythic cards unlocks raw session stem downloads.
-
-### 3. Active Gameplay Modifiers
-- **Vocal Isolation**: Boosts vocal channel (Lane 1 gain = 2.2; Lanes 0 & 2 = 0.15).
-- **Bass Realm**: Amplifies low-end (Lane 0 gain = 2.6). Lane 0 notes rendered neon purple (`#a855f7`), 60% thicker, 28% wider.
-- **Corrupted Signal**: Pitch/tempo drift ($\pm 4\%$), CRT scanlines, and screen translate shake.
+- **Rare & Legendary Cards**: Full song preview.
+- **Mythic Cards**: Full song preview + uncompressed session stems download.
 
 ---
 
-## 8. Economy Rebalance v2.1, Gacha & Admin Controls
+## 8. Economy Rebalance v2.1, Collectibles & The Forge
 
-### 1. Velocity-Balanced Supply Structure
-| Rarity Tier | Old Static Cap | New Gameplay Copy Cap | New Mintable Cap | Token Burn Value |
+### Velocity-Balanced Card Supply Matrix
+| Rarity Tier | Gameplay Copy Cap | Mintable Cap (On-Chain) | Token Burn Value | Audio Preview Limit |
 | :--- | :--- | :--- | :--- | :--- |
-| **Common** | 50 | 2,000 | 0 (Off-chain) | 3 tokens |
-| **Uncommon** | 20 | 500 | 50 | 10 tokens |
-| **Rare** | 10 | 100 | 25 | 30 tokens |
-| **Legendary** | 2 | 10 | 3 | 80 tokens |
-| **Mythic** | 1 | 1 | 1 | 200 tokens |
+| **Common** | 2,000 | 0 (Off-Chain) | 3 $V\text{⚡}$ | 15 seconds |
+| **Uncommon** | 500 | 50 | 10 $V\text{⚡}$ | 60 seconds |
+| **Rare** | 100 | 25 | 30 $V\text{⚡}$ | Full Track |
+| **Legendary** | 10 | 3 | 80 $V\text{⚡}$ | Full Track |
+| **Mythic** | 1 | 1 | 200 $V\text{⚡}$ | Full Track + Session Stems |
 
-### 2. Archival Expansion & Dynamic Legendary Classes
-- **Time Expansion**: Launch Week (Day 0–7) $\to$ Month 1 (Day 30+) $\to$ Month 6 (Day 180+).
-- **Legendary Classes**: Daily (5), Event (3), Founder (2), First Discoverer (1).
+### The Forge Operations & Token Sinks
+* **Card Burning**: Deconstruct duplicate or unwanted cards into $V\text{⚡}$ tokens.
+* **Targeted Pull**: Spend **500 $V\text{⚡}$** to acquire any specific card from the 365 catalog.
+* **Rarity Upgrade**: Spend **150 $V\text{⚡}$** to upgrade an owned card by 1 rarity tier.
+* **Duplicate Fusion**: Combine **3 identical cards** (same day & rarity) to forge 1 card of the next tier.
+* **Echo Cards**: 15% roll rate on Gacha. Yields high prestige but undergoes generational decay: Gen 0 ($1.0\times$) $\to$ Gen 1 ($0.6\times$) $\to$ Gen 2 ($0.3\times$) $\to$ Gen 3+ ($0.1\times$ Entropy Death).
 
-### 3. Echo Cards & Generational Prestige Decay
-- **Gen 0 Echo**: 25% spawn, 1.0x burn value.
-- **Gen 1 Echo**: 15% spawn, 0.6x burn value.
-- **Gen 2 Echo**: 8% spawn, 0.3x burn value.
-- **Gen 3+ Echo**: 0% spawn, 0.1x burn value (Entropy Death).
-
-### 4. Global Prestige Scoring & Token Sinks
-- **Prestige Formula**: $(\text{Streak} \times 120) + (\text{Pulls} \times 15) + \sum \text{Card Points} + \text{Bonuses}$.
-- **Token Sinks**: Targeted Pull (500 V⚡), Rarity Upgrade (150 V⚡), Duplicate Fusion (3 matching cards).
-
----
-
-## 9. User Identity, Stripe Integration & Platform Features
-
-- **Dual Identity Modes**: Web3 EVM Smart Wallet (MetaMask / Coinbase Smart Wallet EIP-1271) + Supabase Email with local Ephemeral Wallet generation.
-- **Stripe Integration**: Mock USD checkout redirect intercept with session verification on `vault-engine`.
-- **Listen Page**: Jukebox interface for full track and stem listening.
-- **Voyeur Page**: Real-time global telemetry dashboard for card pulls, platinum medals, and leaderboard rank shifts.
-- **Pitch Deck**: Slide deck presentation outlining ecosystem economics and product vision.
+### Gacha Drop Modifiers & Pity Protection
+* **Drought Pity Protection**: 25 consecutive pulls without Rare+ guarantees Rare or higher on the next pull.
+* **Midnight Drop**: Opening packs between 12:00 AM and 2:00 AM grants a $2\times$ multiplier on Legendary drop rates.
+* **Streak Bonus**: 7+ day login streaks grant a $+50\%$ boost to Rare and Legendary drop chances.
+* **Prestige Score Formula**:
+  $$\text{Prestige} = (\text{Streak} \times 120) + (\text{Pulls} \times 15) + \sum \text{Card Base Points} + \text{Bonuses}$$
 
 ---
 
-## 10. Beatmap Editor & Custom Mapping Engine
+## 9. Platform Suites & Auxiliary Tools
 
-The built-in Beatmap Editor ([BeatmapEditor.tsx](file:///Users/studio/BEATSTAR.th3scr1b3.art/beatstar/artifacts/beatstar-vault/src/pages/BeatmapEditor.tsx)) provides full visual editing for PIM tracks:
-- Interactive multi-lane canvas grid with playhead scrubbing.
-- Audio playback speed scaling (0.25x, 0.5x, 0.75x, 1.0x).
-- Beat snap grid divisions (1/4, 1/8, 1/16, 1/32, freeform).
-- Multi-note editing: Tap, Hold, Swipe (8 directions: UP, DOWN, LEFT, RIGHT, UP_LEFT, UP_RIGHT, DOWN_LEFT, DOWN_RIGHT), and Slide notes across 3 lanes.
-- Automatic BPM detection, offset calibration, and JSON beatmap export/import.
-
----
-
-## 11. Quality Maintenance & Defensive Engineering
-
-1. **Time-Lock Safety**: Date comparison guards (`isSongTimeLocked`) prevent timezone mismatch redirect loops.
-2. **Defensive Data Parsing**: Guarded splits (`date?.split('/')`) prevent crashes when rendering incomplete chapter lists.
-3. **Progress Logic Synchronicity**: Unique song ID tracking with earned medals or scores $>0$.
-4. **Session Storage Guards**: Safe fallback getters (`(result?.score ?? 0)`) preserve state during page refreshes.
+* **Campaign & Constellation Map (`Campaign.tsx`, `Chapter.tsx`)**: Calendar navigation with winding road stages, star thresholds ($70\%, 85\%, 95\%$), and milestone reward chests.
+* **Beatmap Editor (`BeatmapEditor.tsx`)**: Interactive canvas editor supporting 8-directional swipes, snap subdivisions (1/4 to 1/32), BPM detection, playhead scrubbing, and JSON export/import.
+* **Listen Jukebox (`ListenPage.tsx`)**: Full track and isolated stem player.
+* **Voyeur Telemetry (`VoyeurPage.tsx`)**: Real-time global feed of card drops, platinum runs, and leaderboard shifts.
+* **Admin Dashboard (`AdminPage.tsx`)**: Dynamic gacha drop tuning, pity controls, and economy live adjustments.
+* **Pitch Deck (`PitchDeck.tsx`)**: Interactive 12-slide executive presentation with live simulations for Auth, Canvas Rhythm, Web Audio Equalizer, Tokenomics, and Ephemeral Key generation.
 
 ---
 
-## 12. Strategic System Appraisal & Future Roadmap
+## 10. Brand Identity & Technical Brutalist Design System
 
-- **UX Onboarding Strata**: Casual $\to$ Regular $\to$ Collector $\to$ Hardcore.
-- **Emotional Loop Archetypes**: Clear emotional triggers mapped to card rarities.
-- **Provenance Memory**: Writing immutable discoverer metadata and timing accuracy directly into card faces.
-- **Async Social Ghosts**: Replay ghosts and lane heatmaps projected on the canvas.
-- **Living Vault Ecosystem**: Dynamic background camera drifts through locked security wings based on card ownership.
+PIM rejects generic corporate UI in favor of **Technical Brutalism meets High-Fidelity Cyber Neon**.
+
+### Core Palette Tokens (HSL / Hex)
+| Token | Hex Code | System Purpose | Context / Rarity |
+| :--- | :--- | :--- | :--- |
+| **Void Black** | `#000000` | Canvas base & root background | Absolute Base |
+| **Corridor Charcoal** | `#0C0C14` / `#08080C` | Backdrop layout sections & drawers | Structural Panels |
+| **Cyber Slate** | `#18181B` / `#27272A` | Grid lines, empty slots, borders | Structural Grids |
+| **Hot Pink** | `#FF1493` | Primary play actions, Surge mode | Light / Action Accent |
+| **Neon Orange** | `#FF5500` | Vault doors, system warnings, overrides | Special Picks / Prophecy |
+| **Neon Cyan** | `#00E5FF` | Mids audio lane, hold guides | Lane 1 / Uncommon Tier |
+| **Neon Green** | `#39FF14` | Signal Lock overlay, success badges | Rare Tier / Flow State |
+| **Power Gold** | `#E5B800` | Fever mode, login streaks, medals | Legendary Tier / Fever |
+| **Prismatic Purple** | `#A855F7` | Bass Realm modifier, Mythic glow | Lane 0 / Mythic Tier |
+
+### Typography Guidelines
+* **Display & Titles**: `Outfit` (sans-serif, geometric, uppercase, `letter-spacing: 0.2em` to `0.5em`).
+* **Metadata & Readouts**: `Roboto Mono` or `JetBrains Mono` (monospace, tabular digits, high legibility for scores, timestamps, and engine readouts).
+
+### Geometric Motifs & CSS Utilities
+* **Sheared Action Buttons**: `clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%)` with glowing neon borders.
+* **Glassmorphic Panels**: `backdrop-filter: blur(20px) saturate(1.4)` with `rgba(12, 12, 20, 0.55)` fill and subtle `1px solid rgba(255,255,255,0.08)` borders.
+* **CRT Hardware Styling**: Vignette radial gradients combined with `mix-blend-mode: multiply` 3px scanlines.
 
 ---
 
-## 13. PIM Game Instruction Booklet & Player Operating Manual
+## 11. Defensive Engineering & Code Standards
+
+1. **Time-Lock Guards**: Always wrap date calculations in `isSongTimeLocked()` to prevent timezone mismatches from triggering infinite redirect loops.
+2. **Defensive Parsing**: Use optional chaining on string operations (`date?.split('/') ?? []`) to prevent crashes during sparse chapter renders.
+3. **Session Resiliency**: Implement fallback getters (`result?.score ?? 0`) across gameplay results and vault stores to survive mid-session page reloads.
+4. **Supply Chain Protection**: Preserve pnpm `minimumReleaseAge: 1440` in `pnpm-workspace.yaml` against npm supply chain attacks.
+5. **Clean Code Integrity**: Maintain comments, preserve existing types, and ensure zero unhandled promises in Web Audio initialization.
+
+---
+
+## 12. PIM Game Instruction Booklet & Player Operating Manual
 
 <style>
 @media print {
@@ -454,10 +544,6 @@ The built-in Beatmap Editor ([BeatmapEditor.tsx](file:///Users/studio/BEATSTAR.t
   .booklet-header {
     border-bottom: 3px solid #000 !important;
   }
-  .booklet-card {
-    border: 1px solid #999 !important;
-    background: #f9f9f9 !important;
-  }
 }
 </style>
 
@@ -465,7 +551,7 @@ The built-in Beatmap Editor ([BeatmapEditor.tsx](file:///Users/studio/BEATSTAR.t
 
 <div class="no-print" style="margin: 24px 0; padding: 20px; background: rgba(57, 255, 20, 0.08); border: 2px solid #39ff14; border-radius: 12px; text-align: center; font-family: monospace;">
   <h2 style="margin-top: 0; color: #39ff14; font-size: 22px;">🖨️ OFFICIAL PIM INSTRUCTION BOOKLET</h2>
-  <p style="color: #e2e8f0; font-size: 14px; margin-bottom: 16px;">Click the button below to print out the standalone, formatted PIM Instruction Booklet & Operating Manual or save it as a PDF document.</p>
+  <p style="color: #e2e8f0; font-size: 14px; margin-bottom: 16px;">Print the standalone, formatted PIM Instruction Booklet & Operating Manual or save as a PDF document.</p>
   <button onclick="window.print()" style="background: #39ff14; color: #000; font-weight: 800; padding: 14px 28px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-family: monospace; letter-spacing: 1px; box-shadow: 0 0 15px rgba(57, 255, 20, 0.4);">
     🖨️ PRINT INSTRUCTION BOOKLET / SAVE AS PDF
   </button>
@@ -478,7 +564,7 @@ The built-in Beatmap Editor ([BeatmapEditor.tsx](file:///Users/studio/BEATSTAR.t
 
 ### SECTION 1: QUICK START & INPUT CONTROLS
 
-PIM (Poetry In Motion — Performance-Driven Sonic Rhythm Engine) is played across a **3-Lane Highway**.
+PIM is played across a **3-Lane Perspective Highway**.
 
 #### Keyboard Keybindings
 * **Lane 0 (Left / Bass)**: Key **`A`** (or `1`, `J`)
@@ -493,134 +579,13 @@ PIM (Poetry In Motion — Performance-Driven Sonic Rhythm Engine) is played acro
 * **Holds & Slides**: Touch and hold the lane button, sliding your finger horizontally across lanes as the hold beam shifts.
 
 #### Audio Latency & Offset Calibration
-Every audio device (Bluetooth headphones, TV speakers, built-in laptop drivers) introduces tiny audio delays.
 * Open **⚙ Options** in the main menu to calibrate **AUDIO OFFSET (ms)**.
-* **Negative Offset (-ms)**: Shift notes earlier if you find yourself hitting late.
-* **Positive Offset (+ms)**: Shift notes later if you find yourself hitting early.
+* **Negative Offset (-ms)**: Shift notes earlier if you hit late.
+* **Positive Offset (+ms)**: Shift notes later if you hit early.
 
 ---
 
-### SECTION 2: NOTE TAXONOMY & HOW TO PLAY
-
-1. **TAP NOTES (Standard Rectangles)**
-   - *Appearance*: Solid glowing rectangular bars descending down a single lane.
-   - *Action*: Press the matching lane key exactly as the note center aligns with the glowing target line.
-
-2. **SWIPE NOTES (Directional Chevrons)**
-   - *Unlocked at*: Difficulty Level 4+.
-   - *Appearance*: Bright chevron arrows pointing in one of 8 directions (`UP`, `DOWN`, `LEFT`, `RIGHT`, `UP-LEFT`, `UP-RIGHT`, `DOWN-LEFT`, `DOWN-RIGHT`).
-   - *Action*: Flick the corresponding arrow key or swipe your touchscreen in the direction indicated.
-
-3. **HOLD NOTES (Sustained Beams)**
-   - *Unlocked at*: Difficulty Level 7+.
-   - *Appearance*: Solid note head connected to a long vertical neon tail.
-   - *Action*: Press and hold the lane key when the head arrives. Continue holding down until the tail completely passes the hit line.
-
-4. **SLIDE NOTES (Winding Hold Beams)**
-   - *Unlocked at*: Difficulty Level 7+.
-   - *Appearance*: Curved, lane-shifting hold tail that snakes between Lane 0, Lane 1, and Lane 2.
-   - *Action*: Hold down your input while tracking the movement of the beam across lanes using Arrow keys or touch dragging.
-
-5. **REMIX NOTES ⚡ (PIM Signature)**
-   - *Appearance*: Pulsing ethereal note with glowing stem runes.
-   - *Action*: Strike with PERFECT timing to trigger live Web Audio stem rearrangement mutations, temporary canvas color inversion, and +1000 bonus points!
-
----
-
-### SECTION 3: TIMING WINDOWS, JUDGMENT GRADES & SCORING
-
-Accuracy is measured in milliseconds relative to perfect audio sync.
-
-#### Judgment Grades & Tolerances
-* **PERFECT+ (500 pts)**: Frame-exact hit within $\le \text{TimingWindow}_{\text{P+}}$ (up to $\pm 30\text{ms}$ on Void difficulty).
-* **PERFECT (300 pts)**: Clean hit within $\le \text{TimingWindow}_{\text{P}}$ (up to $\pm 55\text{ms}$).
-* **GOOD (150 pts)**: Slightly early or late hit within $\le \text{TimingWindow}_{\text{G}}$ (up to $\pm 100\text{ms}$).
-* **MISS (0 pts)**: Note passed the hit line without input or was hit out of bounds. Resets current combo to 0.
-
-#### Difficulty Score Multipliers
-Score multipliers build up as your unbroken combo increases:
-* **LIGHT Difficulty (Levels 1–3)**: Max Multiplier = **3x** (Combo thresholds: 10 $\to$ 1.5x, 25 $\to$ 2.0x, 50 $\to$ 3.0x).
-* **DARK Difficulty (Levels 4–6)**: Max Multiplier = **4x** (Combo thresholds: 10 $\to$ 1.5x, 25 $\to$ 2.0x, 50 $\to$ 3.0x, 75 $\to$ 4.0x).
-* **VOID Difficulty (Levels 7–10)**: Max Multiplier = **5x** (Combo thresholds: 10 $\to$ 1.5x, 25 $\to$ 2.0x, 50 $\to$ 3.0x, 75 $\to$ 4.0x, 100 $\to$ 5.0x).
-
----
-
-### SECTION 4: SONIC PUNISHMENT — MULTI-BAND AUDIO DEGRADATION
-
-Unlike traditional rhythm games that only drop numbers when you miss, PIM **degrades the physical music in real time**.
-
-* **The 3 Crossover Bands**:
-  - **Lane 0 (Bass)**: Controls lowpass frequencies below $300\text{Hz}$ (drums, sub-bass, kick).
-  - **Lane 1 (Mids)**: Controls bandpass frequencies around $1200\text{Hz}$ (vocals, main synth, lead guitar).
-  - **Lane 2 (Treble)**: Controls highpass frequencies above $3200\text{Hz}$ (hi-hats, cymbals, crisp air).
-* **Muting on Miss**: Missing a note in a lane instantly mutes that audio band, dropping channel volume gain to **0.04** over 0.12s.
-* **Active Restore on Hit**: Striking the next note in a muted lane instantly un-silences the channel, ramping gain back over 0.25s.
-* **Passive Auto-Recovery**: If no notes appear in a muted lane for **3.5 seconds**, auto-recovery restores the channel automatically over 0.4s to prevent total track silence.
-
----
-
-### SECTION 5: OVERDRIVE & FLOW-STATE POWER-UP OVERLAYS
-
-Sustaining high unbroken combos activates dynamic flow-state power-ups:
-
-> [!TIP]
-> **OVERDRIVE MODES**
-> - **FEVER (Combo $\ge 20$)**: Lasts 9 seconds. **2x Score Multiplier**. Automatically upgrades all standard `PERFECT` hits to `PERFECT+`. Visual color: **Gold (`#E5B800`)**.
-> - **SURGE (Combo $\ge 40$)**: Lasts 11 seconds. **3x Score Multiplier**. **Autoplay Assist**: Autoplay automatically locks onto complex slide paths and hold tails for you. Visual color: **Hot Pink (`#FF1493`)**.
-> - **SIGNAL LOCK (Combo $\ge 60$)**: Lasts 14 seconds. **4x Score Multiplier**. Peak visual stability with bright matrix glow. Visual color: **Neon Green (`#39FF14`)**.
-
----
-
-### SECTION 6: FAILURE PROTOCOL, AUDIO REWIND & CONTINUES
-
-* **3-Miss Limit**: Missing 3 notes within a run triggers **SIGNAL LOST**.
-* **2.5-Second Audio Rewind**: The engine automatically rewinds audio playback by 2.5 seconds.
-* **Reverse Highway Scroll Animation**: The perspective highway visually scrolls backward over 1.2s (`1200ms`), reviving missed notes in the rewind window.
-* **Continues Limit**: Players may use up to **3 Continues** per song run. Using a continue resets miss count to 0, resets combo to 0, and restores all audio bands.
-
----
-
-### SECTION 7: AUDIO & VISUAL GAMEPLAY MODIFIERS
-
-Equipping cards from your Vault activates distinct gameplay modifiers based on song tags and genres:
-
-1. **VOCAL ISOLATION**
-   - *Trigger*: Acoustic, Pop, Indie, Soul, or BPM $\le 100$.
-   - *Effect*: Amplifies Lane 1 vocals (Gain = 2.2) while dampening low-end and high-end frequencies (Gain = 0.15).
-
-2. **BASS REALM**
-   - *Trigger*: Electro, Hip-Hop, Techno, Dubstep, House, or BPM $> 120$.
-   - *Effect*: Boosts bass channel (Lane 0 Gain = 2.6). Lane 0 notes turn **Neon Purple (`#a855f7`)**, render **60% thicker**, and **28% wider**.
-
-3. **CORRUPTED SIGNAL**
-   - *Trigger*: Glitch, Industrial, Corrupted tags, or BPM $> 138$.
-   - *Effect*: Drives tempo/pitch drift ($\pm 4\%$), translates canvas coordinates randomly (screen shake), and projects CRT scanlines with orange noise blocks.
-
----
-
-### SECTION 8: CAMPAIGN MAPS, WINDING PATHWAYS & MILESTONE REWARDS
-
-* **Constellation Sector Map**: Navigate through calendar chapters across 365 songs.
-* **Winding Pathway Stages**: Each chapter contains level nodes linked by winding concrete roads.
-* **Star Thresholds**: Earn up to 3 stars per stage based on accuracy ($70\% \to 1\star$, $85\% \to 2\star$, $95\% \to 3\star$).
-* **Milestone Rewards Bar**: Accumulating stars unlocks Milestone Rewards chests containing $V\text{⚡}$ tokens, free Gacha card packs, and exclusive event titles.
-
----
-
-### SECTION 9: COLLECTIBLES, FORGE & CARD ECONOMY
-
-* **Card Rarity Tiers**: Common $\to$ Uncommon $\to$ Rare $\to$ Legendary $\to$ Mythic.
-* **$V\text{⚡}$ Tokens**: Earned through high accuracy runs and burning duplicate cards.
-* **The Forge**:
-  - *Card Burning*: Recycle owned cards for $V\text{⚡}$ tokens.
-  - *Targeted Pull*: Spend **500 $V\text{⚡}$ tokens** to directly acquire any specific card from the 365 catalog.
-  - *Rarity Upgrade*: Spend **150 $V\text{⚡}$ tokens** to upgrade an owned card to the next rarity tier.
-  - *Duplicate Fusion*: Fuse **3 identical cards** (same day & rarity) to create 1 card of the next higher tier.
-* **Echo Cards & Generational Decay**: Gacha packs have a 15% chance to roll Echo variants. Echo cards yield bonus prestige but suffer generational payout decay (Gen 0 $\to$ Gen 1 $\to$ Gen 2 $\to$ Gen 3+ Entropy Death).
-
----
-
-### SECTION 10: COMPLETE "WHAT CAN HAPPEN" DYNAMIC EVENTS MATRIX
+### SECTION 2: COMPLETE DYNAMIC EVENTS MATRIX
 
 This matrix details **EVERY SINGLE EVENT, TRIGGER, AND MECHANIC** that can occur in PIM:
 
