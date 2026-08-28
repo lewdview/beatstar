@@ -1,5 +1,11 @@
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
+import * as dotenv from "dotenv";
+
+dotenv.config();
+
+const accounts = process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [];
+const basescanKey = process.env.BASESCAN_API_KEY || "PLACEHOLDER";
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -17,18 +23,18 @@ const config: HardhatUserConfig = {
     // Base Sepolia Testnet
     "base-sepolia": {
       url: "https://sepolia.base.org",
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      accounts,
     },
     // Base Mainnet
     "base-mainnet": {
       url: "https://mainnet.base.org",
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      accounts,
     },
   },
   etherscan: {
     apiKey: {
-      "base-sepolia": "PLACEHOLDER",
-      "base-mainnet": "PLACEHOLDER",
+      "base-sepolia": basescanKey,
+      "base-mainnet": basescanKey,
     },
     customChains: [
       {

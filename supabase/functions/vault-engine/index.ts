@@ -228,7 +228,18 @@ async function generateCards(svc: any, userId: string, packType: string, count: 
         const currentSupply = supplyRow?.supply || 0;
 
         if (currentSupply < max_supply) {
-          const { data } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity });
+          // H6 FIX: Enforce cap atomically inside the DB — returns -1 if cap reached
+          const { data } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity, p_max_supply: max_supply });
+          if (data === -1) {
+            // Cap was reached between our check and the RPC — treat as sold out
+            const nextRarity = degradeRarity(rarity as Rarity, 1);
+            if (nextRarity === rarity) { isSoldOut = true; break; }
+            rarity = nextRarity;
+            max_supply = getSupplyCap(rarity, day, today);
+            card_id_rarity = `${day}-${rarity}`;
+            downgradeAttempts++;
+            continue;
+          }
           edition = data || 1;
           break;
         }
@@ -393,9 +404,12 @@ serve(async (req) => {
       // ═══════════════════════════════════════════════════════════
       case 'burnCard': {
         const { cardOwnedId, sourceTitle, sourceMood, energy, valence, tempo } = payload;
-        const { data: ownedCard, error: fetchErr } = await supabaseClient
-          .from('vault_collections').select('*').eq('id', cardOwnedId).eq('owner_id', user.id).single();
-        if (fetchErr || !ownedCard) throw new Error('Card not found or not owned');
+        // C3 FIX: Atomic delete-and-return to prevent double-spend race condition.
+        // Previously: separate SELECT to check ownership, then DELETE later.
+        // Now: single DELETE ... RETURNING * that fails if card doesn't exist or isn't owned.
+        const { data: ownedCard, error: fetchErr } = await svc
+          .from('vault_collections').delete().eq('id', cardOwnedId).eq('owner_id', user.id).select('*').single();
+        if (fetchErr || !ownedCard) throw new Error('Card not found, not owned, or already burned');
 
         // Get profile for anti-grind tracking
         const { data: prof } = await svc.from('profiles').select('*').eq('id', user.id).single();
@@ -425,8 +439,7 @@ serve(async (req) => {
           });
         }
 
-        // Delete card & update profile counters
-        await svc.from('vault_collections').delete().eq('id', cardOwnedId);
+        // Card already atomically deleted above via DELETE ... RETURNING *
         dailyBurns += 1;
         await svc.from('profiles').update({
           daily_burns: dailyBurns,
@@ -754,19 +767,19 @@ serve(async (req) => {
         const { cardIds } = payload;
         if (!cardIds || cardIds.length !== 3) throw new Error('Must provide exactly 3 card IDs');
 
-        const { data: cards, error: fetchErr } = await supabaseClient
-          .from('vault_collections').select('*').in('id', cardIds).eq('owner_id', user.id);
-        if (fetchErr || !cards || cards.length !== 3) throw new Error('Cards not found or not owned');
+        // C3 FIX: Atomic delete-and-return to prevent double-spend race condition.
+        const { data: cards, error: fetchErr } = await svc
+          .from('vault_collections').delete().in('id', cardIds).eq('owner_id', user.id).select('*');
+        if (fetchErr || !cards || cards.length !== 3) throw new Error('Cards not found, not owned, or already consumed');
 
         // Verify all same card_id and rarity
         const baseCardId = cards[0].card_id;
         const baseRarity = cards[0].rarity;
         if (!cards.every((c: any) => c.card_id === baseCardId && c.rarity === baseRarity)) {
+          // Cards already deleted but don't match — re-insert them to roll back
+          await svc.from('vault_collections').insert(cards);
           throw new Error('All 3 cards must be identical (same day + rarity)');
         }
-
-        // Delete the 3 cards
-        await svc.from('vault_collections').delete().in('id', cardIds);
 
         // Create 1 upgraded card
         const newRarity = upgradeRarity(baseRarity as Rarity);

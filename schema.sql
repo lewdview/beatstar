@@ -26,7 +26,7 @@ CREATE TABLE public.profiles (
     avatar_url TEXT,
     is_alpha BOOLEAN DEFAULT FALSE,
     season_tag TEXT DEFAULT 'gen_0',
-    tokens INTEGER DEFAULT 0,
+    tokens INTEGER DEFAULT 0 CHECK (tokens >= 0),
     tokens_earned_total INTEGER DEFAULT 0,
     tokens_spent_total INTEGER DEFAULT 0,
     total_pulls INTEGER DEFAULT 0,
@@ -297,20 +297,44 @@ CREATE INDEX idx_notifications_user_id ON public.notifications(user_id);
 
 
 -- ============================================================================
+-- AUTH SECURITY
+-- ============================================================================
+
+-- 17. Auth Nonces — One-time nonces for wallet signature challenge-response (C2 audit fix)
+CREATE TABLE IF NOT EXISTS public.auth_nonces (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    nonce TEXT UNIQUE NOT NULL,
+    wallet_address TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '5 minutes')
+);
+
+CREATE INDEX IF NOT EXISTS idx_auth_nonces_wallet ON public.auth_nonces(wallet_address);
+
+
+-- ============================================================================
 -- RPC FUNCTIONS
 -- ============================================================================
 
--- Atomically increment supply and return the assigned edition number
-CREATE OR REPLACE FUNCTION public.increment_supply(p_card_id_rarity TEXT)
+-- Atomically increment supply with cap enforcement, returning edition or -1 if cap reached
+CREATE OR REPLACE FUNCTION public.increment_supply(p_card_id_rarity TEXT, p_max_supply INTEGER DEFAULT 2147483647)
 RETURNS INTEGER AS $$
 DECLARE
     new_supply INTEGER;
 BEGIN
+    -- Attempt to insert or increment, but only if under the cap
     INSERT INTO public.global_supply (card_id_rarity, supply)
     VALUES (p_card_id_rarity, 1)
     ON CONFLICT (card_id_rarity)
     DO UPDATE SET supply = public.global_supply.supply + 1
+      WHERE public.global_supply.supply < p_max_supply
     RETURNING supply INTO new_supply;
+
+    -- If no row was inserted/updated (cap reached), return -1
+    IF new_supply IS NULL THEN
+        RETURN -1;
+    END IF;
+
     RETURN new_supply;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

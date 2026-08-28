@@ -22,7 +22,7 @@ serve(async (req) => {
   }
 
   try {
-    const { address, message, signature } = await req.json();
+    const { address, message, signature, nonce } = await req.json();
 
     if (!address || !message || !signature) {
       throw new Error('Missing address, message, or signature');
@@ -43,11 +43,45 @@ serve(async (req) => {
       throw new Error('Invalid signature');
     }
 
+    // C2 FIX: Replay protection — validate nonce and timestamp in the signed message
+    // Expected message format: "Sign in to PIM : th3v4ult\nNonce: <nonce>\nTimestamp: <ISO timestamp>"
+    const nonceMatch = message.match(/Nonce:\s*([a-f0-9-]+)/i);
+    const timestampMatch = message.match(/Timestamp:\s*(\d{4}-\d{2}-\d{2}T[\d:.]+Z)/i);
+
+    if (!nonceMatch || !timestampMatch) {
+      throw new Error('Invalid message format: must contain Nonce and Timestamp');
+    }
+
+    const messageNonce = nonceMatch[1];
+    const messageTimestamp = new Date(timestampMatch[1]);
+    const now = new Date();
+    const ageMs = now.getTime() - messageTimestamp.getTime();
+
+    // Reject signatures older than 5 minutes
+    if (ageMs > 5 * 60 * 1000 || ageMs < -30_000) {
+      throw new Error('Signature expired or timestamp invalid');
+    }
+
+    // Verify nonce exists and hasn't been used (requires auth_nonces table)
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, { auth: { autoRefreshToken: false, persistSession: false } });
+
+    // Atomically consume the nonce — delete and check it existed
+    const { data: nonceRow, error: nonceErr } = await supabaseAdmin
+      .from('auth_nonces')
+      .delete()
+      .eq('nonce', messageNonce)
+      .eq('wallet_address', address.toLowerCase())
+      .select('*')
+      .maybeSingle();
+
+    if (nonceErr || !nonceRow) {
+      throw new Error('Invalid or already-used nonce');
+    }
+
     const supabaseAuthClient = createClient(supabaseUrl, supabaseAnonKey, { auth: { autoRefreshToken: false, persistSession: false } });
 
     const email = `${address.toLowerCase()}@smartwallet.th3vault.art`;
