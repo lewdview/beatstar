@@ -121,10 +121,13 @@ CREATE TABLE public.user_cards (
 CREATE TABLE public.campaign_milestone_claims (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    chapter TEXT NOT NULL,
-    milestone_index INTEGER NOT NULL,
+    chapter TEXT,
+    milestone_index INTEGER,
+    month_num INTEGER,
+    milestone_num INTEGER,
     claimed_at TIMESTAMPTZ DEFAULT NOW(),
-    CONSTRAINT unique_milestone_claim UNIQUE (user_id, chapter, milestone_index)
+    CONSTRAINT unique_milestone_claim UNIQUE (user_id, chapter, milestone_index),
+    CONSTRAINT unique_user_milestone UNIQUE (user_id, month_num, milestone_num)
 );
 
 -- 7. User Fragments — Collectible fragment tracking

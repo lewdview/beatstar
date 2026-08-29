@@ -26,9 +26,12 @@ CREATE TABLE IF NOT EXISTS public.user_fragments (
 CREATE TABLE IF NOT EXISTS public.campaign_milestone_claims (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    month_num INT NOT NULL,
-    milestone_num INT NOT NULL,
+    chapter TEXT,
+    milestone_index INTEGER,
+    month_num INTEGER,
+    milestone_num INTEGER,
     claimed_at TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT unique_milestone_claim UNIQUE (user_id, chapter, milestone_index),
     CONSTRAINT unique_user_milestone UNIQUE (user_id, month_num, milestone_num)
 );
 
