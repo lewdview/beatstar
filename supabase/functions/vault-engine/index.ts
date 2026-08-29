@@ -1001,6 +1001,33 @@ serve(async (req) => {
           }
         }
 
+        // Normalize and auto-insert "BONUSAUG29" code (100 V tokens for Bombshell pack)
+        if (cleanCode === 'BONUSAUG29') {
+          const { data: existingPromo } = await svc
+            .from('bonus_codes')
+            .select('*')
+            .eq('code', cleanCode)
+            .maybeSingle();
+
+          if (!existingPromo) {
+            const { error: insErr } = await svc.from('bonus_codes').insert({
+              code: cleanCode,
+              reward_type: 'tokens',
+              reward_value: '100',
+              max_uses: 999999,
+              use_count: 0
+            });
+            if (insErr) {
+              console.error('Failed to auto-provision BONUSAUG29 code:', insErr);
+            }
+          } else if (existingPromo.reward_type !== 'tokens' || existingPromo.reward_value !== '100') {
+            await svc.from('bonus_codes').update({
+              reward_type: 'tokens',
+              reward_value: '100'
+            }).eq('code', cleanCode);
+          }
+        }
+
         // 1. Fetch promo/bonus code
         const { data: promo, error: promoErr } = await svc
           .from('bonus_codes')
