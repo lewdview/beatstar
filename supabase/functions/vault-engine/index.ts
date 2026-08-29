@@ -1065,11 +1065,14 @@ serve(async (req) => {
         if (promo.reward_type === 'tokens') {
           const { data: profile } = await svc.from('profiles').select('tokens, tokens_earned_total').eq('id', user.id).single();
           const tokenAmt = parseInt(promo.reward_value, 10) || 0;
+          const currentTokens = profile?.tokens || 0;
+          const currentTotal = profile?.tokens_earned_total || 0;
+          const nextTokens = currentTokens + tokenAmt;
           await svc.from('profiles').update({
-            tokens: (profile?.tokens || 0) + tokenAmt,
-            tokens_earned_total: (profile?.tokens_earned_total || 0) + tokenAmt
+            tokens: nextTokens,
+            tokens_earned_total: currentTotal + tokenAmt
           }).eq('id', user.id);
-          rewardResult = { tokensGranted: tokenAmt };
+          rewardResult = { tokensGranted: tokenAmt, remainingTokens: nextTokens };
         } 
         else if (promo.reward_type === 'card') {
           const parts = promo.reward_value.split('-');
