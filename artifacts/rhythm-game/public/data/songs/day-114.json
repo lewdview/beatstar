@@ -14,356 +14,71 @@
     "alternative"
   ],
   "description": "Exploring self-reflection and inner struggle.",
-  "audioUrl": "https://files.th3scr1b3.art/audio/april/rain_isitthathard_intro.wav",
+  "audioUrl": "https://files.th3scr1b3.art/audio/april/24%20-%20rain_isitthathard_intro.mp3",
   "coverArt": "https://files.th3scr1b3.art/covers/april/24%20-%20rain_isitthathard_intro.jpg",
   "notes": [
     {
-      "id": 0,
-      "time": 1.63,
-      "lane": 0,
-      "type": "tap",
-      "stage": 1
-    },
-    {
-      "id": 1,
-      "time": 2.772,
+      "time": 5.543,
       "lane": 2,
       "type": "tap",
+      "id": 0,
       "stage": 1
     },
     {
-      "id": 2,
-      "time": 3.75,
-      "lane": 0,
-      "type": "tap",
-      "stage": 1
-    },
-    {
-      "id": 3,
-      "time": 4.891,
-      "lane": 0,
-      "type": "tap",
-      "stage": 1
-    },
-    {
-      "id": 4,
-      "time": 5.707,
-      "lane": 0,
-      "type": "tap",
-      "stage": 1
-    },
-    {
-      "id": 5,
-      "time": 8.315,
-      "lane": 0,
-      "type": "tap",
-      "stage": 1
-    },
-    {
-      "id": 6,
-      "time": 9.293,
+      "time": 14.674,
       "lane": 1,
       "type": "tap",
-      "stage": 1
+      "id": 1,
+      "stage": 2
     },
     {
-      "id": 7,
-      "time": 18.098,
-      "lane": 0,
+      "time": 18.587,
+      "lane": 2,
       "type": "tap",
+      "id": 2,
       "stage": 2
     },
     {
-      "id": 8,
-      "time": 18.913,
-      "lane": 0,
-      "type": "hold",
-      "holdDuration": 0.815,
-      "stage": 2
-    },
-    {
-      "id": 9,
-      "time": 19.891,
-      "lane": 0,
-      "type": "tap",
-      "stage": 2
-    },
-    {
-      "id": 10,
       "time": 21.196,
       "lane": 0,
       "type": "tap",
+      "id": 3,
       "stage": 2
     },
     {
-      "id": 11,
-      "time": 21.685,
+      "time": 32.935,
       "lane": 1,
       "type": "tap",
-      "stage": 2
-    },
-    {
-      "id": 12,
-      "time": 22.989,
-      "lane": 1,
-      "type": "hold",
-      "holdDuration": 1.141,
-      "stage": 2
-    },
-    {
-      "id": 13,
-      "time": 26.576,
-      "lane": 1,
-      "type": "tap",
+      "id": 4,
       "stage": 3
     },
     {
-      "id": 14,
-      "time": 28.37,
-      "lane": 1,
-      "type": "hold",
-      "holdDuration": 0.815,
-      "swipeDirection": "up",
-      "stage": 3
-    },
-    {
-      "id": 15,
-      "time": 32.446,
-      "lane": 1,
-      "type": "tap",
-      "stage": 3
-    },
-    {
-      "id": 16,
-      "time": 32.772,
+      "time": 36.848,
       "lane": 2,
       "type": "tap",
+      "id": 5,
       "stage": 3
     },
     {
-      "id": 17,
-      "time": 33.261,
+      "time": 44.674,
       "lane": 1,
       "type": "tap",
-      "stage": 3
+      "id": 6,
+      "stage": 4
     },
     {
-      "id": 18,
-      "time": 33.75,
-      "lane": 0,
-      "type": "tap",
-      "stage": 3
-    },
-    {
-      "id": 19,
-      "time": 34.402,
-      "lane": 0,
-      "type": "tap",
-      "stage": 3
-    },
-    {
-      "id": 20,
-      "time": 34.891,
-      "lane": 1,
-      "type": "tap",
-      "stage": 3
-    },
-    {
-      "id": 21,
-      "time": 35.707,
-      "lane": 1,
-      "type": "tap",
-      "stage": 3
-    },
-    {
-      "id": 22,
-      "time": 36.196,
-      "lane": 1,
-      "type": "tap",
-      "stage": 3
-    },
-    {
-      "id": 23,
-      "time": 36.522,
-      "lane": 2,
-      "type": "swipe",
-      "swipeDirection": "up-right",
-      "stage": 3
-    },
-    {
-      "id": 24,
-      "time": 39.783,
+      "time": 53.804,
       "lane": 2,
       "type": "tap",
-      "stage": 3
+      "id": 7,
+      "stage": 4
     },
     {
-      "id": 25,
-      "time": 40.272,
-      "lane": 1,
-      "type": "tap",
-      "stage": 3
-    },
-    {
-      "id": 26,
-      "time": 40.598,
+      "time": 57.717,
       "lane": 0,
       "type": "tap",
-      "stage": 3
-    },
-    {
-      "id": 27,
-      "time": 43.859,
-      "lane": 1,
-      "type": "hold",
-      "holdDuration": 0.815,
-      "stage": 4
-    },
-    {
-      "id": 28,
-      "time": 44.837,
-      "lane": 0,
-      "type": "swipe",
-      "swipeDirection": "down",
-      "stage": 4
-    },
-    {
-      "id": 29,
-      "time": 45,
-      "lane": 2,
-      "type": "swipe",
-      "swipeDirection": "down",
-      "stage": 4
-    },
-    {
-      "id": 30,
-      "time": 45.326,
-      "lane": 1,
-      "type": "tap",
-      "stage": 4
-    },
-    {
-      "id": 31,
-      "time": 48.587,
-      "lane": 0,
-      "type": "tap",
-      "stage": 4
-    },
-    {
-      "id": 32,
-      "time": 49.402,
-      "lane": 0,
-      "type": "tap",
-      "stage": 4
-    },
-    {
-      "id": 33,
-      "time": 49.728,
-      "lane": 2,
-      "type": "tap",
-      "stage": 4
-    },
-    {
-      "id": 34,
-      "time": 49.891,
-      "lane": 1,
-      "type": "swipe",
-      "swipeDirection": "down",
-      "stage": 4
-    },
-    {
-      "id": 35,
-      "time": 50.38,
-      "lane": 1,
-      "type": "swipe",
-      "swipeDirection": "up",
-      "stage": 4
-    },
-    {
-      "id": 36,
-      "time": 52.337,
-      "lane": 1,
-      "type": "hold",
-      "holdDuration": 0.815,
-      "swipeDirection": "up",
-      "stage": 4
-    },
-    {
-      "id": 37,
-      "time": 53.315,
-      "lane": 1,
-      "type": "tap",
-      "stage": 4
-    },
-    {
-      "id": 38,
-      "time": 53.641,
-      "lane": 0,
-      "type": "hold",
-      "holdDuration": 0.652,
-      "targetLane": 2,
-      "swipeDirection": "right",
-      "stage": 4
-    },
-    {
-      "id": 39,
-      "time": 54.13,
-      "lane": 2,
-      "type": "hold",
-      "holdDuration": 0.652,
-      "targetLane": 1,
-      "swipeDirection": "left",
-      "stage": 4
-    },
-    {
-      "id": 40,
-      "time": 54.293,
-      "lane": 0,
-      "type": "tap",
-      "stage": 4
-    },
-    {
-      "id": 41,
-      "time": 58.859,
-      "lane": 0,
-      "type": "tap",
+      "id": 8,
       "stage": 5
-    },
-    {
-      "id": 42,
-      "time": 59.837,
-      "lane": 0,
-      "type": "tap",
-      "stage": 5
-    },
-    {
-      "id": 43,
-      "time": 60.652,
-      "lane": 1,
-      "type": "tap",
-      "stage": 5
-    },
-    {
-      "id": 44,
-      "time": 61.304,
-      "lane": 2,
-      "type": "tap",
-      "stage": 5
-    },
-    {
-      "id": 45,
-      "time": 61.957,
-      "lane": 0,
-      "type": "tap",
-      "stage": 5
-    },
-    {
-      "id": 46,
-      "time": 62.609,
-      "lane": 1,
-      "type": "remix",
-      "stage": 5,
-      "remixEffect": "vocals_isolate"
     }
   ],
   "stages": [
@@ -373,7 +88,7 @@
       "difficulty": "EASY",
       "startTime": 0,
       "endTime": 10.2,
-      "noteCount": 7
+      "noteCount": 1
     },
     {
       "stage": 2,
@@ -381,7 +96,7 @@
       "difficulty": "MEDIUM",
       "startTime": 10.2,
       "endTime": 23.799999999999997,
-      "noteCount": 6
+      "noteCount": 3
     },
     {
       "stage": 3,
@@ -389,7 +104,7 @@
       "difficulty": "HARD",
       "startTime": 23.799999999999997,
       "endTime": 40.8,
-      "noteCount": 14
+      "noteCount": 2
     },
     {
       "stage": 4,
@@ -397,7 +112,7 @@
       "difficulty": "BRUTAL",
       "startTime": 40.8,
       "endTime": 54.400000000000006,
-      "noteCount": 14
+      "noteCount": 2
     },
     {
       "stage": 5,
@@ -405,7 +120,7 @@
       "difficulty": "BRUTAL",
       "startTime": 54.400000000000006,
       "endTime": 68,
-      "noteCount": 6
+      "noteCount": 1
     }
   ],
   "key": "D major",
@@ -475,6 +190,5 @@
   "unlock": {
     "card": "card-114",
     "fragments": 10
-  },
-  "perfectRunMaxScore": 97000
+  }
 }
