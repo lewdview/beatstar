@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "pim-ecosystem": {
+      "command": "node",
+      "args": [
+        "/Users/studio/BEATSTAR.th3scr1b3.art/beatstar/.agents/mcp/pim-mcp-server.cjs"
+      ],
+      "env": {
+        "PIM_PRIMARY_TARGET": "artifacts/beatstar-vault",
+        "PIM_NETWORK": "Base Mainnet (8453)"
+      }
+    }
+  }
+}
