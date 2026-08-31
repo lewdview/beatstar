@@ -319,9 +319,17 @@ async function generateCards(svc: any, userId: string, packType: string, count: 
     cards.push(rolledCard);
   }
 
-  const { data: insertedCards, error } = await svc.from('vault_collections').insert(cards).select('*');
+  const { data: insertedCards, error } = await svc.from('vault_collections')
+    .upsert(cards, { onConflict: 'owner_id,card_id,rarity', ignoreDuplicates: true })
+    .select('*');
   if (error) throw new Error(`Database Insert Failed: ${error.message} - details: ${error.details}`);
-  return insertedCards || cards;
+
+  // Guarantee every card has consistent payload even if previously owned
+  const resultCards = cards.map((c: any) => {
+    const found = insertedCards?.find((ic: any) => ic.card_id === c.card_id && ic.rarity === c.rarity);
+    return found || c;
+  });
+  return resultCards;
 }
 
 serve(async (req) => {
@@ -726,7 +734,10 @@ serve(async (req) => {
           edition, max_supply, proof,
           claimed_at: new Date().toISOString()
         };
-        const { data: insertedCard, error: insErr } = await svc.from('vault_collections').insert(card).select('*').single();
+        const { data: insertedCard, error: insErr } = await svc.from('vault_collections')
+          .upsert(card, { onConflict: 'owner_id,card_id,rarity', ignoreDuplicates: true })
+          .select('*')
+          .maybeSingle();
         if (insErr) throw new Error(`Failed to insert targeted pull record: ${insErr.message}`);
         await logTelemetry(svc, 'targeted_pull', user.id, { day, rarity, cost });
 
@@ -777,7 +788,7 @@ serve(async (req) => {
         const baseRarity = cards[0].rarity;
         if (!cards.every((c: any) => c.card_id === baseCardId && c.rarity === baseRarity)) {
           // Cards already deleted but don't match — re-insert them to roll back
-          await svc.from('vault_collections').insert(cards);
+          await svc.from('vault_collections').upsert(cards, { onConflict: 'owner_id,card_id,rarity', ignoreDuplicates: true });
           throw new Error('All 3 cards must be identical (same day + rarity)');
         }
 
@@ -793,7 +804,10 @@ serve(async (req) => {
           edition: supplyData || 1, max_supply: getSupplyCap(newRarity, day, today),
           claimed_at: new Date().toISOString()
         };
-        const { data: insertedCard, error: insErr } = await svc.from('vault_collections').insert(fusedCard).select('*').single();
+        const { data: insertedCard, error: insErr } = await svc.from('vault_collections')
+          .upsert(fusedCard, { onConflict: 'owner_id,card_id,rarity', ignoreDuplicates: true })
+          .select('*')
+          .maybeSingle();
         if (insErr) throw new Error(`Failed to insert fused card record: ${insErr.message}`);
         await logTelemetry(svc, 'duplicate_fusion', user.id, { baseCardId, from: baseRarity, to: newRarity });
 
@@ -1094,7 +1108,10 @@ serve(async (req) => {
             max_supply,
             claimed_at: new Date().toISOString()
           };
-          const { data: insertedCard, error: insErr } = await svc.from('vault_collections').insert(newCard).select('*').single();
+          const { data: insertedCard, error: insErr } = await svc.from('vault_collections')
+            .upsert(newCard, { onConflict: 'owner_id,card_id,rarity', ignoreDuplicates: true })
+            .select('*')
+            .maybeSingle();
           if (insErr) throw new Error(`Failed to claim card reward: ${insErr.message}`);
           rewardResult = { card: insertedCard || newCard };
         } 
