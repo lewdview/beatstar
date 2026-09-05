@@ -1,0 +1,867 @@
+{
+  "id": "day-030",
+  "day": 30,
+  "date": "2026-01-30",
+  "title": "To Be A Man (Dax Open Verse Challenge)",
+  "artist": "TH3SCR1B3",
+  "bpm": 66,
+  "duration": 51,
+  "mood": "dark",
+  "valence": 0.47410514242767804,
+  "moodTags": [
+    "reflective",
+    "introspective",
+    "ballad"
+  ],
+  "description": "Exploring self-discovery and relationship dynamics.",
+  "audioUrl": "https://files.th3scr1b3.art/audio/january/30%20-%20To%20Be%20a%20Man.mp3",
+  "coverArt": "https://files.th3scr1b3.art/covers/january/30%20-%20To%20Be%20a%20Man.jpg",
+  "notes": [
+    {
+      "id": 0,
+      "time": 1.818,
+      "lane": 1,
+      "type": "tap",
+      "stage": 1
+    },
+    {
+      "id": 1,
+      "time": 3.636,
+      "lane": 1,
+      "type": "tap",
+      "stage": 1
+    },
+    {
+      "id": 2,
+      "time": 5.455,
+      "lane": 1,
+      "type": "tap",
+      "stage": 1
+    },
+    {
+      "id": 3,
+      "time": 7.273,
+      "lane": 0,
+      "type": "tap",
+      "stage": 1
+    },
+    {
+      "id": 4,
+      "time": 8.409,
+      "lane": 2,
+      "type": "tap",
+      "stage": 1
+    },
+    {
+      "id": 5,
+      "time": 9.318,
+      "lane": 0,
+      "type": "tap",
+      "stage": 2
+    },
+    {
+      "id": 6,
+      "time": 10.227,
+      "lane": 0,
+      "type": "hold",
+      "holdDuration": 0.909,
+      "stage": 2
+    },
+    {
+      "id": 7,
+      "time": 10.909,
+      "lane": 0,
+      "type": "tap",
+      "stage": 2
+    },
+    {
+      "id": 8,
+      "time": 11.591,
+      "lane": 1,
+      "type": "tap",
+      "stage": 2
+    },
+    {
+      "id": 9,
+      "time": 12.5,
+      "lane": 1,
+      "type": "tap",
+      "stage": 2
+    },
+    {
+      "id": 10,
+      "time": 13.182,
+      "lane": 0,
+      "type": "tap",
+      "stage": 2
+    },
+    {
+      "id": 11,
+      "time": 13.864,
+      "lane": 0,
+      "type": "hold",
+      "holdDuration": 0.909,
+      "stage": 2
+    },
+    {
+      "id": 12,
+      "time": 14.773,
+      "lane": 1,
+      "type": "hold",
+      "holdDuration": 0.909,
+      "stage": 2
+    },
+    {
+      "id": 13,
+      "time": 15.455,
+      "lane": 0,
+      "type": "tap",
+      "stage": 2
+    },
+    {
+      "id": 14,
+      "time": 16.136,
+      "lane": 2,
+      "type": "tap",
+      "stage": 2
+    },
+    {
+      "id": 15,
+      "time": 16.818,
+      "lane": 1,
+      "type": "tap",
+      "stage": 2
+    },
+    {
+      "id": 16,
+      "time": 17.727,
+      "lane": 1,
+      "type": "tap",
+      "stage": 2
+    },
+    {
+      "id": 17,
+      "time": 18.636,
+      "lane": 1,
+      "type": "tap",
+      "stage": 2
+    },
+    {
+      "id": 18,
+      "time": 19.545,
+      "lane": 1,
+      "type": "tap",
+      "stage": 2
+    },
+    {
+      "id": 19,
+      "time": 20.455,
+      "lane": 2,
+      "type": "tap",
+      "stage": 2
+    },
+    {
+      "id": 20,
+      "time": 21.364,
+      "lane": 0,
+      "type": "tap",
+      "stage": 3
+    },
+    {
+      "id": 21,
+      "time": 22.727,
+      "lane": 0,
+      "type": "tap",
+      "stage": 3
+    },
+    {
+      "id": 22,
+      "time": 23.636,
+      "lane": 0,
+      "type": "tap",
+      "stage": 3
+    },
+    {
+      "id": 23,
+      "time": 24.318,
+      "lane": 1,
+      "type": "swipe",
+      "swipeDirection": "up",
+      "stage": 3
+    },
+    {
+      "id": 24,
+      "time": 25,
+      "lane": 0,
+      "type": "tap",
+      "stage": 3
+    },
+    {
+      "id": 25,
+      "time": 25.455,
+      "lane": 1,
+      "type": "hold",
+      "holdDuration": 0.909,
+      "stage": 3
+    },
+    {
+      "id": 26,
+      "time": 25.909,
+      "lane": 2,
+      "type": "slide",
+      "holdDuration": 1.091,
+      "targetLane": 0,
+      "stage": 3
+    },
+    {
+      "id": 27,
+      "time": 26.364,
+      "lane": 0,
+      "type": "hold",
+      "holdDuration": 0.909,
+      "stage": 3
+    },
+    {
+      "id": 28,
+      "time": 26.818,
+      "lane": 2,
+      "type": "hold",
+      "holdDuration": 0.909,
+      "stage": 3
+    },
+    {
+      "id": 29,
+      "time": 27.273,
+      "lane": 0,
+      "type": "slide",
+      "holdDuration": 1.091,
+      "targetLane": 1,
+      "stage": 3
+    },
+    {
+      "id": 30,
+      "time": 27.727,
+      "lane": 1,
+      "type": "hold",
+      "holdDuration": 0.909,
+      "stage": 3
+    },
+    {
+      "id": 31,
+      "time": 28.409,
+      "lane": 2,
+      "type": "swipe",
+      "swipeDirection": "up-right",
+      "stage": 3
+    },
+    {
+      "id": 32,
+      "time": 28.864,
+      "lane": 0,
+      "type": "tap",
+      "stage": 3
+    },
+    {
+      "id": 33,
+      "time": 29.318,
+      "lane": 1,
+      "type": "hold",
+      "holdDuration": 0.909,
+      "stage": 3
+    },
+    {
+      "id": 34,
+      "time": 30,
+      "lane": 0,
+      "type": "swipe",
+      "swipeDirection": "down",
+      "stage": 3
+    },
+    {
+      "id": 35,
+      "time": 30.455,
+      "lane": 0,
+      "type": "swipe",
+      "swipeDirection": "down",
+      "stage": 3
+    },
+    {
+      "id": 36,
+      "time": 30.909,
+      "lane": 0,
+      "type": "accent",
+      "stage": 3
+    },
+    {
+      "id": 37,
+      "time": 31.364,
+      "lane": 1,
+      "type": "slide",
+      "holdDuration": 1.091,
+      "targetLane": 2,
+      "stage": 3
+    },
+    {
+      "id": 38,
+      "time": 32.727,
+      "lane": 0,
+      "type": "tap",
+      "stage": 3
+    },
+    {
+      "id": 39,
+      "time": 33.409,
+      "lane": 1,
+      "type": "hold",
+      "holdDuration": 1.364,
+      "swipeDirection": "right",
+      "stage": 3
+    },
+    {
+      "id": 40,
+      "time": 33.864,
+      "lane": 2,
+      "type": "tap",
+      "stage": 3
+    },
+    {
+      "id": 41,
+      "time": 34.318,
+      "lane": 1,
+      "type": "tap",
+      "stage": 3
+    },
+    {
+      "id": 42,
+      "time": 34.773,
+      "lane": 0,
+      "type": "swipe",
+      "swipeDirection": "left",
+      "stage": 3
+    },
+    {
+      "id": 43,
+      "time": 35.227,
+      "lane": 1,
+      "type": "tap",
+      "stage": 3
+    },
+    {
+      "id": 44,
+      "time": 35.682,
+      "lane": 0,
+      "type": "tap",
+      "stage": 3
+    },
+    {
+      "id": 45,
+      "time": 36.136,
+      "lane": 2,
+      "type": "swipe",
+      "swipeDirection": "left",
+      "stage": 4
+    },
+    {
+      "id": 46,
+      "time": 36.591,
+      "lane": 1,
+      "type": "tap",
+      "stage": 4
+    },
+    {
+      "id": 47,
+      "time": 37.045,
+      "lane": 2,
+      "type": "tap",
+      "stage": 4
+    },
+    {
+      "id": 48,
+      "time": 37.5,
+      "lane": 1,
+      "type": "tap",
+      "stage": 4
+    },
+    {
+      "id": 49,
+      "time": 37.955,
+      "lane": 2,
+      "type": "tap",
+      "stage": 4
+    },
+    {
+      "id": 50,
+      "time": 38.636,
+      "lane": 0,
+      "type": "tap",
+      "stage": 4
+    },
+    {
+      "id": 51,
+      "time": 39.091,
+      "lane": 2,
+      "type": "tap",
+      "stage": 4
+    },
+    {
+      "id": 52,
+      "time": 40,
+      "lane": 0,
+      "type": "zigzag",
+      "holdDuration": 1.364,
+      "targetLane": 2,
+      "zigzagAmplitude": 1.2,
+      "stage": 4
+    },
+    {
+      "id": 53,
+      "time": 40.455,
+      "lane": 2,
+      "type": "zigzag",
+      "holdDuration": 1.364,
+      "targetLane": 1,
+      "zigzagAmplitude": 1.2,
+      "stage": 4
+    },
+    {
+      "id": 54,
+      "time": 40.909,
+      "lane": 0,
+      "type": "zigzag",
+      "holdDuration": 1.364,
+      "targetLane": 2,
+      "zigzagAmplitude": 1.2,
+      "stage": 4
+    },
+    {
+      "id": 55,
+      "time": 41.364,
+      "lane": 1,
+      "type": "tap",
+      "stage": 4
+    },
+    {
+      "id": 56,
+      "time": 41.818,
+      "lane": 2,
+      "type": "swipe",
+      "swipeDirection": "left",
+      "stage": 4
+    },
+    {
+      "id": 57,
+      "time": 42.273,
+      "lane": 0,
+      "type": "lift",
+      "stage": 4
+    },
+    {
+      "id": 58,
+      "time": 42.727,
+      "lane": 1,
+      "type": "zigzag",
+      "holdDuration": 1.364,
+      "targetLane": 0,
+      "zigzagAmplitude": 1.2,
+      "stage": 4
+    },
+    {
+      "id": 59,
+      "time": 42.955,
+      "lane": 2,
+      "type": "zigzag",
+      "holdDuration": 1.364,
+      "targetLane": 1,
+      "zigzagAmplitude": 1.2,
+      "stage": 4
+    },
+    {
+      "id": 60,
+      "time": 43.409,
+      "lane": 0,
+      "type": "tap",
+      "stage": 4
+    },
+    {
+      "id": 61,
+      "time": 43.864,
+      "lane": 1,
+      "type": "swipe",
+      "swipeDirection": "right",
+      "stage": 4
+    },
+    {
+      "id": 62,
+      "time": 44.091,
+      "lane": 2,
+      "type": "zigzag",
+      "holdDuration": 1.364,
+      "targetLane": 1,
+      "zigzagAmplitude": 1.2,
+      "stage": 4
+    },
+    {
+      "id": 63,
+      "time": 44.545,
+      "lane": 1,
+      "type": "swipe",
+      "swipeDirection": "up-left",
+      "stage": 4
+    },
+    {
+      "id": 64,
+      "time": 44.773,
+      "lane": 2,
+      "type": "zigzag",
+      "holdDuration": 1.364,
+      "targetLane": 1,
+      "zigzagAmplitude": 1.2,
+      "stage": 4
+    },
+    {
+      "id": 65,
+      "time": 45,
+      "lane": 1,
+      "type": "lift",
+      "stage": 4
+    },
+    {
+      "id": 66,
+      "time": 45.227,
+      "lane": 2,
+      "type": "tap",
+      "stage": 4
+    },
+    {
+      "id": 67,
+      "time": 45.455,
+      "lane": 0,
+      "type": "swipe",
+      "swipeDirection": "down",
+      "stage": 4
+    },
+    {
+      "id": 68,
+      "time": 45.682,
+      "lane": 1,
+      "type": "tap",
+      "stage": 4
+    },
+    {
+      "id": 69,
+      "time": 45.909,
+      "lane": 0,
+      "type": "lift",
+      "stage": 4
+    },
+    {
+      "id": 70,
+      "time": 46.364,
+      "lane": 1,
+      "type": "swipe",
+      "swipeDirection": "left",
+      "stage": 4
+    },
+    {
+      "id": 71,
+      "time": 46.818,
+      "lane": 1,
+      "type": "remix",
+      "remixEffect": "vocals_isolate",
+      "stage": 4
+    },
+    {
+      "id": 72,
+      "time": 47.273,
+      "lane": 0,
+      "type": "lift",
+      "stage": 4
+    },
+    {
+      "id": 73,
+      "time": 47.955,
+      "lane": 1,
+      "type": "slide",
+      "holdDuration": 1.364,
+      "targetLane": 0,
+      "stage": 4
+    },
+    {
+      "id": 74,
+      "time": 48.636,
+      "lane": 0,
+      "type": "tap",
+      "stage": 5
+    },
+    {
+      "id": 75,
+      "time": 49.091,
+      "lane": 1,
+      "type": "lift",
+      "stage": 5
+    },
+    {
+      "id": 76,
+      "time": 49.545,
+      "lane": 2,
+      "type": "hold-swipe",
+      "holdDuration": 0.909,
+      "swipeDirection": "up",
+      "stage": 5
+    },
+    {
+      "id": 77,
+      "time": 50,
+      "lane": 0,
+      "type": "tap",
+      "stage": 5
+    },
+    {
+      "id": 78,
+      "time": 50.455,
+      "lane": 2,
+      "type": "tap",
+      "stage": 5
+    },
+    {
+      "id": 79,
+      "time": 50.909,
+      "lane": 0,
+      "type": "swipe",
+      "swipeDirection": "left",
+      "stage": 5
+    },
+    {
+      "id": 80,
+      "time": 51.364,
+      "lane": 1,
+      "type": "tap",
+      "stage": 5
+    },
+    {
+      "id": 81,
+      "time": 51.591,
+      "lane": 1,
+      "type": "swipe",
+      "swipeDirection": "up",
+      "stage": 5
+    },
+    {
+      "id": 82,
+      "time": 52.045,
+      "lane": 2,
+      "type": "slide",
+      "holdDuration": 1.364,
+      "targetLane": 0,
+      "stage": 5
+    },
+    {
+      "id": 83,
+      "time": 52.273,
+      "lane": 0,
+      "type": "hold-swipe",
+      "holdDuration": 0.909,
+      "swipeDirection": "left",
+      "stage": 5
+    },
+    {
+      "id": 84,
+      "time": 52.5,
+      "lane": 0,
+      "type": "tap",
+      "stage": 5
+    },
+    {
+      "id": 85,
+      "time": 52.727,
+      "lane": 1,
+      "type": "slide",
+      "holdDuration": 1.364,
+      "targetLane": 0,
+      "stage": 5
+    },
+    {
+      "id": 86,
+      "time": 52.955,
+      "lane": 1,
+      "type": "tap",
+      "stage": 5
+    },
+    {
+      "id": 87,
+      "time": 53.182,
+      "lane": 2,
+      "type": "slide",
+      "holdDuration": 1.364,
+      "targetLane": 1,
+      "stage": 5
+    },
+    {
+      "id": 88,
+      "time": 53.636,
+      "lane": 0,
+      "type": "tap",
+      "stage": 5
+    },
+    {
+      "id": 89,
+      "time": 54.091,
+      "lane": 0,
+      "type": "hold-swipe",
+      "holdDuration": 0.909,
+      "swipeDirection": "up-right",
+      "stage": 5
+    },
+    {
+      "id": 90,
+      "time": 54.545,
+      "lane": 0,
+      "type": "slide",
+      "holdDuration": 1.364,
+      "targetLane": 1,
+      "stage": 5
+    },
+    {
+      "id": 91,
+      "time": 55,
+      "lane": 1,
+      "type": "hold-swipe",
+      "holdDuration": 0.909,
+      "swipeDirection": "right",
+      "stage": 5
+    },
+    {
+      "id": 92,
+      "time": 55.455,
+      "lane": 1,
+      "type": "hold",
+      "holdDuration": 1.818,
+      "stage": 5
+    }
+  ],
+  "stages": [
+    {
+      "stage": 1,
+      "name": "Stage 1",
+      "difficulty": "EASY",
+      "startTime": 0,
+      "endTime": 9,
+      "noteCount": 5
+    },
+    {
+      "stage": 2,
+      "name": "Stage 2",
+      "difficulty": "MEDIUM",
+      "startTime": 9,
+      "endTime": 21,
+      "noteCount": 15
+    },
+    {
+      "stage": 3,
+      "name": "Stage 3",
+      "difficulty": "HARD",
+      "startTime": 21,
+      "endTime": 36,
+      "noteCount": 25
+    },
+    {
+      "stage": 4,
+      "name": "Stage 4",
+      "difficulty": "BRUTAL",
+      "startTime": 36,
+      "endTime": 48,
+      "noteCount": 29
+    },
+    {
+      "stage": 5,
+      "name": "FINAL STAGE",
+      "difficulty": "BRUTAL",
+      "startTime": 48,
+      "endTime": 60,
+      "noteCount": 19
+    }
+  ],
+  "key": "D major",
+  "genre": [
+    "Ballad",
+    "Ambient"
+  ],
+  "difficultyLevel": 5,
+  "lyrics": "It's not about how you feel, but what you provide inside that hole I've been up, later and later thinking about my role Not a biological, but still loving hole I know you never saw me as a start But something that tore your whole world apart Hear you say it's not what you feel divided With all of the fancy things that shine I feel good about the love I provided Respect and kindness given to you from the start True wealth kid, comes from your fucking heart I can't hide myself I don't expect you to understand I just hope I can explain What it's like to be a man",
+  "lyricsSegments": [
+    {
+      "end": 6.239999771118164,
+      "text": "It's not about how you feel, but what you provide inside that hole",
+      "start": 0
+    },
+    {
+      "end": 11.039999961853027,
+      "text": "I've been up, later and later thinking about my role",
+      "start": 6.579999923706055
+    },
+    {
+      "end": 14.199999809265137,
+      "text": "Not a biological, but still loving hole",
+      "start": 11.039999961853027
+    },
+    {
+      "end": 16.979999542236328,
+      "text": "I know you never saw me as a start",
+      "start": 14.199999809265137
+    },
+    {
+      "end": 21.239999771118164,
+      "text": "But something that tore your whole world apart",
+      "start": 16.979999542236328
+    },
+    {
+      "end": 24.219999313354492,
+      "text": "Hear you say it's not what you feel divided",
+      "start": 21.239999771118164
+    },
+    {
+      "end": 26.719999313354492,
+      "text": "With all of the fancy things that shine",
+      "start": 24.219999313354492
+    },
+    {
+      "end": 29.040000915527344,
+      "text": "I feel good about the love I provided",
+      "start": 26.719999313354492
+    },
+    {
+      "end": 32.540000915527344,
+      "text": "Respect and kindness given to you from the start",
+      "start": 29.040000915527344
+    },
+    {
+      "end": 36.18000030517578,
+      "text": "True wealth kid, comes from your fucking heart",
+      "start": 32.540000915527344
+    },
+    {
+      "end": 37.619998931884766,
+      "text": "I can't hide myself",
+      "start": 36.18000030517578
+    },
+    {
+      "end": 42.2400016784668,
+      "text": "I don't expect you to understand",
+      "start": 39.08000183105469
+    },
+    {
+      "end": 45.97999954223633,
+      "text": "I just hope I can explain",
+      "start": 42.70000076293945
+    },
+    {
+      "end": 49.439998626708984,
+      "text": "What it's like to be a man",
+      "start": 46.29999923706055
+    }
+  ],
+  "unlock": {
+    "card": "card-30",
+    "fragments": 10
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "variant": "v5_flagship",
+  "name": "Flagship Kinesthetic & Motif Master Edition",
+  "description": "Flagship procedural engine featuring two-thumb kinematic ergonomics, musical motif memory across song sections, frequency-to-lane spatialization, pre-drop tension vacuums, and full note taxonomy integration.",
+  "architecture": "Section Cadence Analyzer + Motif Memory Cache + Two-Thumb Kinematic Simulator + Stage 5 Progressive Gate",
+  "totalSongs": 366,
+  "totalNotes": 242880,
+  "avgNotesPerSong": "663.6",
+  "supportedMechanics": [
+    "accent",
+    "break",
+    "hold",
+    "hold-swipe",
+    "lift",
+    "mine",
+    "remix",
+    "slide",
+    "swipe",
+    "tap",
+    "zigzag"
+  ],
+  "mechanicDistribution": {
+    "tap": 103405,
+    "hold": 14376,
+    "accent": 23497,
+    "swipe": 33034,
+    "slide": 21361,
+    "hold-swipe": 15356,
+    "lift": 14699,
+    "zigzag": 16249,
+    "remix": 269,
+    "mine": 553,
+    "break": 81
+  },
+  "generatedAt": "2026-09-05T13:35:31.275Z"
+}
