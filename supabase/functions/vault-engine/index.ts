@@ -679,6 +679,9 @@ serve(async (req) => {
       case 'targetedPull': {
         const { day } = payload;
         if (!day || day < 1 || day > 365) throw new Error('Invalid day');
+        if (day > today) {
+          throw new Error(`Cannot target future releases (Day ${day} > Today ${today}). Future tracks require a Prophecy pull.`);
+        }
         const cost = adminConfig?.targetedPullCost || TARGETED_PULL_COST;
 
         const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', user.id).single();

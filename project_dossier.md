@@ -286,7 +286,7 @@ Security is enforced by processing all economy and claim transactions inside Den
    - `claimDailyDrop`: Checks daily limits, increments profile claim count, rolls rarity, mints a `vault_collections` entry, and registers edition supply with upsert safety.
    - `purchasePack`: Implements gacha algorithm, evaluates active pity/streak/midnight modifiers, rolls rates, charges $V\text{⚡}$ tokens, and inserts rolled cards.
    - `burnCard`: Burns/sells a card for tokens. Handles generational Echo variant creation and split payouts securely.
-   - `targetedPull`: Deducts 500 $V\text{⚡}$ tokens and awards a specific card from the 365 catalog.
+   - `targetedPull`: Deducts 500 $V\text{⚡}$ tokens and awards a specific card from the released catalog (Day 1 to currentDay). Future days are strictly locked to preserve Prophecy Pull exclusivity (SS 97%+ / Prophecy cards).
    - `rarityUpgrade`: Deducts 150 $V\text{⚡}$ tokens and upgrades a card's rarity by 1 tier.
    - `duplicateFusion`: Combines 3 identical cards (same day and rarity) into 1 card of the next tier.
 2. **`auth-smart-wallet`**:
@@ -456,7 +456,7 @@ Equipping cards from your Vault activates distinct audio and visual modifiers ba
 
 ### The Forge Operations & Token Sinks
 * **Card Burning**: Deconstruct duplicate or unwanted cards into $V\text{⚡}$ tokens.
-* **Targeted Pull**: Spend **500 $V\text{⚡}$** to acquire any specific card from the 365 catalog.
+* **Targeted Pull**: Spend **500 $V\text{⚡}$** to acquire any specific card from released drops (Day 1 to currentDay). Future days are locked to preserve Prophecy Pull exclusivity.
 * **Rarity Upgrade**: Spend **150 $V\text{⚡}$** to upgrade an owned card by 1 rarity tier.
 * **Duplicate Fusion**: Combine **3 identical cards** (same day & rarity) to forge 1 card of the next tier.
 * **Echo Cards**: 15% roll rate on Gacha. Yields high prestige but undergoes generational decay: Gen 0 ($1.0\times$) $\to$ Gen 1 ($0.6\times$) $\to$ Gen 2 ($0.3\times$) $\to$ Gen 3+ ($0.1\times$ Entropy Death).
