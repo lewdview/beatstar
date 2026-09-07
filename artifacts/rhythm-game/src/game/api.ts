@@ -303,6 +303,47 @@ function stageifyNotes(notes: Note[], duration: number, bpm: number): { notes: N
       }
     }
 
+    // Prevent duplicate or near-simultaneous notes in the exact same lane across ALL stages
+    const duplicateInLane = processed.some(n => n.lane === clone.lane && Math.abs(n.time - clone.time) < 0.06);
+    if (duplicateInLane) {
+      return;
+    }
+
+    // Collision guard: prevent notes spawning on a lane occupied by an active hold or slide note
+    const collidesWithHold = processed.some(existing => {
+      const dur = existing.holdDuration || (existing.type === 'hold' ? 0.5 : 0);
+      if (dur <= 0) return false;
+      const holdStart = existing.time;
+      const holdEnd = existing.time + dur;
+      const targetL = existing.targetLane !== undefined ? existing.targetLane : existing.lane;
+      if (clone.time >= holdStart - 0.05 && clone.time <= holdEnd + 0.08) {
+        if (clone.lane === existing.lane || clone.lane === targetL) {
+          return true;
+        }
+      }
+      return false;
+    });
+    if (collidesWithHold) {
+      return;
+    }
+
+    // If clone is a hold note, ensure it does not overlap existing notes on its lane or target lane
+    const cloneDur = clone.holdDuration || (clone.type === 'hold' ? 0.5 : 0);
+    if (cloneDur > 0) {
+      const cloneTargetL = clone.targetLane !== undefined ? clone.targetLane : clone.lane;
+      const conflictsWithExisting = processed.some(existing => {
+        if (existing.time >= clone.time - 0.05 && existing.time <= clone.time + cloneDur + 0.08) {
+          if (existing.lane === clone.lane || existing.lane === cloneTargetL) {
+            return true;
+          }
+        }
+        return false;
+      });
+      if (conflictsWithExisting) {
+        return;
+      }
+    }
+
     processed.push(clone);
   });
 
