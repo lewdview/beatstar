@@ -205,7 +205,26 @@ export async function getSongById(id: string): Promise<GameSong | null> {
       fetchId = basicSong.id;
     }
 
-    const res = await fetch(`/data/songs/${fetchId}.json`);
+    const variant = typeof localStorage !== 'undefined' ? (localStorage.getItem('opt_chartVariant') || 'v5_flagship') : 'v5_flagship';
+    let fetchUrl = `/data/songs_variants/v5_flagship/${fetchId}.json`;
+    if (variant === 'v4_neural') {
+      fetchUrl = `/data/songs_variants/v4_neural/${fetchId}.json`;
+    } else if (variant === 'v1_gimmicks') {
+      fetchUrl = `/data/songs_variants/v1_gimmicks/${fetchId}.json`;
+    } else if (variant === 'v2_minimal') {
+      fetchUrl = `/data/songs_variants/v2_minimal/${fetchId}.json`;
+    } else if (variant === 'v3_master') {
+      fetchUrl = `/data/songs_variants/v3_master/${fetchId}.json`;
+    } else if (variant === 'canonical' || variant === 'default') {
+      fetchUrl = `/data/songs/${fetchId}.json`;
+    } else if (variant === 'v5_flagship') {
+      fetchUrl = `/data/songs_variants/v5_flagship/${fetchId}.json`;
+    }
+
+    let res = await fetch(fetchUrl);
+    if (!res.ok && fetchUrl !== `/data/songs/${fetchId}.json`) {
+      res = await fetch(`/data/songs/${fetchId}.json`);
+    }
     if (res.ok) {
       const fullDetail = await res.json();
       return buildGameSong(fullDetail, useLocal);

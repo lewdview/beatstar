@@ -1,3 +1,5 @@
+export type ChartVariant = 'v5_flagship' | 'v4_neural' | 'v3_master' | 'v1_gimmicks' | 'v2_minimal' | 'canonical';
+
 export type GameOpts = {
   missSystem: boolean;
   hudMisses: boolean;
@@ -10,6 +12,7 @@ export type GameOpts = {
   forceOfflineMode: boolean;
   syntheticAudioFallback: boolean;
   noteGenerationSource: 'auto' | 'lyrics' | 'bpm';
+  chartVariant: ChartVariant;
   bgMusic: boolean;
   gameSenseEnabled: boolean;
 };
@@ -26,6 +29,7 @@ export const DEFAULT_OPTS: GameOpts = {
   forceOfflineMode: false,
   syntheticAudioFallback: true,
   noteGenerationSource: "auto",
+  chartVariant: "v5_flagship",
   bgMusic: false,
   gameSenseEnabled: false,
 };
@@ -61,6 +65,7 @@ export function loadOpts(): GameOpts {
       const v = localStorage.getItem("opt_noteGenerationSource");
       return (v === "lyrics" || v === "bpm" || v === "auto") ? v : "auto";
     })(),
+    chartVariant: (localStorage.getItem("opt_chartVariant") as any) || "v5_flagship",
     bgMusic: bool("opt_bgMusic", false),
     gameSenseEnabled: bool("opt_gameSenseEnabled", false),
   };
