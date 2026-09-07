@@ -406,6 +406,8 @@ export default function Game() {
   const missCountRef = useRef(0); // misses accumulated this attempt (triggers continue at 3)
   const rewindToRef = useRef(0);
   const rewindAnimRef = useRef<{ wallStart: number; fromT: number; toT: number } | null>(null);
+  const rewindGraceUntilWallRef = useRef<number>(0);
+  const rewindGraceUntilSongTimeRef = useRef<number>(0);
   const drawRef = useRef<(() => void) | null>(null);
 
   // Refs for tracking active listeners, nodes and timers to prevent memory leaks
@@ -1239,6 +1241,9 @@ export default function Game() {
   }, [songId, setLocation]);
 
   function triggerGameFail(): boolean {
+    const inRewindGrace = performance.now() < rewindGraceUntilWallRef.current || (rewindGraceUntilSongTimeRef.current > 0 && getT() < rewindGraceUntilSongTimeRef.current);
+    if (inRewindGrace) return false;
+
     if (missCountRef.current >= 3 && optsRef.current.missSystem) {
       const audio = audioRef.current;
       if (audio) {
@@ -1282,6 +1287,10 @@ export default function Game() {
     const audio = audioRef.current;
     const rewindTo = rewindToRef.current;
     const fromT = audio?.currentTime ?? (rewindTo + 2.5);
+
+    // Arm 1-second grace window after rewind so incoming/close notes don't immediately trigger misses
+    rewindGraceUntilWallRef.current = performance.now() + 1200 + 1000;
+    rewindGraceUntilSongTimeRef.current = rewindTo + 1.0;
 
     // Arm the backwards animation — draw loop reads this to compute fake time
     rewindAnimRef.current = { wallStart: performance.now(), fromT, toT: rewindTo };
@@ -1333,6 +1342,10 @@ export default function Game() {
         audio.currentTime = rewindTo;
         audio.play().catch(() => {});
       }
+
+      // Arm 1-second grace period from the exact moment playback resumes
+      rewindGraceUntilWallRef.current = performance.now() + 1000;
+      rewindGraceUntilSongTimeRef.current = rewindTo + 1.0;
 
       phaseRef.current = "playing";
       setPhase("playing");
@@ -2041,10 +2054,19 @@ export default function Game() {
       // Miss detection — skip entirely during rewind (notes travel backwards; no new misses)
       if (!isRewinding && phaseRef.current === "playing") {
         const MW = missWindow(songRef.current?.difficultyLevel ?? 5);
+        const inRewindGrace = performance.now() < rewindGraceUntilWallRef.current || (rewindGraceUntilSongTimeRef.current > 0 && t < rewindGraceUntilSongTimeRef.current);
+        const isPastStrike = t > note.time + MW;
+
+        if (inRewindGrace && isPastStrike) {
+          // 1-second post-rewind grace window: notes pass safely without miss penalty
+          ns.hit = true;
+          continue;
+        }
+
         const isMissed =
-          (note.type === "tap" && !ns.holdActive && t > note.time + MW) ||
-          (note.type === "swipe" && t > note.time + MW) ||
-          (note.type === "hold" && !ns.holdActive && t > note.time + MW);
+          (note.type === "tap" && !ns.holdActive && isPastStrike) ||
+          (note.type === "swipe" && isPastStrike) ||
+          (note.type === "hold" && !ns.holdActive && isPastStrike);
 
         if (isMissed) {
           const isSignalLock = puRef.current.active === "SIGNAL_LOCK" && t < puRef.current.endTime && shieldChargesRef.current > 0;
