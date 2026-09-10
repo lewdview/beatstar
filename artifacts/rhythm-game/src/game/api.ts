@@ -79,8 +79,9 @@ export async function loadCatalog(): Promise<GameSong[]> {
 
           if (!error && data && data.length > 0) {
             console.log('Fetched catalog from Supabase');
-            catalogCache = data.map((r) => buildGameSong(r, false));
-            return catalogCache;
+            const songs = data.map((r: any) => buildGameSong(r, false));
+            catalogCache = songs;
+            return songs;
           }
           if (error) console.warn('Supabase fetch notice:', error);
         } catch (err) {
@@ -281,10 +282,8 @@ function stageifyNotes(notes: Note[], duration: number, bpm: number): { notes: N
     const clone: Note = { ...note, stage };
 
     if (stage === 1) {
-      if (clone.type !== 'hold' && !clone.holdDuration) {
-        clone.type = 'tap';
-        delete clone.holdDuration;
-      }
+      clone.type = 'tap';
+      delete clone.holdDuration;
       delete clone.targetLane;
       delete clone.swipeDirection;
       const lastNote = processed.filter(n => n.stage === 1).pop();

@@ -2186,7 +2186,7 @@ export default function Game() {
         }
       }
 
-      const isHold = note.type === "hold" || note.type === "hold-swipe" || note.type === "slide" || note.type === "zigzag" || ((note.holdDuration || 0) > 0);
+      const isHold = (note.type === "hold" || note.type === "hold-swipe" || note.type === "slide" || note.type === "zigzag" || ((note.holdDuration || 0) > 0)) && (note.stage ? note.stage > 1 : calculatedStage > 1);
       if (!isHold) {
         drawKey(ctx, noteX, noteY, noteW, noteH, r, lc, prog, false, note.swipeDirection);
       } else {
@@ -3914,6 +3914,19 @@ export default function Game() {
       notesRef.current = song.notes.map((n, idx) => {
         let note = { ...n, lane: Math.min(n.lane, LANE_COUNT - 1) };
         const diff = songRef.current?.difficultyLevel ?? 5;
+
+        // Stage 1 restriction: strictly tap notes only (holds introduced in Stages 2-5)
+        const stage1EndTime = (song.duration || 180) * 0.20;
+        const isStage1 = note.stage === 1 || note.time < stage1EndTime;
+        if (isStage1) {
+          const isHold = note.type === "hold" || note.type === "hold-swipe" || note.type === "slide" || note.type === "zigzag" || ((note.holdDuration || 0) > 0);
+          if (isHold) {
+            note.type = 'tap';
+            delete (note as any).holdDuration;
+            delete (note as any).targetLane;
+            delete (note as any).swipeDirection;
+          }
+        }
 
         // ── Mechanic gating by difficulty ──
 
