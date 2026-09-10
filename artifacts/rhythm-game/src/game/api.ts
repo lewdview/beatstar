@@ -281,8 +281,10 @@ function stageifyNotes(notes: Note[], duration: number, bpm: number): { notes: N
     const clone: Note = { ...note, stage };
 
     if (stage === 1) {
-      clone.type = 'tap';
-      delete clone.holdDuration;
+      if (clone.type !== 'hold' && !clone.holdDuration) {
+        clone.type = 'tap';
+        delete clone.holdDuration;
+      }
       delete clone.targetLane;
       delete clone.swipeDirection;
       const lastNote = processed.filter(n => n.stage === 1).pop();

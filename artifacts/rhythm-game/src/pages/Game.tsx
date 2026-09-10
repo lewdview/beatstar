@@ -2186,7 +2186,8 @@ export default function Game() {
         }
       }
 
-      if (note.type === "tap" || note.type === "swipe") {
+      const isHold = note.type === "hold" || note.type === "hold-swipe" || note.type === "slide" || note.type === "zigzag" || ((note.holdDuration || 0) > 0);
+      if (!isHold) {
         drawKey(ctx, noteX, noteY, noteW, noteH, r, lc, prog, false, note.swipeDirection);
       } else {
         // Hold/Slide trail — ivory ribbon with colored stripe
