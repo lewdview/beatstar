@@ -206,8 +206,8 @@ export async function getSongById(id: string): Promise<GameSong | null> {
       fetchId = basicSong.id;
     }
 
-    const variant = typeof localStorage !== 'undefined' ? (localStorage.getItem('opt_chartVariant') || 'v5_flagship') : 'v5_flagship';
-    let fetchUrl = `/data/songs_variants/v5_flagship/${fetchId}.json`;
+    const variant = typeof localStorage !== 'undefined' ? (localStorage.getItem('opt_chartVariant') || 'v1_gimmicks') : 'v1_gimmicks';
+    let fetchUrl = `/data/songs_variants/v1_gimmicks/${fetchId}.json`;
     if (variant === 'v4_neural') {
       fetchUrl = `/data/songs_variants/v4_neural/${fetchId}.json`;
     } else if (variant === 'v1_gimmicks') {

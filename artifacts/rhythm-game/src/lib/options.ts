@@ -29,7 +29,7 @@ export const DEFAULT_OPTS: GameOpts = {
   forceOfflineMode: false,
   syntheticAudioFallback: true,
   noteGenerationSource: "auto",
-  chartVariant: "v5_flagship",
+  chartVariant: "v1_gimmicks",
   bgMusic: false,
   gameSenseEnabled: false,
 };
@@ -65,7 +65,7 @@ export function loadOpts(): GameOpts {
       const v = localStorage.getItem("opt_noteGenerationSource");
       return (v === "lyrics" || v === "bpm" || v === "auto") ? v : "auto";
     })(),
-    chartVariant: (localStorage.getItem("opt_chartVariant") as any) || "v5_flagship",
+    chartVariant: (localStorage.getItem("opt_chartVariant") as any) || "v1_gimmicks",
     bgMusic: bool("opt_bgMusic", false),
     gameSenseEnabled: bool("opt_gameSenseEnabled", false),
   };
