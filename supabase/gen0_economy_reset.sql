@@ -26,6 +26,7 @@ TRUNCATE TABLE public.vault_collections CASCADE;
 TRUNCATE TABLE public.user_cards CASCADE;
 TRUNCATE TABLE public.echo_pool CASCADE;
 TRUNCATE TABLE public.nft_mint_requests CASCADE;
+TRUNCATE TABLE public.token_pack_purchases CASCADE;
 
 -- Reset global card edition tracking counters so public players claim Edition #1
 TRUNCATE TABLE public.global_supply CASCADE;
@@ -68,6 +69,7 @@ SET
   daily_premium_claims = 0,
   daily_standard_purchased = 0,
   daily_premium_purchased = 0,
+  daily_token_purchased = 0,
   last_purchase_day = 0,
   total_burns = 0,
   daily_burns = 0,

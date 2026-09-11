@@ -5,8 +5,8 @@ import {
   getCurrentDay, getRarityRoll, drawCardDays, RARITY_CONFIG, rollDailyClaimRarity,
   degradeRarity, upgradeRarity, getEchoSpawnChance, getEffectiveBurnYield,
   getPityFloor, RC1_TEST_MODE, TOKEN_PACK_COST, TARGETED_PULL_COST, RARITY_UPGRADE_COST,
-  RC1_DAILY_STANDARD_LIMIT, RC1_DAILY_PREMIUM_LIMIT,
-  MINTABLE_CAPS, NFT_MINT_COSTS,
+  RC1_DAILY_STANDARD_LIMIT, RC1_DAILY_PREMIUM_LIMIT, DEFAULT_DAILY_TOKEN_LIMIT,
+  MINTABLE_CAPS, NFT_MINT_COSTS, getCardMood,
   type Rarity, type ModifierContext
 } from "./gameLogic.ts";
 import bombshellCoversMap from "./bombshell_covers_map.json" assert { type: "json" };
@@ -151,6 +151,82 @@ async function logTelemetry(svc: any, type: string, userId: string | null, paylo
   } catch { /* non-blocking */ }
 }
 
+/**
+ * Find an eligible day that still has supply for the rolled rarity.
+ * Prioritizes preserving the rolled rarity horizontally across released days
+ * before allowing vertical degradation down to lower tiers.
+ */
+async function findDayWithRaritySupply(
+  svc: any,
+  rarity: Rarity,
+  initialDay: number,
+  packType: string,
+  today: number,
+  missedDays: number[]
+): Promise<number | null> {
+  const maxCap = getSupplyCap(rarity, initialDay, today);
+  const initialKey = `${initialDay}-${rarity}`;
+
+  // 1. Check initial day first
+  const { data: initRow } = await svc
+    .from('global_supply')
+    .select('supply')
+    .eq('card_id_rarity', initialKey)
+    .maybeSingle();
+
+  if ((initRow?.supply || 0) < maxCap) {
+    return initialDay;
+  }
+
+  // 2. Initial day is capped out! Build eligible candidate pool for this packType
+  let candidateDays: number[] = [];
+  if (packType === 'prophecy') {
+    const futureDays = 365 - today;
+    if (futureDays > 0) {
+      candidateDays = Array.from({ length: futureDays }, (_, i) => today + 1 + i);
+    } else {
+      candidateDays = [today];
+    }
+  } else if (packType === 'miss_out') {
+    candidateDays = missedDays.length > 0 ? missedDays : Array.from({ length: Math.max(1, today) }, (_, i) => i + 1);
+  } else if (packType === 'light') {
+    candidateDays = Array.from({ length: Math.max(1, today) }, (_, i) => i + 1).filter(d => getCardMood(d) === 'light');
+  } else if (packType === 'dark') {
+    candidateDays = Array.from({ length: Math.max(1, today) }, (_, i) => i + 1).filter(d => getCardMood(d) === 'dark');
+  } else {
+    // Standard pool: 1..today
+    candidateDays = Array.from({ length: Math.max(1, today) }, (_, i) => i + 1);
+  }
+
+  // 3. Query all capped-out supply rows for this rarity
+  const { data: cappedRows } = await svc
+    .from('global_supply')
+    .select('card_id_rarity, supply')
+    .like('card_id_rarity', `%-${rarity}`);
+
+  const soldOutDays = new Set<number>();
+  if (cappedRows) {
+    for (const row of cappedRows) {
+      const parts = row.card_id_rarity.split('-');
+      const d = parseInt(parts[0], 10);
+      if (!isNaN(d)) {
+        const cap = getSupplyCap(rarity, d, today);
+        if (row.supply >= cap) {
+          soldOutDays.add(d);
+        }
+      }
+    }
+  }
+
+  const availableDays = candidateDays.filter(d => !soldOutDays.has(d));
+  if (availableDays.length > 0) {
+    return availableDays[Math.floor(Math.random() * availableDays.length)];
+  }
+
+  // Entire eligible pool is sold out for this rarity tier
+  return null;
+}
+
 async function generateCards(svc: any, userId: string, packType: string, count: number, today: number, ctx: ModifierContext) {
   let missedDays: number[] = [];
   if (packType === 'miss_out') {
@@ -216,44 +292,40 @@ async function generateCards(svc: any, userId: string, packType: string, count: 
 
     while (rollAttempts < 5) {
       let { rarity, proof } = getRarityRoll(packType, ctx, adminConfig);
-      let max_supply = getSupplyCap(rarity, day, today);
-      let card_id_rarity = `${day}-${rarity}`;
+      let targetDay = day;
       let edition = 1;
+      let max_supply = 1;
       let downgradeAttempts = 0;
       let isSoldOut = false;
 
       while (downgradeAttempts < 5) {
-        // Query current supply first to avoid wasting/incrementing a sold-out rarity
-        const { data: supplyRow } = await svc.from('global_supply').select('supply').eq('card_id_rarity', card_id_rarity).maybeSingle();
-        const currentSupply = supplyRow?.supply || 0;
-
-        if (currentSupply < max_supply) {
-          // H6 FIX: Enforce cap atomically inside the DB — returns -1 if cap reached
-          const { data } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity, p_max_supply: max_supply });
-          if (data === -1) {
-            // Cap was reached between our check and the RPC — treat as sold out
-            const nextRarity = degradeRarity(rarity as Rarity, 1);
-            if (nextRarity === rarity) { isSoldOut = true; break; }
-            rarity = nextRarity;
-            max_supply = getSupplyCap(rarity, day, today);
-            card_id_rarity = `${day}-${rarity}`;
-            downgradeAttempts++;
-            continue;
-          }
-          edition = data || 1;
-          break;
+        // Horizontal Scarcity: Preserve rolled rarity by searching available inventory across released days
+        let candidateDay: number | null = targetDay;
+        if (packType !== 'targeted_pull') {
+          candidateDay = await findDayWithRaritySupply(svc, rarity as Rarity, targetDay, packType, today, missedDays);
         }
 
+        if (candidateDay !== null) {
+          targetDay = candidateDay;
+          max_supply = getSupplyCap(rarity, targetDay, today);
+          const card_id_rarity = `${targetDay}-${rarity}`;
+
+          // Atomic increment supply with cap enforcement
+          const { data } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity, p_max_supply: max_supply });
+          if (data !== -1 && data !== null) {
+            edition = data || 1;
+            day = targetDay;
+            break;
+          }
+        }
+
+        // Entire horizontal pool for this rarity is exhausted! Degrade vertically to next lower tier
         const nextRarity = degradeRarity(rarity as Rarity, 1);
         if (nextRarity === rarity) {
-          // At common floor and still sold out
           isSoldOut = true;
           break;
         }
-
         rarity = nextRarity;
-        max_supply = getSupplyCap(rarity, day, today);
-        card_id_rarity = `${day}-${rarity}`;
         downgradeAttempts++;
       }
 
@@ -380,20 +452,22 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Allow verifyStripeSession for service role (webhook) or authenticated users
-    if (action !== 'verifyStripeSession' && !isServiceRole) {
+    // Allow verifyStripeSession for service role (webhook) or authenticated users, and allow claimGuestDailyDrop for guest onboarding
+    if (action !== 'verifyStripeSession' && action !== 'claimGuestDailyDrop' && !isServiceRole) {
       if (!user || authErr) {
         if (!authHeader) throw new Error('Not authenticated: Missing Authorization Header');
         throw new Error(`Not authenticated: ${authErr?.message || 'Invalid or Expired Token'}`);
       }
     }
 
-    // Ensure profile if user exists
+    // Ensure profile exists without throwing duplicate key errors in Postgres logs
     if (user?.id) {
       const { error: profileErr } = await svc.from('profiles')
-        .insert({ id: user.id, wallet_address: user.user_metadata?.wallet_address || null })
-        .select().maybeSingle();
-      if (profileErr && !profileErr.message?.includes('duplicate') && !profileErr.code?.includes('23505')) {
+        .upsert(
+          { id: user.id, wallet_address: user.user_metadata?.wallet_address || null },
+          { onConflict: 'id', ignoreDuplicates: true }
+        );
+      if (profileErr) {
         console.error('Profile guard failed:', profileErr.message);
       }
     }
@@ -531,6 +605,56 @@ serve(async (req) => {
       }
 
       // ═══════════════════════════════════════════════════════════
+      // GUEST DAILY DROP (Increments global supply & assigns real edition)
+      // ═══════════════════════════════════════════════════════════
+      case 'claimGuestDailyDrop': {
+        const { day, guestAddress } = payload;
+        const claimDay = Number(day) || today;
+        if (Math.abs(claimDay - today) > 1) throw new Error(`Day ${claimDay} is too far from server day ${today}`);
+
+        let rarityRoll = rollDailyClaimRarity(adminConfig);
+        let max_supply = getSupplyCap(rarityRoll, claimDay, today);
+        let card_id_rarity = `${claimDay}-${rarityRoll}`;
+        let edition = 1;
+        let downgradeAttempts = 0;
+
+        while (downgradeAttempts < 5) {
+          const { data: supplyRow } = await svc.from('global_supply').select('supply').eq('card_id_rarity', card_id_rarity).maybeSingle();
+          const currentSupply = supplyRow?.supply || 0;
+
+          if (currentSupply < max_supply) {
+            const { data } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity });
+            edition = data || 1;
+            break;
+          }
+
+          const nextRarity = degradeRarity(rarityRoll as Rarity, 1);
+          if (nextRarity === rarityRoll) {
+            const { data } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity });
+            edition = data || 1;
+            break;
+          }
+
+          rarityRoll = nextRarity;
+          max_supply = getSupplyCap(rarityRoll, claimDay, today);
+          card_id_rarity = `${claimDay}-${rarityRoll}`;
+          downgradeAttempts++;
+        }
+
+        await logTelemetry(svc, 'guest_claim', null, { day: claimDay, rarity: rarityRoll, guestAddress: guestAddress || 'anonymous' });
+
+        return new Response(JSON.stringify({
+          success: true,
+          card: {
+            card_id: `card-${claimDay}`,
+            rarity: rarityRoll,
+            edition,
+            max_supply,
+          }
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      // ═══════════════════════════════════════════════════════════
       // PURCHASE PACK (V2: updated costs, limits, free pack = 1 card)
       // ═══════════════════════════════════════════════════════════
       case 'purchasePack': {
@@ -566,9 +690,31 @@ serve(async (req) => {
           cost = 0; // All packs free in RC1
         }
 
+        const isTokenPack = (packType === 'vault_token' || packType === 'bombshell_token');
+        const tokenLimit = adminConfig?.dailyTokenLimit || DEFAULT_DAILY_TOKEN_LIMIT;
+
         const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', user.id).single();
 
-        if (cost > 0) {
+        if (isTokenPack && !isGameplayReward && cost > 0) {
+          // Authoritative ledger-backed atomic velocity check & token deduction (00:00 UTC boundary)
+          const { data: claimResult, error: claimRpcErr } = await svc.rpc('claim_token_pack_atomic', {
+            p_user_id: user.id,
+            p_pack_type: packType,
+            p_pack_size: size || 'single',
+            p_cost_tokens: cost,
+            p_max_daily_limit: tokenLimit
+          });
+
+          if (claimRpcErr || !claimResult?.success) {
+            if (claimResult?.error === 'DAILY_TOKEN_LIMIT_REACHED') {
+              throw new Error(`Daily Vault Pack limit reached (${tokenLimit}/day). Resets at 00:00 UTC.`);
+            }
+            if (claimResult?.error === 'INSUFFICIENT_TOKENS') {
+              throw new Error("Insufficient V⚡");
+            }
+            throw new Error(claimResult?.error || claimRpcErr?.message || "Failed to purchase token pack");
+          }
+        } else if (cost > 0) {
           if (!profile || (profile.tokens || 0) < cost) {
             throw new Error("Insufficient V⚡");
           }
@@ -576,7 +722,7 @@ serve(async (req) => {
           if (decErr) throw new Error("Insufficient V⚡: " + decErr.message);
         }
 
-        // vault_token is excluded — already gated by V⚡ token cost
+        // vault_token and bombshell_token are gated atomically above
         const PREMIUM_PACKS = ['prophecy', 'alpha', 'special_picks'];
         const isPremium = PREMIUM_PACKS.includes(packType);
 
@@ -605,7 +751,7 @@ serve(async (req) => {
               throw new Error(`Daily premium limit reached (${preLimit}/day). Come back tomorrow.`);
             }
             dailyPremium += 1;
-          } else if (packType !== 'free' && packType !== 'vault_token' && packType !== 'bombshell_token') {
+          } else if (packType !== 'free' && !isTokenPack) {
             if (dailyStandard >= stdLimit) {
               throw new Error(`Daily standard limit reached (${stdLimit}/day). Come back tomorrow.`);
             }
@@ -644,7 +790,7 @@ serve(async (req) => {
         const profileUpdate: Record<string, any> = {
           total_pulls: newTotalPulls, pulls_since_rare_plus: newPullsSinceRarePlus,
           pity_counter: newPityCounter,
-          tokens_spent_total: cost > 0 ? (profile?.tokens_spent_total || 0) + cost : (profile?.tokens_spent_total || 0),
+          tokens_spent_total: (cost > 0 && !isTokenPack) ? (profile?.tokens_spent_total || 0) + cost : (profile?.tokens_spent_total || 0),
           daily_standard_purchased: dailyStandard,
           daily_premium_purchased: dailyPremium,
           last_purchase_day: today,
@@ -699,7 +845,7 @@ serve(async (req) => {
           currentDayOfWeek: now.getUTCDay(), currentVaultDay: today,
         };
 
-        let { rarity, proof } = getRarityRoll('taste', ctx, adminConfig);
+        let { rarity, proof } = getRarityRoll('targeted_pull', ctx, adminConfig);
         let max_supply = getSupplyCap(rarity, day, today);
         let card_id_rarity = `${day}-${rarity}`;
         let edition = 1;
@@ -711,9 +857,11 @@ serve(async (req) => {
           const currentSupply = supplyRow?.supply || 0;
 
           if (currentSupply < max_supply) {
-            const { data } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity });
-            edition = data || 1;
-            break;
+            const { data } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity, p_max_supply: max_supply });
+            if (data !== -1 && data !== null) {
+              edition = data || 1;
+              break;
+            }
           }
 
           const nextRarity = degradeRarity(rarity as Rarity, 1);

@@ -173,13 +173,13 @@
   "targeted_pull": {
     "category": "targeted_pull",
     "label": "TARGETED PULL",
-    "description": "Acquire 1 card from a specific day of your choice",
+    "description": "Acquire 1 card from a specific day of your choice • 1% Mythic chance",
     "icon": "🎯",
     "accent": "#ff9900",
     "gradient": "linear-gradient(160deg, #1f1400 0%, #3a2200 50%, #1c1000 100%)",
-    "rates": [60, 25, 12, 3, 0],
+    "rates": [60, 24, 12, 3, 1],
     "tiers": [
-      { "size": "single", "cardCount": 1, "price": "500 V⚡", "priceValue": 0 }
+      { "size": "single", "cardCount": 1, "price": "275 V⚡", "priceValue": 0 }
     ]
   },
   "rarity_upgrade": {

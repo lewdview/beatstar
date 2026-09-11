@@ -403,13 +403,15 @@ export function drawCardDays(category: string, count: number, today: number, uno
 
 export const RC1_DAILY_STANDARD_LIMIT = 60;
 export const RC1_DAILY_PREMIUM_LIMIT = 5;
+export const DEFAULT_DAILY_TOKEN_LIMIT = 15;
 
 // ═══════════════════════════════════════════════════════════════
 // TOKEN SINK COSTS
 // ═══════════════════════════════════════════════════════════════
 
 export const TOKEN_PACK_COST = 275;
-export const TARGETED_PULL_COST = 500;
+export const TARGETED_PULL_COST = 275;
+export const TARGETED_PULL_MYTHIC_RATE = 0.01;
 export const RARITY_UPGRADE_COST = 150;
 
 // NFT mint costs

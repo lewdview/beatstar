@@ -197,11 +197,12 @@ serve(async (req) => {
     let user = authResponse.data.user;
 
     // 3. Ensure profile exists and is correct for this user ID
-    const { data: profile } = await supabaseAdmin.from('profiles').select('wallet_address').eq('id', user.id).single();
+    const { data: profile } = await supabaseAdmin.from('profiles').select('wallet_address').eq('id', user.id).maybeSingle();
 
     if (!profile) {
-      // Profile is missing! Try to insert it.
-      const { error: insertErr } = await supabaseAdmin.from('profiles').insert({ id: user.id, wallet_address: address });
+      // Profile is missing! Try to upsert it cleanly.
+      const { error: insertErr } = await supabaseAdmin.from('profiles')
+        .upsert({ id: user.id, wallet_address: address }, { onConflict: 'id', ignoreDuplicates: true });
       
       if (insertErr) {
         // If it fails, it's likely because the wallet_address is already owned by an OLD legacy Web3 account!

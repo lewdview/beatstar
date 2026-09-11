@@ -455,16 +455,19 @@ Equipping cards from your Vault activates distinct audio and visual modifiers ba
 | **Mythic** | 1 | 1 | 200 $V\text{⚡}$ | Full Track + Session Stems |
 
 ### The Forge Operations & Token Sinks
-* **Card Burning**: Deconstruct duplicate or unwanted cards into $V\text{⚡}$ tokens.
-* **Targeted Pull**: Spend **500 $V\text{⚡}$** to acquire any specific card from released drops (Day 1 to currentDay). Future days are locked to preserve Prophecy Pull exclusivity.
-* **Rarity Upgrade**: Spend **150 $V\text{⚡}$** to upgrade an owned card by 1 rarity tier.
+* **Card Burning**: Deconstruct duplicate or unwanted cards into $V\text{⚡}$ tokens (EV: 85.20 $V\text{⚡}$ per Vault 3-pack, representing a -69% deflationary sink).
+* **Targeted Pull**: Spend **275 $V\text{⚡}$** to acquire 1 card from a specific released track (Day 1 to currentDay). Features a specialized 1-card drop table (Common: 60%, Uncommon: 24%, Rare: 12%, Epic: 3%, Mythic: 1%). Strictly locked to the chosen day (never cross-day hops). Future calendar days remain hard-locked to require Prophecy Pulls (SS 97%+).
+* **Rarity Upgrade**: Spend **150 $V\text{⚡}$** to upgrade an owned card below Legendary by 1 rarity tier.
 * **Duplicate Fusion**: Combine **3 identical cards** (same day & rarity) to forge 1 card of the next tier.
 * **Echo Cards**: 15% roll rate on Gacha. Yields high prestige but undergoes generational decay: Gen 0 ($1.0\times$) $\to$ Gen 1 ($0.6\times$) $\to$ Gen 2 ($0.3\times$) $\to$ Gen 3+ ($0.1\times$ Entropy Death).
 
-### Gacha Drop Modifiers & Pity Protection
-* **Drought Pity Protection**: 25 consecutive pulls without Rare+ guarantees Rare or higher on the next pull.
-* **Midnight Drop**: Opening packs between 12:00 AM and 2:00 AM grants a $2\times$ multiplier on Legendary drop rates.
-* **Streak Bonus**: 7+ day login streaks grant a $+50\%$ boost to Rare and Legendary drop chances.
+### Pack Supply Protection & Velocity Limits
+* **Token Pack Daily Cap**: Hard velocity limit of **15 packs/day** for token-purchased packs (`vault_token` and `bombshell_token`), backed by an atomic PostgreSQL ledger (`token_pack_purchases`) resetting at **00:00 UTC**. Prevents whale supply runs from draining 1-of-1 Mythic editions in a single day.
+* **Horizontal Scarcity First**: When a random pack rolls a high-tier card (Mythic / Legendary) and the initially drawn day has hit its edition cap, the engine scans all available released calendar days to preserve the rolled rarity before degrading down to a lower tier.
+* **Pity Protection & Drop Modifiers**:
+  * **Drought Pity**: 25 consecutive pulls without Rare+ guarantees Rare or higher on the next pull.
+  * **Midnight Drop**: Opening packs between 12:00 AM and 2:00 AM grants a $2\times$ multiplier on Legendary drop rates.
+  * **Streak Bonus**: 7+ day login streaks grant a $+50\%$ boost to Rare and Legendary drop chances.
 * **Prestige Score Formula**:
   $$\text{Prestige} = (\text{Streak} \times 120) + (\text{Pulls} \times 15) + \sum \text{Card Base Points} + \text{Bonuses}$$
 
