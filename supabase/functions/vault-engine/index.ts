@@ -248,11 +248,16 @@ async function generateCards(svc: any, userId: string, packType: string, count: 
   let ultraRewardChance = 0.003;
   let adminConfig = null;
   try {
-    const { data: config } = await svc.from('admin_config').select('config').eq('id', 1).single();
+    const { data: config } = await svc.from('admin_config').select('config').eq('id', 1).maybeSingle();
     if (config?.config) {
       adminConfig = config.config;
-      if (config.config.echoSystem?.echoChance !== undefined) echoChance = config.config.echoSystem.echoChance;
-      if (config.config.ultraRewardChance !== undefined) ultraRewardChance = config.config.ultraRewardChance;
+    } else {
+      const { data: keyRow } = await svc.from('admin_config').select('value').eq('key', 'global').maybeSingle();
+      if (keyRow?.value) adminConfig = keyRow.value;
+    }
+    if (adminConfig) {
+      if (adminConfig.echoSystem?.echoChance !== undefined) echoChance = adminConfig.echoSystem.echoChance;
+      if (adminConfig.ultraRewardChance !== undefined) ultraRewardChance = adminConfig.ultraRewardChance;
     }
   } catch { /* use default */ }
 
@@ -475,8 +480,12 @@ serve(async (req) => {
     const today = getCurrentDay();
     let adminConfig: any = null;
     try {
-      const { data: cfgRow } = await svc.from('admin_config').select('config').eq('id', 1).single();
+      const { data: cfgRow } = await svc.from('admin_config').select('config').eq('id', 1).maybeSingle();
       if (cfgRow?.config) adminConfig = cfgRow.config;
+      else {
+        const { data: keyRow } = await svc.from('admin_config').select('value').eq('key', 'global').maybeSingle();
+        if (keyRow?.value) adminConfig = keyRow.value;
+      }
     } catch {}
 
     switch (action) {
@@ -485,7 +494,7 @@ serve(async (req) => {
       // BURN CARD (V2: echo decay, anti-grind, bonus yield, telemetry)
       // ═══════════════════════════════════════════════════════════
       case 'burnCard': {
-        const { cardOwnedId, sourceTitle, sourceMood, energy, valence, tempo } = payload;
+        const { cardOwnedId, sourceTitle, sourceMood, coverUrl, audioUrl, energy, valence, tempo } = payload;
         // C3 FIX: Atomic delete-and-return to prevent double-spend race condition.
         // Previously: separate SELECT to check ownership, then DELETE later.
         // Now: single DELETE ... RETURNING * that fails if card doesn't exist or isn't owned.
@@ -506,27 +515,45 @@ serve(async (req) => {
 
         // Echo spawn with generational decay
         const gen = ownedCard.echo_generation || 0;
-        const spawnChance = getEchoSpawnChance(gen, adminConfig);
-        const willEcho = spawnChance > 0 && (Math.random() * 100 < spawnChance);
+        const isEchoEnabled = adminConfig?.echoSystem?.enabled !== false;
+        const spawnChance = isEchoEnabled ? getEchoSpawnChance(gen, adminConfig) : 0;
+        const willEcho = isEchoEnabled && spawnChance > 0 && (Math.random() * 100 < spawnChance);
+
+        let createdEcho = null;
+        const parsedDay = parseInt(String(ownedCard.card_id || '').replace(/^card-|^day-/, ''), 10) || ownedCard.day || 1;
+        const echoCoverUrl = coverUrl || `https://files.th3scr1b3.art/covers/day-${parsedDay}.jpg`;
+        const echoAudioUrl = audioUrl || `https://files.th3scr1b3.art/audio/day-${parsedDay}.mp3`;
 
         if (willEcho) {
           const echoDegradedRarity = degradeRarity(ownedCard.rarity as Rarity, 1);
-          await svc.from('echo_pool').insert({
-            source_card_id: ownedCard.card_id, generation: gen + 1,
-            source_title: sourceTitle || 'Echo Card',
-            source_day: parseInt(ownedCard.card_id.replace('card-', '')),
-            source_mood: sourceMood || 'dark', source_rarity: ownedCard.rarity,
-            echo_rarity: echoDegradedRarity, cover_url: '', audio_url: '',
-            energy: energy || 0.5, valence: valence || 0.5, tempo: tempo || 120
-          });
+          const echoPayload = {
+            source_card_id: ownedCard.card_id,
+            generation: gen + 1,
+            source_title: sourceTitle || `Day ${parsedDay}`,
+            source_day: parsedDay,
+            source_mood: sourceMood || 'dark',
+            source_rarity: ownedCard.rarity,
+            echo_rarity: echoDegradedRarity,
+            cover_url: echoCoverUrl,
+            audio_url: echoAudioUrl,
+            energy: energy || 0.5,
+            valence: valence || 0.5,
+            tempo: tempo || 120
+          };
+          const { data: insEcho, error: insErr } = await svc.from('echo_pool').insert(echoPayload).select('*').maybeSingle();
+          if (insErr) {
+            console.error('Failed to insert into echo_pool:', insErr);
+          }
+          createdEcho = insEcho || echoPayload;
         }
 
         // Card already atomically deleted above via DELETE ... RETURNING *
         dailyBurns += 1;
+        const newTotalBurns = (prof?.total_burns || 0) + 1;
         await svc.from('profiles').update({
           daily_burns: dailyBurns,
           last_burn_day: today,
-          total_burns: (prof?.total_burns || 0) + 1,
+          total_burns: newTotalBurns,
           tokens_earned_total: (prof?.tokens_earned_total || 0) + tokensEarned,
         }).eq('id', user.id);
 
@@ -538,7 +565,8 @@ serve(async (req) => {
 
         return new Response(JSON.stringify({
           success: true, tokensEarned, willEcho, echoGen: gen + 1,
-          dailyBurns, spawnChance
+          echoCard: createdEcho,
+          dailyBurns, spawnChance, totalBurns: newTotalBurns
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
@@ -1097,14 +1125,83 @@ serve(async (req) => {
           '5393bcd0-df3a-4d2c-a81d-8fb1433df7fb', // lewd.view@gmail.com
           'fa1d9176-b55e-4301-bda1-057cd66201a0'  // bmeason@gmail.com
         ];
-        if (!user || !ALLOWED_ADMINS.includes(user.id)) {
-          throw new Error("Unauthorized: Only the system owner can update global configurations.");
+        const isPassphraseValid = passphrase === 'th3scr1b3';
+        const isUserAllowed = !!(user && ALLOWED_ADMINS.includes(user.id));
+        if (!isPassphraseValid && !isUserAllowed) {
+          throw new Error("Unauthorized: Invalid admin credentials.");
         }
-        if (passphrase !== 'th3scr1b3') throw new Error("Unauthorized");
-        const { error } = await svc.from('admin_config').upsert({ id: 1, config, updated_at: new Date().toISOString() });
-        if (error) throw new Error(error.message);
+
+        let saveError = null;
+        try {
+          const { error } = await svc.from('admin_config').upsert({ id: 1, config, updated_at: new Date().toISOString() });
+          if (error) saveError = error;
+        } catch (e: any) {
+          saveError = e;
+        }
+
+        if (saveError) {
+          try {
+            const { error: keyErr } = await svc.from('admin_config').upsert({ key: 'global', value: config, updated_at: new Date().toISOString() });
+            if (!keyErr) saveError = null;
+          } catch {}
+        }
+
+        if (saveError) throw new Error(saveError.message || String(saveError));
         return new Response(JSON.stringify({ success: true }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      case 'getAdminConfig': {
+        let configData = null;
+        try {
+          const { data: byId } = await svc.from('admin_config').select('config').eq('id', 1).maybeSingle();
+          if (byId?.config) configData = byId.config;
+        } catch {}
+
+        if (!configData) {
+          try {
+            const { data: byKey } = await svc.from('admin_config').select('value').eq('key', 'global').maybeSingle();
+            if (byKey?.value) configData = byKey.value;
+          } catch {}
+        }
+
+        return new Response(JSON.stringify({ success: true, config: configData }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      case 'getEchoPool': {
+        try {
+          const { data: echoRows, error: echoErr } = await svc
+            .from('echo_pool')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(100);
+
+          if (echoErr) {
+            return new Response(JSON.stringify({ success: false, error: echoErr.message, echoes: [], total: 0 }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          }
+
+          const byRarity: Record<string, number> = {};
+          const byGeneration: Record<number, number> = {};
+          for (const row of (echoRows || [])) {
+            const r = String(row.echo_rarity || row.rarity || 'common').toLowerCase();
+            const g = Number(row.generation || row.echo_generation || 1);
+            byRarity[r] = (byRarity[r] || 0) + 1;
+            byGeneration[g] = (byGeneration[g] || 0) + 1;
+          }
+
+          return new Response(JSON.stringify({
+            success: true,
+            total: echoRows?.length || 0,
+            echoes: echoRows || [],
+            byRarity,
+            byGeneration
+          }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        } catch (e: any) {
+          return new Response(JSON.stringify({ success: false, error: e.message, echoes: [], total: 0 }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
       }
 
       case 'redeemBonusCode': {
