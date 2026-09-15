@@ -57,7 +57,11 @@ CREATE OR REPLACE FUNCTION public.claim_token_pack_atomic(
     p_cost_tokens INTEGER,
     p_max_daily_limit INTEGER
 )
-RETURNS JSONB AS $$
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_catalog
+AS $func$
 DECLARE
     v_current_tokens INTEGER;
     v_today DATE := (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::DATE;
@@ -120,7 +124,5 @@ BEGIN
         'limit', p_max_daily_limit
     );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog;
+$func$;
 
-REVOKE EXECUTE ON FUNCTION public.claim_token_pack_atomic(UUID, TEXT, TEXT, INTEGER, INTEGER) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.claim_token_pack_atomic(UUID, TEXT, TEXT, INTEGER, INTEGER) TO authenticated, service_role;
