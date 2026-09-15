@@ -275,12 +275,13 @@ async function generateCards(svc: any, userId: string, packType: string, count: 
         await svc.from('echo_pool').delete().eq('id', echo.id);
         const echoRarity = echo.echo_rarity || 'common';
         const card_id_rarity = `${echo.source_day}-${echoRarity}`;
-        const { data: supplyData } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity });
+        const echoMaxSupply = getSupplyCap(echoRarity, echo.source_day, today);
+        const { data: supplyData } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity, p_max_supply: echoMaxSupply });
         cards.push({
           owner_id: userId, card_id: `card-${echo.source_day}`, rarity: echoRarity,
           source: `pack_${packType}`, is_echo: true, echo_generation: echo.generation || 1,
           echo_source_day: echo.source_day, edition: supplyData || 1,
-          max_supply: getSupplyCap(echoRarity, echo.source_day, today), proof: null, claimed_at: new Date().toISOString()
+          max_supply: echoMaxSupply, proof: null, claimed_at: new Date().toISOString()
         });
         // Track echo pull
         await svc.from('profiles').update({
@@ -379,7 +380,7 @@ async function generateCards(svc: any, userId: string, packType: string, count: 
       const rarity: Rarity = 'common';
       const max_supply = getSupplyCap(rarity, day, today);
       const card_id_rarity = `${day}-${rarity}`;
-      const { data } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity });
+      const { data } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity, p_max_supply: max_supply });
       const edition = data || 1;
       rolledCard = {
         owner_id: userId, card_id: (packType === 'bombshell' || packType === 'bombshell_token') ? `bombshell-${day}` : `card-${day}`, rarity, source: `pack_${packType}`,
@@ -592,7 +593,7 @@ serve(async (req) => {
           const currentSupply = supplyRow?.supply || 0;
 
           if (currentSupply < max_supply) {
-            const { data } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity });
+            const { data } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity, p_max_supply: max_supply });
             edition = data || 1;
             break;
           }
@@ -600,7 +601,7 @@ serve(async (req) => {
           const nextRarity = degradeRarity(rarityRoll as Rarity, 1);
           if (nextRarity === rarityRoll) {
             // common floor and still sold out, increment anyway
-            const { data } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity });
+            const { data } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity, p_max_supply: max_supply });
             edition = data || 1;
             break;
           }
@@ -651,14 +652,14 @@ serve(async (req) => {
           const currentSupply = supplyRow?.supply || 0;
 
           if (currentSupply < max_supply) {
-            const { data } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity });
+            const { data } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity, p_max_supply: max_supply });
             edition = data || 1;
             break;
           }
 
           const nextRarity = degradeRarity(rarityRoll as Rarity, 1);
           if (nextRarity === rarityRoll) {
-            const { data } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity });
+            const { data } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity, p_max_supply: max_supply });
             edition = data || 1;
             break;
           }
@@ -895,7 +896,7 @@ serve(async (req) => {
           const nextRarity = degradeRarity(rarity as Rarity, 1);
           if (nextRarity === rarity) {
             // common floor and still sold out, increment anyway
-            const { data } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity });
+            const { data } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity, p_max_supply: max_supply });
             edition = data || 1;
             break;
           }
@@ -974,12 +975,13 @@ serve(async (req) => {
         const newRarity = upgradeRarity(baseRarity as Rarity);
         const day = parseInt(baseCardId.replace('card-', ''));
         const card_id_rarity = `${day}-${newRarity}`;
-        const { data: supplyData } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity });
+        const fusionMaxSupply = getSupplyCap(newRarity, day, today);
+        const { data: supplyData } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity, p_max_supply: fusionMaxSupply });
 
         const fusedCard = {
           owner_id: user.id, card_id: baseCardId, rarity: newRarity, source: 'fusion',
           is_echo: false, echo_generation: 0, echo_source_day: null,
-          edition: supplyData || 1, max_supply: getSupplyCap(newRarity, day, today),
+          edition: supplyData || 1, max_supply: fusionMaxSupply,
           claimed_at: new Date().toISOString()
         };
         const { data: insertedCard, error: insErr } = await svc.from('vault_collections')
@@ -1342,7 +1344,7 @@ serve(async (req) => {
           const max_supply = getSupplyCap(rarityRoll as any, claimDay, today);
           const card_id_rarity = `${claimDay}-${rarityRoll}`;
 
-          const { data: editionData } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity });
+          const { data: editionData } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity, p_max_supply: max_supply });
           const edition = editionData || 1;
 
           const newCard = {
