@@ -1215,6 +1215,116 @@ serve(async (req) => {
           { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
       }
 
+      case 'broadcastAnnouncement': {
+        const { announcement, passphrase } = payload;
+        const ALLOWED_ADMINS = [
+          '5393bcd0-df3a-4d2c-a81d-8fb1433df7fb', // lewd.view@gmail.com
+          'fa1d9176-b55e-4301-bda1-057cd66201a0'  // bmeason@gmail.com
+        ];
+        const isPassphraseValid = passphrase === 'th3scr1b3';
+        const isUserAllowed = !!(user && ALLOWED_ADMINS.includes(user.id));
+        if (!isPassphraseValid && !isUserAllowed) {
+          throw new Error("Unauthorized: Invalid admin credentials.");
+        }
+        if (!announcement?.title || !announcement?.message) {
+          throw new Error("Title and message are required.");
+        }
+
+        const { data, error } = await svc
+          .from('system_announcements')
+          .insert({
+            title: announcement.title.trim(),
+            message: announcement.message.trim(),
+            category: announcement.category || 'system',
+            priority: announcement.priority || 'normal',
+            action_url: announcement.action_url ? String(announcement.action_url).trim() : null,
+            action_label: announcement.action_label ? String(announcement.action_label).trim() : null,
+            reward_type: announcement.reward_type || 'none',
+            reward_amount: Number(announcement.reward_amount) || 0,
+            is_active: announcement.is_active !== false,
+            expires_at: announcement.expires_at || null,
+          })
+          .select('*')
+          .single();
+
+        if (error) throw error;
+        return new Response(JSON.stringify({ success: true, announcement: data }), {
+          headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'getAdminAnnouncements': {
+        const { passphrase } = payload || {};
+        const ALLOWED_ADMINS = [
+          '5393bcd0-df3a-4d2c-a81d-8fb1433df7fb',
+          'fa1d9176-b55e-4301-bda1-057cd66201a0'
+        ];
+        const isPassphraseValid = passphrase === 'th3scr1b3';
+        const isUserAllowed = !!(user && ALLOWED_ADMINS.includes(user.id));
+        if (!isPassphraseValid && !isUserAllowed) {
+          throw new Error("Unauthorized: Invalid admin credentials.");
+        }
+
+        const { data, error } = await svc
+          .from('system_announcements')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(100);
+
+        if (error) throw error;
+        return new Response(JSON.stringify({ success: true, announcements: data || [] }), {
+          headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'toggleAnnouncement': {
+        const { id, is_active, passphrase } = payload;
+        const ALLOWED_ADMINS = [
+          '5393bcd0-df3a-4d2c-a81d-8fb1433df7fb',
+          'fa1d9176-b55e-4301-bda1-057cd66201a0'
+        ];
+        const isPassphraseValid = passphrase === 'th3scr1b3';
+        const isUserAllowed = !!(user && ALLOWED_ADMINS.includes(user.id));
+        if (!isPassphraseValid && !isUserAllowed) {
+          throw new Error("Unauthorized: Invalid admin credentials.");
+        }
+
+        const { data, error } = await svc
+          .from('system_announcements')
+          .update({ is_active: !!is_active })
+          .eq('id', id)
+          .select('*')
+          .single();
+
+        if (error) throw error;
+        return new Response(JSON.stringify({ success: true, announcement: data }), {
+          headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'deleteAnnouncement': {
+        const { id, passphrase } = payload;
+        const ALLOWED_ADMINS = [
+          '5393bcd0-df3a-4d2c-a81d-8fb1433df7fb',
+          'fa1d9176-b55e-4301-bda1-057cd66201a0'
+        ];
+        const isPassphraseValid = passphrase === 'th3scr1b3';
+        const isUserAllowed = !!(user && ALLOWED_ADMINS.includes(user.id));
+        if (!isPassphraseValid && !isUserAllowed) {
+          throw new Error("Unauthorized: Invalid admin credentials.");
+        }
+
+        const { error } = await svc
+          .from('system_announcements')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+        });
+      }
+
       case 'getEchoPool': {
         try {
           const { data: echoRows, error: echoErr } = await svc
