@@ -1325,6 +1325,29 @@ serve(async (req) => {
         });
       }
 
+      case 'getAnalyticsSummary': {
+        const { passphrase } = payload || {};
+        const ALLOWED_ADMINS = [
+          '5393bcd0-df3a-4d2c-a81d-8fb1433df7fb',
+          'fa1d9176-b55e-4301-bda1-057cd66201a0'
+        ];
+        const isPassphraseValid = passphrase === 'th3scr1b3';
+        const isUserAllowed = !!(user && ALLOWED_ADMINS.includes(user.id));
+        if (!isPassphraseValid && !isUserAllowed) {
+          throw new Error("Unauthorized: Invalid admin credentials.");
+        }
+
+        const { data: rpcStats, error: rpcErr } = await svc.rpc('get_user_card_stats');
+        if (rpcErr) throw rpcErr;
+
+        return new Response(JSON.stringify({
+          success: true,
+          stats: rpcStats,
+        }), {
+          headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+        });
+      }
+
       case 'getEchoPool': {
         try {
           const { data: echoRows, error: echoErr } = await svc
