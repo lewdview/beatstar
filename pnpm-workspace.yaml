@@ -75,10 +75,16 @@ catalog:
 autoInstallPeers: false
 
 onlyBuiltDependencies:
+  - '@firebase/util'
   - '@swc/core'
+  - bufferutil
   - esbuild
+  - keccak
   - msw
+  - protobufjs
+  - secp256k1
   - unrs-resolver
+  - utf-8-validate
 
 overrides:
   # replit uses linux-x64 only, we can exclude all other platforms
@@ -156,10 +162,10 @@ overrides:
   esbuild: "0.27.3"
 
 allowBuilds:
-  '@firebase/util': set this to true or false
-  bufferutil: set this to true or false
-  esbuild: set this to true or false
-  keccak: set this to true or false
-  protobufjs: set this to true or false
-  secp256k1: set this to true or false
-  utf-8-validate: set this to true or false
+  '@firebase/util': true
+  bufferutil: true
+  esbuild: true
+  keccak: true
+  protobufjs: true
+  secp256k1: true
+  utf-8-validate: true
