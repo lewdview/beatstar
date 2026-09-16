@@ -11,10 +11,22 @@ import {
 } from "./gameLogic.ts";
 import bombshellCoversMap from "./bombshell_covers_map.json" assert { type: "json" };
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const ALLOWED_ORIGINS = [
+  'https://pim.th3scr1b3.art',
+  'https://beatstar-vault.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:4173',
+];
+
+function getCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get('Origin') ?? '';
+  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    'Access-Control-Allow-Origin': allowed,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Vary': 'Origin',
+  };
+}
 
 function getStripeClient(): Stripe {
   const secretKey = Deno.env.get('STRIPE_SECRET_KEY') || Deno.env.get('STRIPE_SECRET_KEY_TEST');
@@ -162,19 +174,26 @@ async function findDayWithRaritySupply(
   initialDay: number,
   packType: string,
   today: number,
-  missedDays: number[]
+  missedDays: number[],
+  supplyMap?: Map<string, number>
 ): Promise<number | null> {
   const maxCap = getSupplyCap(rarity, initialDay, today);
   const initialKey = `${initialDay}-${rarity}`;
 
-  // 1. Check initial day first
-  const { data: initRow } = await svc
-    .from('global_supply')
-    .select('supply')
-    .eq('card_id_rarity', initialKey)
-    .maybeSingle();
+  // 1. Check initial day first — use pre-fetched map when available (avoids per-card DB read)
+  let initSupply: number;
+  if (supplyMap) {
+    initSupply = supplyMap.get(initialKey) ?? 0;
+  } else {
+    const { data: initRow } = await svc
+      .from('global_supply')
+      .select('supply')
+      .eq('card_id_rarity', initialKey)
+      .maybeSingle();
+    initSupply = initRow?.supply || 0;
+  }
 
-  if ((initRow?.supply || 0) < maxCap) {
+  if (initSupply < maxCap) {
     return initialDay;
   }
 
@@ -198,21 +217,32 @@ async function findDayWithRaritySupply(
     candidateDays = Array.from({ length: Math.max(1, today) }, (_, i) => i + 1);
   }
 
-  // 3. Query all capped-out supply rows for this rarity
-  const { data: cappedRows } = await svc
-    .from('global_supply')
-    .select('card_id_rarity, supply')
-    .like('card_id_rarity', `%-${rarity}`);
-
+  // 3. Determine sold-out days — use pre-fetched map when available
   const soldOutDays = new Set<number>();
-  if (cappedRows) {
-    for (const row of cappedRows) {
-      const parts = row.card_id_rarity.split('-');
-      const d = parseInt(parts[0], 10);
-      if (!isNaN(d)) {
-        const cap = getSupplyCap(rarity, d, today);
-        if (row.supply >= cap) {
-          soldOutDays.add(d);
+  if (supplyMap) {
+    // Resolve entirely from the in-memory snapshot
+    for (const d of candidateDays) {
+      const key = `${d}-${rarity}`;
+      const cap = getSupplyCap(rarity, d, today);
+      if ((supplyMap.get(key) ?? 0) >= cap) {
+        soldOutDays.add(d);
+      }
+    }
+  } else {
+    const { data: cappedRows } = await svc
+      .from('global_supply')
+      .select('card_id_rarity, supply')
+      .like('card_id_rarity', `%-${rarity}`);
+
+    if (cappedRows) {
+      for (const row of cappedRows) {
+        const parts = row.card_id_rarity.split('-');
+        const d = parseInt(parts[0], 10);
+        if (!isNaN(d)) {
+          const cap = getSupplyCap(rarity, d, today);
+          if (row.supply >= cap) {
+            soldOutDays.add(d);
+          }
         }
       }
     }
@@ -264,6 +294,20 @@ async function generateCards(svc: any, userId: string, packType: string, count: 
   const days = drawCardDays(packType, count, today, missedDays);
   const cards = [];
 
+  // Pre-fetch all supply data for the candidate day range in one query
+  // (avoids N+1 queries during the generation loop)
+  const RARITIES_ALL = ['common', 'uncommon', 'rare', 'legendary', 'mythic'];
+  // Build all possible supply keys for days 1..today
+  const candidateDayRange = Array.from({ length: Math.min(today, 365) }, (_, i) => i + 1);
+  const candidateKeys = candidateDayRange.flatMap(d => RARITIES_ALL.map(r => `${d}-${r}`));
+  const { data: supplySnapshot } = await svc
+    .from('global_supply')
+    .select('card_id_rarity, supply')
+    .in('card_id_rarity', candidateKeys);
+  const supplyMap = new Map<string, number>(
+    (supplySnapshot ?? []).map((r: any) => [r.card_id_rarity, r.supply])
+  );
+
   for (let cIdx = 0; cIdx < count; cIdx++) {
     let day = days[cIdx];
 
@@ -308,7 +352,7 @@ async function generateCards(svc: any, userId: string, packType: string, count: 
         // Horizontal Scarcity: Preserve rolled rarity by searching available inventory across released days
         let candidateDay: number | null = targetDay;
         if (packType !== 'targeted_pull') {
-          candidateDay = await findDayWithRaritySupply(svc, rarity as Rarity, targetDay, packType, today, missedDays);
+          candidateDay = await findDayWithRaritySupply(svc, rarity as Rarity, targetDay, packType, today, missedDays, supplyMap);
         }
 
         if (candidateDay !== null) {
@@ -411,7 +455,7 @@ async function generateCards(svc: any, userId: string, packType: string, count: 
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: getCorsHeaders(req) });
 
   try {
     const { action, payload } = await req.json();
@@ -446,7 +490,7 @@ serve(async (req) => {
       });
       await logTelemetry(svc, 'invite_redeem', user?.id || null, { code, valid });
       return new Response(JSON.stringify({ success: !!valid, valid: !!valid }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
     }
 
     // Allow telemetry logging without full auth (e.g. for guest funnel tracking)
@@ -455,7 +499,7 @@ serve(async (req) => {
       if (!eventType) throw new Error('Missing event type');
       await logTelemetry(svc, eventType, user?.id || null, eventPayload || {});
       return new Response(JSON.stringify({ success: true }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
     }
 
     // Allow verifyStripeSession for service role (webhook) or authenticated users, and allow claimGuestDailyDrop for guest onboarding
@@ -568,7 +612,7 @@ serve(async (req) => {
           success: true, tokensEarned, willEcho, echoGen: gen + 1,
           echoCard: createdEcho,
           dailyBurns, spawnChance, totalBurns: newTotalBurns
-        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
       }
 
       // ═══════════════════════════════════════════════════════════
@@ -630,7 +674,7 @@ serve(async (req) => {
         await logTelemetry(svc, 'daily_claim', user.id, { day: claimDay, rarity: rarityRoll });
 
         return new Response(JSON.stringify({ success: true, card: insertedCard || newCard }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
       }
 
       // ═══════════════════════════════════════════════════════════
@@ -680,7 +724,7 @@ serve(async (req) => {
             edition,
             max_supply,
           }
-        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
       }
 
       // ═══════════════════════════════════════════════════════════
@@ -845,7 +889,7 @@ serve(async (req) => {
           cards: generatedCards,
           tokenCost: cost,
           remainingTokens: refreshedProfile?.tokens ?? ((profile?.tokens || 0) - cost)
-        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
       }
 
       // ═══════════════════════════════════════════════════════════
@@ -921,7 +965,7 @@ serve(async (req) => {
         await logTelemetry(svc, 'targeted_pull', user.id, { day, rarity, cost });
 
         return new Response(JSON.stringify({ success: true, card: insertedCard || card }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
       }
 
       // ═══════════════════════════════════════════════════════════
@@ -947,7 +991,7 @@ serve(async (req) => {
         await logTelemetry(svc, 'rarity_upgrade', user.id, { cardId: card.card_id, from: card.rarity, to: newRarity, cost });
 
         return new Response(JSON.stringify({ success: true, oldRarity: card.rarity, newRarity }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
       }
 
       // ═══════════════════════════════════════════════════════════
@@ -992,7 +1036,7 @@ serve(async (req) => {
         await logTelemetry(svc, 'duplicate_fusion', user.id, { baseCardId, from: baseRarity, to: newRarity });
 
         return new Response(JSON.stringify({ success: true, fusedCard: insertedCard || fusedCard }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
       }
 
       // ═══════════════════════════════════════════════════════════
@@ -1078,7 +1122,7 @@ serve(async (req) => {
         });
 
         return new Response(JSON.stringify({ success: true, txHash }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
       }
 
       // ═══════════════════════════════════════════════════════════
@@ -1118,7 +1162,7 @@ serve(async (req) => {
             streak: profile?.streak_count || 0,
             totalPulls: profile?.total_pulls || 0,
           }
-        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
       }
 
       case 'updateAdminConfig': {
@@ -1150,7 +1194,7 @@ serve(async (req) => {
 
         if (saveError) throw new Error(saveError.message || String(saveError));
         return new Response(JSON.stringify({ success: true }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
       }
 
       case 'getAdminConfig': {
@@ -1168,7 +1212,7 @@ serve(async (req) => {
         }
 
         return new Response(JSON.stringify({ success: true, config: configData }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
       }
 
       case 'getEchoPool': {
@@ -1181,7 +1225,7 @@ serve(async (req) => {
 
           if (echoErr) {
             return new Response(JSON.stringify({ success: false, error: echoErr.message, echoes: [], total: 0 }),
-              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+              { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
           }
 
           const byRarity: Record<string, number> = {};
@@ -1199,10 +1243,10 @@ serve(async (req) => {
             echoes: echoRows || [],
             byRarity,
             byGeneration
-          }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
         } catch (e: any) {
           return new Response(JSON.stringify({ success: false, error: e.message, echoes: [], total: 0 }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+            { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
         }
       }
 
@@ -1437,7 +1481,7 @@ serve(async (req) => {
           rewardType: promo.reward_type,
           rewardValue: promo.reward_value,
           result: rewardResult
-        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
       }
 
       case 'payVoyeurFee': {
@@ -1453,7 +1497,7 @@ serve(async (req) => {
         if (decErr) throw new Error("Insufficient V⚡: " + decErr.message);
 
         return new Response(JSON.stringify({ success: true }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
       }
 
       // ═══════════════════════════════════════════════════════════
@@ -1490,7 +1534,7 @@ serve(async (req) => {
           success: true,
           tokenAmount: grantTokens,
           newBalance: newTokens,
-        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
       }
 
       // ═══════════════════════════════════════════════════════════
@@ -1559,7 +1603,7 @@ serve(async (req) => {
           success: true,
           checkoutUrl: session.url,
           sessionId: session.id
-        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
       }
 
       // ═══════════════════════════════════════════════════════════
@@ -1583,14 +1627,14 @@ serve(async (req) => {
               isTokenBundle: true,
               tokenAmount: (existingOrder as any).amount_cents,
               alreadyCredited: true,
-            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+            }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
           }
           if (Array.isArray(existingOrder.cards_minted) && existingOrder.cards_minted.length > 0) {
             return new Response(JSON.stringify({
               success: true,
               cards: existingOrder.cards_minted,
               alreadyMinted: true,
-            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+            }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
           }
         }
 
@@ -1656,7 +1700,7 @@ serve(async (req) => {
             isTokenBundle: true,
             tokenAmount,
             newBalance: newTokens,
-          }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
         }
 
         const cardCount = tier.cardCount;
@@ -1734,7 +1778,7 @@ serve(async (req) => {
         return new Response(JSON.stringify({
           success: true,
           cards: generatedCards,
-        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
       }
 
       default:
@@ -1742,7 +1786,7 @@ serve(async (req) => {
     }
   } catch (error) {
     return new Response(JSON.stringify({ success: false, error: error.message }), {
-      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
     });
   }
 });
