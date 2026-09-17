@@ -505,7 +505,18 @@ serve(async (req) => {
     }
 
     // Public / unauthenticated or custom-auth actions
-    const PUBLIC_ACTIONS = ['verifyStripeSession', 'claimGuestDailyDrop', 'getEchoPool', 'flushEchoPool', 'addEchoToPool'];
+    const PUBLIC_ACTIONS = [
+      'verifyStripeSession',
+      'claimGuestDailyDrop',
+      'getEchoPool',
+      'flushEchoPool',
+      'addEchoToPool',
+      'broadcastAnnouncement',
+      'getAdminAnnouncements',
+      'toggleAnnouncement',
+      'deleteAnnouncement',
+      'getAnalyticsSummary',
+    ];
     if (!PUBLIC_ACTIONS.includes(action) && !isServiceRole) {
       if (!user || authErr) {
         if (!authHeader) throw new Error('Not authenticated: Missing Authorization Header');
