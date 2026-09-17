@@ -61,8 +61,6 @@ artifacts/rhythm-game/upload_to_firebase.js
 # Temporary stores and scratch scripts
 .pnpm-store/
 scratch/
-# Nested sub-project repository
-artifacts/beatstar-vault/
 
 .vercel
 supabase/.temp/
