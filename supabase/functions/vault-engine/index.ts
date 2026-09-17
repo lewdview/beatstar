@@ -504,6 +504,19 @@ serve(async (req) => {
         { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
     }
 
+    if (action === 'batchLogClientTelemetry') {
+      const { events } = payload;
+      if (Array.isArray(events)) {
+        for (const ev of events) {
+          if (ev && ev.eventType) {
+            await logTelemetry(svc, ev.eventType, user?.id || null, ev.payload || {});
+          }
+        }
+      }
+      return new Response(JSON.stringify({ success: true, count: events?.length || 0 }),
+        { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
+    }
+
     // Public / unauthenticated or custom-auth actions
     const PUBLIC_ACTIONS = [
       'verifyStripeSession',
