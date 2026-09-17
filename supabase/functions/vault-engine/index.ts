@@ -317,14 +317,16 @@ async function generateCards(svc: any, userId: string, packType: string, count: 
       if (echoPool && echoPool.length > 0) {
         const echo = echoPool[Math.floor(Math.random() * echoPool.length)];
         await svc.from('echo_pool').delete().eq('id', echo.id);
-        const echoRarity = echo.echo_rarity || 'common';
-        const card_id_rarity = `${echo.source_day}-${echoRarity}`;
-        const echoMaxSupply = getSupplyCap(echoRarity, echo.source_day, today);
+        const echoRarity = echo.echo_rarity || echo.rarity || 'common';
+        const echoGen = echo.echo_generation || echo.generation || 1;
+        const echoSourceDay = echo.source_day || (parseInt(String(echo.card_id || '').replace(/^card-/, ''), 10) || 1);
+        const card_id_rarity = `${echoSourceDay}-${echoRarity}`;
+        const echoMaxSupply = getSupplyCap(echoRarity, echoSourceDay, today);
         const { data: supplyData } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity, p_max_supply: echoMaxSupply });
         cards.push({
-          owner_id: userId, card_id: `card-${echo.source_day}`, rarity: echoRarity,
-          source: `pack_${packType}`, is_echo: true, echo_generation: echo.generation || 1,
-          echo_source_day: echo.source_day, edition: supplyData || 1,
+          owner_id: userId, card_id: `card-${echoSourceDay}`, rarity: echoRarity,
+          source: `pack_${packType}`, is_echo: true, echo_generation: echoGen,
+          echo_source_day: echoSourceDay, edition: supplyData || 1,
           max_supply: echoMaxSupply, proof: null, claimed_at: new Date().toISOString()
         });
         // Track echo pull
@@ -502,8 +504,9 @@ serve(async (req) => {
         { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
     }
 
-    // Allow verifyStripeSession for service role (webhook) or authenticated users, and allow claimGuestDailyDrop for guest onboarding
-    if (action !== 'verifyStripeSession' && action !== 'claimGuestDailyDrop' && !isServiceRole) {
+    // Public / unauthenticated or custom-auth actions
+    const PUBLIC_ACTIONS = ['verifyStripeSession', 'claimGuestDailyDrop', 'getEchoPool', 'flushEchoPool', 'addEchoToPool'];
+    if (!PUBLIC_ACTIONS.includes(action) && !isServiceRole) {
       if (!user || authErr) {
         if (!authHeader) throw new Error('Not authenticated: Missing Authorization Header');
         throw new Error(`Not authenticated: ${authErr?.message || 'Invalid or Expired Token'}`);
@@ -572,22 +575,27 @@ serve(async (req) => {
         if (willEcho) {
           const echoDegradedRarity = degradeRarity(ownedCard.rarity as Rarity, 1);
           const echoPayload = {
-            source_card_id: ownedCard.card_id,
+            card_id: ownedCard.card_id || `card-${parsedDay}`,
+            source_card_id: ownedCard.card_id || `card-${parsedDay}`,
+            rarity: echoDegradedRarity,
+            echo_rarity: echoDegradedRarity,
+            echo_generation: gen + 1,
             generation: gen + 1,
             source_title: sourceTitle || `Day ${parsedDay}`,
             source_day: parsedDay,
             source_mood: sourceMood || 'dark',
             source_rarity: ownedCard.rarity,
-            echo_rarity: echoDegradedRarity,
             cover_url: echoCoverUrl,
             audio_url: echoAudioUrl,
-            energy: energy || 0.5,
-            valence: valence || 0.5,
-            tempo: tempo || 120
+            energy: Number(energy ?? 0.5),
+            valence: Number(valence ?? 0.5),
+            tempo: Number(tempo ?? 120),
           };
           const { data: insEcho, error: insErr } = await svc.from('echo_pool').insert(echoPayload).select('*').maybeSingle();
           if (insErr) {
-            console.error('Failed to insert into echo_pool:', insErr);
+            console.error('[burnCard] Failed to insert into echo_pool:', insErr);
+          } else {
+            console.log('[burnCard] Successfully inserted into echo_pool:', insEcho?.id);
           }
           createdEcho = insEcho || echoPayload;
         }
@@ -1381,6 +1389,63 @@ serve(async (req) => {
           return new Response(JSON.stringify({ success: false, error: e.message, echoes: [], total: 0 }),
             { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
         }
+      }
+
+      case 'flushEchoPool': {
+        const { passphrase } = payload || {};
+        const ALLOWED_ADMINS = [
+          '5393bcd0-df3a-4d2c-a81d-8fb1433df7fb',
+          'fa1d9176-b55e-4301-bda1-057cd66201a0'
+        ];
+        const isPassphraseValid = passphrase === 'th3scr1b3';
+        const isUserAllowed = !!(user && ALLOWED_ADMINS.includes(user.id));
+        if (!isPassphraseValid && !isUserAllowed && !isServiceRole) {
+          throw new Error("Unauthorized: Invalid admin credentials.");
+        }
+
+        const { error: delErr } = await svc
+          .from('echo_pool')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000');
+
+        if (delErr) throw delErr;
+        return new Response(JSON.stringify({ success: true, message: 'Echo pool flushed.' }), {
+          headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'addEchoToPool': {
+        const { echoCard } = payload || {};
+        if (!echoCard) throw new Error('Missing echoCard');
+        const parsedDay = Number(echoCard.sourceDay || echoCard.source_day || 1);
+        const echoRarity = echoCard.echoRarity || echoCard.echo_rarity || echoCard.rarity || 'common';
+        const gen = Number(echoCard.generation || echoCard.echo_generation || 1);
+        const echoPayload = {
+          card_id: echoCard.sourceCardId || echoCard.source_card_id || `card-${parsedDay}`,
+          source_card_id: echoCard.sourceCardId || echoCard.source_card_id || `card-${parsedDay}`,
+          rarity: echoRarity,
+          echo_rarity: echoRarity,
+          echo_generation: gen,
+          generation: gen,
+          source_title: echoCard.sourceTitle || echoCard.source_title || `Day ${parsedDay}`,
+          source_day: parsedDay,
+          source_mood: echoCard.sourceMood || echoCard.source_mood || 'dark',
+          source_rarity: echoCard.sourceRarity || echoCard.source_rarity || 'common',
+          cover_url: echoCard.coverUrl || echoCard.cover_url || `https://files.th3scr1b3.art/covers/day-${parsedDay}.jpg`,
+          audio_url: echoCard.audioUrl || echoCard.audio_url || `https://files.th3scr1b3.art/audio/day-${parsedDay}.mp3`,
+          energy: Number(echoCard.energy ?? 0.5),
+          valence: Number(echoCard.valence ?? 0.5),
+          tempo: Number(echoCard.tempo ?? 120),
+        };
+
+        const { data: insEcho, error: insErr } = await svc.from('echo_pool').insert(echoPayload).select('*').maybeSingle();
+        if (insErr) {
+          console.error('[addEchoToPool] insert failed:', insErr);
+          throw insErr;
+        }
+        return new Response(JSON.stringify({ success: true, echo: insEcho }), {
+          headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+        });
       }
 
       case 'redeemBonusCode': {

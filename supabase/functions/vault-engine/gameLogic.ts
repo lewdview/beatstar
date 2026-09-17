@@ -187,17 +187,25 @@ export const RARITY_CONFIG: Record<Rarity, number> = {
 
 /** Get echo spawn chance based on generation (replaces flat 50%). */
 export function getEchoSpawnChance(generation: number, adminConfig?: any): number {
+  // Gen 3+ = terminal destruction, no further echo
+  if (generation >= 3) return 0;
+
   // Admin multiplier override
   const multiplier = adminConfig?.echoSpawnMultiplier ?? 1;
+
+  // Check if adminConfig has custom rates per generation
+  if (adminConfig?.echoSpawnRates) {
+    const customRate = adminConfig.echoSpawnRates[`gen${generation}`];
+    if (typeof customRate === 'number') {
+      return Math.min(100, customRate * multiplier);
+    }
+  }
 
   const BASE_RATES: Record<number, number> = {
     0: 25,  // Gen 0 → 25% chance to spawn Gen 1 echo
     1: 15,  // Gen 1 → 15% chance to spawn Gen 2 echo
     2: 8,   // Gen 2 → 8% chance to spawn Gen 3 echo
   };
-
-  // Gen 3+ = terminal destruction, no further echo
-  if (generation >= 3) return 0;
 
   const baseRate = BASE_RATES[generation] ?? 0;
   return Math.min(100, baseRate * multiplier);
