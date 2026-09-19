@@ -1,302 +1,18 @@
-#!/usr/bin/env node
-
-/**
- * PIM & th3scr1b3 MCP Server (Model Context Protocol)
- * 
- * Provides AI coding agents with authoritative tools, live catalog queries,
- * rhythm engine math, audio DSP crossover specifications, card economy v2.1 rules,
- * design system tokens, and workspace hierarchy enforcement.
- * 
- * Protocol: JSON-RPC 2.0 over stdio (MCP 2024-11-05 standard)
- */
-
-const fs = require('fs');
-const path = require('path');
-const readline = require('readline');
-
-// Workspace paths
-const ROOT_DIR = path.resolve(__dirname, '../..');
-const VAULT_DATA_DIR = path.join(ROOT_DIR, 'artifacts/beatstar-vault/src/data');
-const VAULT_PUBLIC_DATA = path.join(ROOT_DIR, 'artifacts/beatstar-vault/public/data');
-
-// Load catalogs safely
-function loadJsonFile(filepath, fallback = null) {
-  try {
-    if (fs.existsSync(filepath)) {
-      const data = fs.readFileSync(filepath, 'utf8');
-      return JSON.parse(data);
-    }
-  } catch (err) {
-    // ignore
-  }
-  return fallback;
-}
-
-const songCatalog = loadJsonFile(path.join(VAULT_DATA_DIR, 'song_catalog.json'), []);
-const cardCatalog = loadJsonFile(path.join(VAULT_DATA_DIR, 'card_catalog.json'), []);
-const dayFileMap = loadJsonFile(path.join(ROOT_DIR, 'artifacts/beatstar-vault/src/game/day_file_map.json'), {});
-const bombshellCoversMap = loadJsonFile(path.join(VAULT_PUBLIC_DATA, 'bombshell_covers_map.json'), {});
-const packsCatalog = loadJsonFile(path.join(VAULT_PUBLIC_DATA, 'packs.json'), {});
-const CDN_BASE = 'https://files.th3scr1b3.art';
-const PIM_BASE = 'https://pim.th3scr1b3.art';
-
-// Supabase Configuration
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://toemkhrfsbkfkutwcjkd.supabase.co';
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvZW1raHJmc2JrZmt1dHdjamtkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc2MTQxNTQsImV4cCI6MjEwMzE5MDE1NH0.nAtlMU_ukqXMkIhKppwv1mxDKpxuwHa6ddQBBwK3Iu8';
-
-let cachedGlobalSupply = null;
-let lastSupplyFetchTime = 0;
-let cachedVaultSources = null;
-let lastSourcesFetchTime = 0;
-const SUPPLY_CACHE_TTL_MS = 30000; // 30s cache
-
-async function getGlobalSupplyData() {
-  const now = Date.now();
-  if (cachedGlobalSupply && (now - lastSupplyFetchTime < SUPPLY_CACHE_TTL_MS)) {
-    return cachedGlobalSupply;
-  }
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/global_supply?select=card_id_rarity,supply&limit=2000`, {
-      headers: {
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-      }
-    });
-    if (res.ok) {
-      const data = await res.json();
-      cachedGlobalSupply = data;
-      lastSupplyFetchTime = now;
-      return data;
-    }
-  } catch (err) {
-    console.error('Failed to query Supabase global_supply:', err);
-  }
-  return cachedGlobalSupply || [];
-}
-
-async function getVaultSourcesData() {
-  const now = Date.now();
-  if (cachedVaultSources && (now - lastSourcesFetchTime < SUPPLY_CACHE_TTL_MS)) {
-    return cachedVaultSources;
-  }
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/vault_collections?select=source&limit=2000`, {
-      headers: {
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-      }
-    });
-    if (res.ok) {
-      const rows = await res.json();
-      const counts = {};
-      rows.forEach(r => {
-        const src = r.source || 'unknown';
-        counts[src] = (counts[src] || 0) + 1;
-      });
-      cachedVaultSources = counts;
-      lastSourcesFetchTime = now;
-      return counts;
-    }
-  } catch (err) {
-    console.error('Failed to query Supabase vault_collections sources:', err);
-  }
-  return cachedVaultSources || {};
-}
-
-const RARITY_CAPS = {
-  common: 2000,
-  uncommon: 500,
-  rare: 100,
-  legendary: 10,
-  mythic: 1
-};
-
-async function getDailyClaimsSummary(day, options = {}) {
-  const supplyData = await getGlobalSupplyData();
-
-  if (day !== undefined && day !== null && !isNaN(day)) {
-    const dayStr = String(day);
-    const dayRows = supplyData.filter(r => {
-      const key = r.card_id_rarity || '';
-      return (
-        key === `${dayStr}-common` || key === `${dayStr}-uncommon` || key === `${dayStr}-rare` || key === `${dayStr}-legendary` || key === `${dayStr}-mythic` ||
-        key.startsWith(`bombshell-${dayStr}-`) ||
-        key.startsWith(`card-${dayStr}-`)
-      );
-    });
-
-    const song = songCatalog.find(s => s.day === day);
-
-    const breakdown = {
-      // Standard Gen-0 Card Set
-      common: { claimed: 0, maxSupply: RARITY_CAPS.common, remaining: RARITY_CAPS.common, pctClaimed: '0.0%' },
-      uncommon: { claimed: 0, maxSupply: RARITY_CAPS.uncommon, remaining: RARITY_CAPS.uncommon, pctClaimed: '0.0%' },
-      rare: { claimed: 0, maxSupply: RARITY_CAPS.rare, remaining: RARITY_CAPS.rare, pctClaimed: '0.0%' },
-      legendary: { claimed: 0, maxSupply: RARITY_CAPS.legendary, remaining: RARITY_CAPS.legendary, pctClaimed: '0.0%' },
-      mythic: { claimed: 0, maxSupply: RARITY_CAPS.mythic, remaining: RARITY_CAPS.mythic, pctClaimed: '0.0%' },
-
-      // Bombshell Archive Collector Set (All 5 Rarity Tiers)
-      bombshell_common: { claimed: 0, maxSupply: RARITY_CAPS.common, remaining: RARITY_CAPS.common, pctClaimed: '0.0%' },
-      bombshell_uncommon: { claimed: 0, maxSupply: RARITY_CAPS.uncommon, remaining: RARITY_CAPS.uncommon, pctClaimed: '0.0%' },
-      bombshell_rare: { claimed: 0, maxSupply: RARITY_CAPS.rare, remaining: RARITY_CAPS.rare, pctClaimed: '0.0%' },
-      bombshell_legendary: { claimed: 0, maxSupply: RARITY_CAPS.legendary, remaining: RARITY_CAPS.legendary, pctClaimed: '0.0%' },
-      bombshell_mythic: { claimed: 0, maxSupply: RARITY_CAPS.mythic, remaining: RARITY_CAPS.mythic, pctClaimed: '0.0%' }
-    };
-
-    let totalDayClaims = 0;
-
-    dayRows.forEach(r => {
-      const key = r.card_id_rarity || '';
-      const qty = r.supply || 0;
-      totalDayClaims += qty;
-
-      if (key === `${dayStr}-common` || key === `card-${dayStr}-common`) {
-        breakdown.common.claimed += qty;
-      } else if (key === `${dayStr}-uncommon` || key === `card-${dayStr}-uncommon`) {
-        breakdown.uncommon.claimed += qty;
-      } else if (key === `${dayStr}-rare` || key === `card-${dayStr}-rare`) {
-        breakdown.rare.claimed += qty;
-      } else if (key === `${dayStr}-legendary` || key === `card-${dayStr}-legendary`) {
-        breakdown.legendary.claimed += qty;
-      } else if (key === `${dayStr}-mythic` || key === `card-${dayStr}-mythic`) {
-        breakdown.mythic.claimed += qty;
-      } else if (key === `bombshell-${dayStr}-common`) {
-        breakdown.bombshell_common.claimed += qty;
-      } else if (key === `bombshell-${dayStr}-uncommon`) {
-        breakdown.bombshell_uncommon.claimed += qty;
-      } else if (key === `bombshell-${dayStr}-rare`) {
-        breakdown.bombshell_rare.claimed += qty;
-      } else if (key === `bombshell-${dayStr}-legendary`) {
-        breakdown.bombshell_legendary.claimed += qty;
-      } else if (key === `bombshell-${dayStr}-mythic`) {
-        breakdown.bombshell_mythic.claimed += qty;
-      }
-    });
-
-    ['common', 'uncommon', 'rare', 'legendary', 'mythic'].forEach(tier => {
-      const cap = RARITY_CAPS[tier];
-
-      const stdClaimed = breakdown[tier].claimed;
-      breakdown[tier].remaining = Math.max(0, cap - stdClaimed);
-      breakdown[tier].pctClaimed = `${((stdClaimed / cap) * 100).toFixed(1)}%`;
-
-      const bsKey = `bombshell_${tier}`;
-      const bsClaimed = breakdown[bsKey].claimed;
-      breakdown[bsKey].remaining = Math.max(0, cap - bsClaimed);
-      breakdown[bsKey].pctClaimed = `${((bsClaimed / cap) * 100).toFixed(1)}%`;
-    });
-
-    return {
-      success: true,
-      day,
-      title: song?.title || `Day ${day}`,
-      totalCardsClaimed: totalDayClaims,
-      claimBreakdown: {
-        ...breakdown,
-        standard: {
-          common: breakdown.common,
-          uncommon: breakdown.uncommon,
-          rare: breakdown.rare,
-          legendary: breakdown.legendary,
-          mythic: breakdown.mythic
-        },
-        bombshell: {
-          common: breakdown.bombshell_common,
-          uncommon: breakdown.bombshell_uncommon,
-          rare: breakdown.bombshell_rare,
-          legendary: breakdown.bombshell_legendary,
-          mythic: breakdown.bombshell_mythic
-        }
-      },
-      isSoldOut: (
-        breakdown.common.remaining === 0 &&
-        breakdown.uncommon.remaining === 0 &&
-        breakdown.rare.remaining === 0 &&
-        breakdown.legendary.remaining === 0 &&
-        breakdown.mythic.remaining === 0 &&
-        breakdown.bombshell_common.remaining === 0 &&
-        breakdown.bombshell_uncommon.remaining === 0 &&
-        breakdown.bombshell_rare.remaining === 0 &&
-        breakdown.bombshell_legendary.remaining === 0 &&
-        breakdown.bombshell_mythic.remaining === 0
-      ),
-      dataSource: 'supabase_global_supply (live edge sync)',
-      lastSyncTimestamp: new Date().toISOString()
-    };
-  }
-
-  // Global Claims Overview
-  let grandTotalClaims = 0;
-  const dayAggregates = {};
-  const globalTiers = { common: 0, uncommon: 0, rare: 0, legendary: 0, mythic: 0 };
-  const standardTiers = { common: 0, uncommon: 0, rare: 0, legendary: 0, mythic: 0 };
-  const bombshellTiers = { common: 0, uncommon: 0, rare: 0, legendary: 0, mythic: 0 };
-
-  supplyData.forEach(r => {
-    const key = r.card_id_rarity || '';
-    const qty = r.supply || 0;
-    grandTotalClaims += qty;
-
-    let d = null;
-    const isBs = key.startsWith('bombshell-');
-
-    if (isBs) {
-      const parts = key.replace('bombshell-', '').split('-');
-      d = parseInt(parts[0], 10);
-    } else if (key.startsWith('card-')) {
-      const parts = key.replace('card-', '').split('-');
-      d = parseInt(parts[0], 10);
-    } else {
-      const parts = key.split('-');
-      d = parseInt(parts[0], 10);
-    }
-
-    if (d && !isNaN(d)) {
-      dayAggregates[d] = (dayAggregates[d] || 0) + qty;
-    }
-
-    const targetMap = isBs ? bombshellTiers : standardTiers;
-    if (key.includes('-common')) { targetMap.common += qty; globalTiers.common += qty; }
-    else if (key.includes('-uncommon')) { targetMap.uncommon += qty; globalTiers.uncommon += qty; }
-    else if (key.includes('-rare')) { targetMap.rare += qty; globalTiers.rare += qty; }
-    else if (key.includes('-legendary')) { targetMap.legendary += qty; globalTiers.legendary += qty; }
-    else if (key.includes('-mythic')) { targetMap.mythic += qty; globalTiers.mythic += qty; }
-  });
-
-  const topLimit = options.top_limit || 10;
-  const sortedDays = Object.entries(dayAggregates)
-    .map(([dayNum, total]) => {
-      const dayInt = parseInt(dayNum, 10);
-      const song = songCatalog.find(s => s.day === dayInt);
-      return {
-        day: dayInt,
-        title: song?.title || `Day ${dayInt}`,
-        totalClaimed: total
-      };
-    })
-    .sort((a, b) => b.totalClaimed - a.totalClaimed);
-
-  const result = {
-    success: true,
-    totalCardsClaimed: grandTotalClaims,
-    uniqueCardsMinted: supplyData.length,
-    globalRarityTotals: globalTiers,
-    standardRarityTotals: standardTiers,
-    bombshellRarityTotals: bombshellTiers,
-    mostClaimedDays: sortedDays.slice(0, topLimit),
-    dataSource: 'supabase_global_supply (live edge sync)',
-    lastSyncTimestamp: new Date().toISOString()
-  };
-
-  if (options.source_breakdown) {
-    result.claimSources = await getVaultSourcesData();
-  }
-
-  return result;
-}
+import { ToolDefinition, ResourceDefinition, PromptDefinition, Env } from './types';
+import { 
+  getSongCatalog, 
+  getCardCatalog, 
+  getBombshellCoversMap, 
+  getPacksCatalog, 
+  getDailyClaimsSummary,
+  formatDayPath, 
+  buildBombshellCoverUrls,
+  CDN_BASE,
+  PIM_BASE
+} from './catalog';
 
 // Brand Design Tokens
-const DESIGN_TOKENS = {
+export const DESIGN_TOKENS = {
   colors: {
     voidBlack: { hex: '#000000', hsl: 'hsl(0, 0%, 0%)', role: 'Canvas base & root background' },
     corridorCharcoal: { hex: '#08080C', hsl: 'hsl(240, 20%, 4%)', role: 'Backdrop layout sections & drawers' },
@@ -327,13 +43,13 @@ const DESIGN_TOKENS = {
   }
 };
 
-// Brand Logos Registry
-const BRAND_LOGOS = [
+// Master Brand Logos
+export const BRAND_LOGOS = [
   {
     id: 'logo_1',
     name: 'PIM Master Brand Mark I (Flagship / SEO Default)',
     src: '/data/logos/logo_1.png',
-    fullUrl: 'https://pim.th3scr1b3.art/data/logos/logo_1.png',
+    fullUrl: `${PIM_BASE}/data/logos/logo_1.png`,
     accent: '#ff5500',
     glow: 'rgba(255, 85, 0, 0.65)',
     kanji: '詩の動き',
@@ -343,7 +59,7 @@ const BRAND_LOGOS = [
     id: 'logo_2',
     name: 'PIM Master Brand Mark II (Crimson)',
     src: '/data/logos/logo_2.png',
-    fullUrl: 'https://pim.th3scr1b3.art/data/logos/logo_2.png',
+    fullUrl: `${PIM_BASE}/data/logos/logo_2.png`,
     accent: '#ff2244',
     glow: 'rgba(255, 34, 68, 0.65)',
     kanji: '詩の動き',
@@ -353,7 +69,7 @@ const BRAND_LOGOS = [
     id: 'logo_3',
     name: 'PIM Master Brand Mark III (Cyber Gold)',
     src: '/data/logos/logo_3.png',
-    fullUrl: 'https://pim.th3scr1b3.art/data/logos/logo_3.png',
+    fullUrl: `${PIM_BASE}/data/logos/logo_3.png`,
     accent: '#ffb800',
     glow: 'rgba(255, 184, 0, 0.65)',
     kanji: '詩の動き',
@@ -362,7 +78,7 @@ const BRAND_LOGOS = [
 ];
 
 // Audio DSP Specifications
-const AUDIO_DSP_SPEC = {
+export const AUDIO_DSP_SPEC = {
   crossoverFilters: {
     lane0_bass: { type: 'lowpass', cutoffHz: 300, Q: 0.8, description: 'Bass / Kick drum channel (Left Lane)' },
     lane1_mids: { type: 'bandpass', centerHz: 1200, Q: 0.7, description: 'Vocals / Synth leads (Center Lane)' },
@@ -391,8 +107,8 @@ const AUDIO_DSP_SPEC = {
   }
 };
 
-// Tool Definitions
-const TOOLS = [
+// All Tool Definitions (15 authoritative tools)
+export const TOOLS: ToolDefinition[] = [
   {
     name: 'pim_get_daily_claims',
     description: 'Query live daily card claim numbers, minted edition counts, and rarity supply caps across PIM. Supports querying a specific calendar release day (1-365) for full rarity breakdown (Common, Uncommon, Rare, Legendary, Mythic, Bombshell), or retrieving global claim telemetry across all days.',
@@ -457,7 +173,7 @@ const TOOLS = [
   },
   {
     name: 'pim_get_song_metadata',
-    description: 'Query metadata for any of the 365 daily track releases in PIM (by day 1-365 or title query). Returns BPM, mood, genre, difficulty rating, audioUrl, and stem paths.',
+    description: 'Query rich metadata for any of the 365 daily track releases. Returns BPM, mood, genre, difficulty rating, audioUrl, coverArt, stage count, and direct CDN streaming links.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -591,7 +307,7 @@ const TOOLS = [
 ];
 
 // Resources List
-const RESOURCES = [
+export const RESOURCES: ResourceDefinition[] = [
   {
     uri: 'pim://docs/ecosystem',
     name: 'PIM Master Ecosystem Specification',
@@ -623,15 +339,21 @@ const RESOURCES = [
     description: 'Catalog statistics, total song count, and registered card tiers.'
   },
   {
-    uri: 'pim://data/daily-claims',
-    name: 'PIM Live Daily Card Claims & Mint Telemetry',
+    uri: 'pim://data/packs',
+    name: 'PIM Gacha & Collector Packs Specification',
     mimeType: 'application/json',
-    description: 'Real-time claimed edition counts, remaining supply caps, and acquisition sources synced from Supabase.'
+    description: 'Price tiers, drop rate matrix, and theme artwork for all card packs.'
+  },
+  {
+    uri: 'pim://data/daily-claims',
+    name: 'PIM Live Daily Card Claims & Supply Telemetry',
+    mimeType: 'application/json',
+    description: 'Live minted supply counts, daily claim totals, and rarity caps across the ecosystem.'
   }
 ];
 
-// Prompt Templates
-const PROMPTS = [
+// Prompts List
+export const PROMPTS: PromptDefinition[] = [
   {
     name: 'generate_beatmap',
     description: 'Scaffold a rhythm map with proper timing windows, 3 lanes, and remix notes based on BPM and duration.',
@@ -650,21 +372,21 @@ const PROMPTS = [
 ];
 
 // Helper: Format seconds to M:SS
-function formatDuration(seconds) {
+function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-// Handler: Tools
-async function handleToolCall(name, args = {}) {
+// Tool Execution Handler
+export async function executeToolCall(name: string, args: any = {}, env?: Env): Promise<any> {
   switch (name) {
     case 'pim_get_daily_claims': {
       const day = args.day !== undefined && args.day !== null ? parseInt(args.day, 10) : undefined;
       return await getDailyClaimsSummary(day, {
         source_breakdown: Boolean(args.source_breakdown),
         top_limit: args.top_limit ? parseInt(args.top_limit, 10) : 10
-      });
+      }, env);
     }
 
     case 'pim_get_cover_artwork': {
@@ -675,42 +397,48 @@ async function handleToolCall(name, args = {}) {
 
       const rarity = (args.rarity || 'common').toLowerCase();
       const variantType = (args.variant_type || 'all').toLowerCase();
-      const song = songCatalog.find(s => s.day === day);
-      const mapped = dayFileMap[day.toString()];
 
-      const baseCoverUrl = (song && song.coverArt) || (mapped && `${CDN_BASE}/${mapped.cover}`) || `${CDN_BASE}/covers/day-${day}.jpg`;
-      const bsData = bombshellCoversMap[day.toString()];
+      const songCatalog = await getSongCatalog();
+      const song = songCatalog.find((s: any) => s.day === day);
+      const fallback = formatDayPath(day);
 
-      const normalUrls = (bsData && bsData.normalFiles || []).map(f => `${CDN_BASE}/rare_covers/day%20${day}/${encodeURIComponent(f)}`);
-      const lbUrls = (bsData && bsData.lbFiles || []).map(f => `${CDN_BASE}/rare_covers/day%20${day}/${encodeURIComponent(f)}`);
+      const baseCoverUrl = song?.coverArt || fallback.coverUrl;
+      const bombshellMap = await getBombshellCoversMap();
+      const dayBombshellData = bombshellMap[day.toString()];
+      const bombshellUrls = buildBombshellCoverUrls(day, dayBombshellData);
 
+      // Map tier alternate covers
       const rarityCovers = {
         common: baseCoverUrl,
         uncommon: baseCoverUrl.replace('/covers/', '/alternate-covers/'),
-        rare: normalUrls[0] || baseCoverUrl.replace('/covers/', '/girls-cover/'),
+        rare: bombshellUrls.normal[0] || baseCoverUrl.replace('/covers/', '/girls-cover/'),
         legendary: baseCoverUrl.replace('/covers/', '/alternate-covers/'),
         mythic: baseCoverUrl
       };
 
-      const primary = rarityCovers[rarity] || baseCoverUrl;
+      const primary = rarityCovers[rarity as keyof typeof rarityCovers] || baseCoverUrl;
 
       let filteredBombshells = {
-        normal: normalUrls,
-        letterbox: lbUrls
+        normal: bombshellUrls.normal,
+        letterbox: bombshellUrls.letterbox
       };
-      if (variantType === 'normal') filteredBombshells.letterbox = [];
-      if (variantType === 'letterbox') filteredBombshells.normal = [];
+
+      if (variantType === 'normal') {
+        filteredBombshells.letterbox = [];
+      } else if (variantType === 'letterbox') {
+        filteredBombshells.normal = [];
+      }
 
       return {
         success: true,
         day,
-        title: (song && song.title) || `Day ${day}`,
+        title: song?.title || `Day ${day}`,
         primaryCoverUrl: primary,
         selectedRarity: rarity,
         rarityCoverMatrix: rarityCovers,
         bombshellVariants: {
-          directory: (bsData && bsData.dir) || `day ${day}`,
-          totalAvailable: normalUrls.length + lbUrls.length,
+          directory: dayBombshellData?.dir || `day ${day}`,
+          totalAvailable: bombshellUrls.total,
           normalSquareCovers: filteredBombshells.normal,
           letterboxWidescreenCovers: filteredBombshells.letterbox
         },
@@ -721,42 +449,43 @@ async function handleToolCall(name, args = {}) {
     case 'pim_get_song_audio': {
       const day = args.day ? parseInt(args.day, 10) : null;
       const query = args.query ? args.query.toLowerCase() : null;
+      const songCatalog = await getSongCatalog();
 
-      let song = null;
+      let song: any = null;
       if (day) {
-        song = songCatalog.find(s => s.day === day) || dayFileMap[day.toString()];
+        song = songCatalog.find((s: any) => s.day === day);
       } else if (query) {
-        song = songCatalog.find(s =>
+        song = songCatalog.find((s: any) =>
           (s.title && s.title.toLowerCase().includes(query)) ||
           (s.artist && s.artist.toLowerCase().includes(query))
         );
       }
 
-      const targetDay = (song && song.day) || day || 1;
-      const mapped = dayFileMap[targetDay.toString()];
-      const audioUrl = (song && song.audioUrl) || (mapped && `${CDN_BASE}/${mapped.audio}`) || `${CDN_BASE}/audio/day-${targetDay}.mp3`;
+      const targetDay = song?.day || day || 1;
+      const fallback = formatDayPath(targetDay);
+      const audioUrl = song?.audioUrl || fallback.audioUrl;
 
       return {
         success: true,
         day: targetDay,
-        title: (song && song.title) || `Day ${targetDay}`,
-        artist: (song && song.artist) || 'TH3SCR1B3',
-        bpm: (song && song.bpm) || 120,
-        durationSeconds: (song && song.duration) || 180,
-        durationFormatted: formatDuration((song && song.duration) || 180),
-        key: (song && song.key) || 'C major',
-        mood: (song && song.mood) || 'dark',
-        valence: (song && song.valence) || 0.5,
-        genre: (song && song.genre) || ['Electronic'],
+        title: song?.title || `Day ${targetDay}`,
+        artist: song?.artist || 'TH3SCR1B3',
+        bpm: song?.bpm || 120,
+        durationSeconds: song?.duration || 180,
+        durationFormatted: formatDuration(song?.duration || 180),
+        key: song?.key || 'C major',
+        mood: song?.mood || 'dark',
+        valence: song?.valence || 0.5,
+        genre: song?.genre || ['Electronic'],
         audioStreamUrl: audioUrl,
-        fallbackAudioUrl: `${CDN_BASE}/audio/day-${targetDay}.mp3`,
+        fallbackAudioUrl: fallback.audioUrl,
         stems: {
-          available: Boolean(audioUrl),
+          available: Boolean(song?.audioUrl),
           lane0_bass: `${CDN_BASE}/stems/day-${targetDay}-bass.mp3`,
           lane1_mids_vocals: `${CDN_BASE}/stems/day-${targetDay}-vocals.mp3`,
           lane2_treble_drums: `${CDN_BASE}/stems/day-${targetDay}-drums.mp3`
         },
-        previewRules: {
+        previewLimits: {
           common: '15 seconds',
           uncommon: '60 seconds',
           rare: 'Full Track',
@@ -774,22 +503,24 @@ async function handleToolCall(name, args = {}) {
 
       const engineVersion = args.engine_version || 'v5_flagship';
       const dayPadded = day.toString().padStart(3, '0');
-      const song = songCatalog.find(s => s.day === day);
 
       const standardChartUrl = `${PIM_BASE}/data/songs_variants/${engineVersion}/day-${dayPadded}.json`;
       const deluxeChartUrl = `${PIM_BASE}/data/songs_variants/${engineVersion}/day-${dayPadded}_deluxe.json`;
 
+      const songCatalog = await getSongCatalog();
+      const song = songCatalog.find((s: any) => s.day === day);
+
       return {
         success: true,
         day,
-        title: (song && song.title) || `Day ${day}`,
+        title: song?.title || `Day ${day}`,
         engineVersion,
         hasDeluxeVariant: true,
         charts: {
           standard: {
             url: standardChartUrl,
-            noteCount: (song && song.stages && song.stages.reduce((acc, st) => acc + (st.noteCount || 0), 0)) || 'Dynamic',
-            stages: (song && song.stages) || []
+            noteCount: song?.stages?.reduce((acc: number, st: any) => acc + (st.noteCount || 0), 0) || 'Dynamic',
+            stages: song?.stages || []
           },
           deluxe: {
             url: deluxeChartUrl,
@@ -802,29 +533,33 @@ async function handleToolCall(name, args = {}) {
 
     case 'pim_get_pack_catalog': {
       const category = (args.category || 'all').toLowerCase();
+      const packs = await getPacksCatalog();
 
-      if (category !== 'all' && packsCatalog[category]) {
+      if (category !== 'all' && packs[category]) {
         return {
           success: true,
           category,
-          pack: packsCatalog[category]
+          pack: packs[category]
         };
       }
 
       return {
         success: true,
-        availableCategories: Object.keys(packsCatalog),
-        packs: packsCatalog
+        availableCategories: Object.keys(packs),
+        packs
       };
     }
 
     case 'pim_get_song_metadata': {
       const day = args.day ? parseInt(args.day, 10) : null;
       const query = args.query ? args.query.toLowerCase() : null;
+      const songCatalog = await getSongCatalog();
+      const bombshellMap = await getBombshellCoversMap();
 
       if (day) {
-        const found = songCatalog.find(s => s.day === day) || dayFileMap[day.toString()];
-        const bsData = bombshellCoversMap[day.toString()];
+        const found = songCatalog.find((s: any) => s.day === day);
+        const fallback = formatDayPath(day);
+        const bsData = bombshellMap[day.toString()];
         const dayPadded = day.toString().padStart(3, '0');
 
         if (found) {
@@ -834,26 +569,39 @@ async function handleToolCall(name, args = {}) {
               ...found,
               audioMp3Url: found.audioUrl,
               coverArtUrl: found.coverArt,
-              totalCoverVariants: (bsData && bsData.totalCovers) || 1,
+              totalCoverVariants: bsData?.totalCovers || 1,
               chartUrl: `${PIM_BASE}/data/songs_variants/v5_flagship/day-${dayPadded}.json`,
               deluxeChartUrl: `${PIM_BASE}/data/songs_variants/v5_flagship/day-${dayPadded}_deluxe.json`,
               durationFormatted: formatDuration(found.duration || 180)
             }
           };
         }
-        return { success: false, error: `Song for day ${day} not found in catalog.` };
+        return {
+          success: true,
+          song: {
+            day,
+            title: `Day ${day}`,
+            audioUrl: fallback.audioUrl,
+            audioMp3Url: fallback.audioUrl,
+            coverArt: fallback.coverUrl,
+            coverArtUrl: fallback.coverUrl,
+            totalCoverVariants: bsData?.totalCovers || 1,
+            chartUrl: `${PIM_BASE}/data/songs_variants/v5_flagship/day-${dayPadded}.json`
+          },
+          note: 'Resolved using canonical CDN fallback.'
+        };
       }
 
       if (query) {
-        const matches = songCatalog.filter(s => 
+        const matches = songCatalog.filter((s: any) =>
           (s.title && s.title.toLowerCase().includes(query)) ||
           (s.artist && s.artist.toLowerCase().includes(query)) ||
-          (s.genre && Array.isArray(s.genre) && s.genre.some(g => g.toLowerCase().includes(query)))
+          (s.genre && Array.isArray(s.genre) && s.genre.some((g: string) => g.toLowerCase().includes(query)))
         ).slice(0, 10);
         return { success: true, count: matches.length, matches };
       }
 
-      return { success: true, totalSongs: songCatalog.length, sample: songCatalog.slice(0, 5) };
+      return { success: true, totalSongs: songCatalog.length || 365, sample: songCatalog.slice(0, 5) };
     }
 
     case 'pim_get_card': {
@@ -861,14 +609,17 @@ async function handleToolCall(name, args = {}) {
       let cardId = args.card_id ? args.card_id.toLowerCase() : (day ? `card-${day}` : null);
       const isBombshell = Boolean(args.is_bombshell) || (cardId && cardId.startsWith('bombshell-')) || args.card_set === 'bombshell';
 
+      const cardCatalog = await getCardCatalog();
+      const bombshellMap = await getBombshellCoversMap();
+
       if (cardId || day) {
         const rawDay = cardId ? parseInt(cardId.replace(/^(card-|bombshell-)/, ''), 10) : null;
         const targetDay = day || (rawDay && !isNaN(rawDay) ? rawDay : 1);
-        const found = cardCatalog.find(c => (c.id && c.id.toLowerCase() === cardId) || c.day === targetDay);
-        const bsData = bombshellCoversMap[targetDay.toString()];
-        const claimStats = await getDailyClaimsSummary(targetDay);
+        const found = cardCatalog.find((c: any) => (c.id && c.id.toLowerCase() === cardId) || c.day === targetDay);
+        const bsData = bombshellMap[targetDay.toString()];
+        const claimStats = await getDailyClaimsSummary(targetDay, {}, env);
 
-        const rarity = (args.rarity || found?.rarity || 'common').toLowerCase();
+        const rarity = (args.rarity || found?.rarity || 'common').toLowerCase() as keyof typeof DESIGN_TOKENS.rarities;
         const spec = DESIGN_TOKENS.rarities[rarity] || DESIGN_TOKENS.rarities.common;
 
         const tierClaims = isBombshell
@@ -899,7 +650,7 @@ async function handleToolCall(name, args = {}) {
             maxOnChainSupply: spec.onChainCap,
             previewLimit: spec.previewSeconds,
             rarityColor: spec.color,
-            bombshellVariantsCount: (bsData && bsData.totalCovers) || 0,
+            bombshellVariantsCount: bsData?.totalCovers || 0,
             liveClaimStats: {
               claimedSupply: tierClaims?.claimed ?? 0,
               remainingSupply: tierClaims?.remaining ?? spec.supplyCap,
@@ -920,15 +671,13 @@ async function handleToolCall(name, args = {}) {
       const isMidnight = Boolean(args.is_midnight);
 
       const results = [];
-      const counts = { common: 0, uncommon: 0, rare: 0, legendary: 0, mythic: 0 };
+      const counts: Record<string, number> = { common: 0, uncommon: 0, rare: 0, legendary: 0, mythic: 0 };
 
-      // Base Rates: Common 65%, Uncommon 25%, Rare 8%, Legendary 1.8%, Mythic 0.2%
       for (let i = 0; i < pullCount; i++) {
         pityCount++;
         let roll = Math.random() * 100;
         let rarity = 'common';
 
-        // Drought Pity: 25 pulls without Rare+ guarantees Rare or higher
         if (pityCount >= 25) {
           const pityRoll = Math.random() * 100;
           if (pityRoll < 80) rarity = 'rare';
@@ -936,7 +685,6 @@ async function handleToolCall(name, args = {}) {
           else rarity = 'mythic';
           pityCount = 0;
         } else {
-          // Modifiers
           let mythicChance = 0.2;
           let legendaryChance = 1.8 * (isMidnight ? 2.0 : 1.0);
           let rareChance = 8.0 * (streakDays >= 7 ? 1.5 : 1.0);
@@ -958,7 +706,6 @@ async function handleToolCall(name, args = {}) {
           }
         }
 
-        // 15% Echo Card chance
         const isEcho = Math.random() < 0.15;
         const echoGen = isEcho ? Math.floor(Math.random() * 3) : null;
 
@@ -983,7 +730,7 @@ async function handleToolCall(name, args = {}) {
 
     case 'pim_validate_forge_op': {
       const op = args.operation;
-      const rarity = (args.rarity || 'common').toLowerCase();
+      const rarity = (args.rarity || 'common').toLowerCase() as keyof typeof DESIGN_TOKENS.rarities;
       const cardCount = parseInt(args.card_count || 1, 10);
       const spec = DESIGN_TOKENS.rarities[rarity] || DESIGN_TOKENS.rarities.common;
 
@@ -1066,7 +813,7 @@ async function handleToolCall(name, args = {}) {
       }
 
       let lastTime = -1;
-      const laneTimestamps = { 0: new Set(), 1: new Set(), 2: new Set() };
+      const laneTimestamps: Record<number, Set<number>> = { 0: new Set(), 1: new Set(), 2: new Set() };
       const VALID_TYPES = ['tap', 'hold', 'swipe', 'slide', 'remix', 'double'];
       const VALID_DIRECTIONS = ['up', 'down', 'left', 'right', 'up-left', 'up-right', 'down-left', 'down-right'];
 
@@ -1088,7 +835,6 @@ async function handleToolCall(name, args = {}) {
           issues.push(`Note [${i}]: Invalid type "${n.type}" (valid: ${VALID_TYPES.join(', ')})`);
         }
 
-        // Collision check
         if (laneTimestamps[n.lane]) {
           if (laneTimestamps[n.lane].has(n.time)) {
             issues.push(`Note [${i}]: Collision - duplicate note at time ${n.time} on lane ${n.lane}`);
@@ -1096,14 +842,12 @@ async function handleToolCall(name, args = {}) {
           laneTimestamps[n.lane].add(n.time);
         }
 
-        // Hold duration check
         if (n.type === 'hold') {
           if (typeof n.duration !== 'number' || n.duration <= 0.1) {
             issues.push(`Note [${i}]: Hold note requires duration > 0.1s (got ${n.duration})`);
           }
         }
 
-        // Swipe direction check
         if (n.type === 'swipe' && n.direction) {
           if (!VALID_DIRECTIONS.includes(n.direction.toLowerCase())) {
             issues.push(`Note [${i}]: Invalid swipe direction "${n.direction}"`);
@@ -1162,8 +906,8 @@ async function handleToolCall(name, args = {}) {
       };
 
       const requested = args.table || 'all';
-      if (requested !== 'all' && schemas[requested]) {
-        return { success: true, table: requested, schema: schemas[requested] };
+      if (requested !== 'all' && (schemas as any)[requested]) {
+        return { success: true, table: requested, schema: (schemas as any)[requested] };
       }
       return { success: true, schemas };
     }
@@ -1200,8 +944,8 @@ async function handleToolCall(name, args = {}) {
   }
 }
 
-// Handler: Resources
-async function handleResourceRead(uri) {
+// Resource Reader
+export async function readResource(uri: string, env?: Env): Promise<any> {
   switch (uri) {
     case 'pim://docs/ecosystem':
       return {
@@ -1238,7 +982,10 @@ async function handleResourceRead(uri) {
           }, null, 2)
         }]
       };
-    case 'pim://data/catalog-summary':
+    case 'pim://data/catalog-summary': {
+      const songCatalog = await getSongCatalog();
+      const cardCatalog = await getCardCatalog();
+      const bombshellMap = await getBombshellCoversMap();
       return {
         contents: [{
           uri,
@@ -1246,13 +993,26 @@ async function handleResourceRead(uri) {
           text: JSON.stringify({
             totalSongs: songCatalog.length || 365,
             totalCards: cardCatalog.length || 365,
+            totalBombshellTrackedDays: Object.keys(bombshellMap).length,
             masterLogosCount: BRAND_LOGOS.length,
-            targetNetwork: 'Base Mainnet (8453 / 0x2105)'
+            targetNetwork: 'Base Mainnet (8453 / 0x2105)',
+            canonicalDomain: 'pim.th3scr1b3.art'
           }, null, 2)
         }]
       };
+    }
+    case 'pim://data/packs': {
+      const packs = await getPacksCatalog();
+      return {
+        contents: [{
+          uri,
+          mimeType: 'application/json',
+          text: JSON.stringify(packs, null, 2)
+        }]
+      };
+    }
     case 'pim://data/daily-claims': {
-      const summary = await getDailyClaimsSummary(undefined, { source_breakdown: true });
+      const summary = await getDailyClaimsSummary(undefined, { source_breakdown: true }, env);
       return {
         contents: [{
           uri,
@@ -1264,126 +1024,4 @@ async function handleResourceRead(uri) {
     default:
       throw new Error(`Resource not found: ${uri}`);
   }
-}
-
-// JSON-RPC 2.0 stdio Interface
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-  terminal: false
-});
-
-rl.on('line', async (line) => {
-  if (!line || !line.trim()) return;
-
-  try {
-    const request = JSON.parse(line);
-    const { id, method, params } = request;
-
-    // Handle notifications (no id)
-    if (id === undefined || id === null) {
-      if (method === 'notifications/initialized') {
-        // acknowledged
-      }
-      return;
-    }
-
-    let response = { jsonrpc: '2.0', id };
-
-    switch (method) {
-      case 'initialize': {
-        response.result = {
-          protocolVersion: '2024-11-05',
-          serverInfo: {
-            name: 'pim-mcp-server',
-            version: '1.0.0'
-          },
-          capabilities: {
-            tools: {},
-            resources: {},
-            prompts: {}
-          }
-        };
-        break;
-      }
-
-      case 'tools/list': {
-        response.result = { tools: TOOLS };
-        break;
-      }
-
-      case 'tools/call': {
-        const { name, arguments: args } = params || {};
-        const result = await handleToolCall(name, args);
-        response.result = {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(result, null, 2)
-            }
-          ]
-        };
-        break;
-      }
-
-      case 'resources/list': {
-        response.result = { resources: RESOURCES };
-        break;
-      }
-
-      case 'resources/read': {
-        const { uri } = params || {};
-        response.result = await handleResourceRead(uri);
-        break;
-      }
-
-      case 'prompts/list': {
-        response.result = { prompts: PROMPTS };
-        break;
-      }
-
-      case 'prompts/get': {
-        const { name } = params || {};
-        const found = PROMPTS.find(p => p.name === name);
-        if (found) {
-          response.result = {
-            description: found.description,
-            messages: [
-              {
-                role: 'user',
-                content: {
-                  type: 'text',
-                  text: `Please execute the ${name} workflow following PIM ecosystem specifications.`
-                }
-              }
-            ]
-          };
-        } else {
-          response.error = { code: -32602, message: `Prompt not found: ${name}` };
-        }
-        break;
-      }
-
-      default: {
-        response.error = { code: -32601, message: `Method not found: ${method}` };
-        break;
-      }
-    }
-
-    process.stdout.write(JSON.stringify(response) + '\n');
-  } catch (err) {
-    const errorResponse = {
-      jsonrpc: '2.0',
-      id: null,
-      error: { code: -32700, message: `Parse error: ${err.message}` }
-    };
-    process.stdout.write(JSON.stringify(errorResponse) + '\n');
-  }
-});
-
-// Make executable
-try {
-  fs.chmodSync(__filename, 0o755);
-} catch {
-  // ignore
 }

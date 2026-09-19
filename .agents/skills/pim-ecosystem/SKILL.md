@@ -213,3 +213,35 @@ The game feeds player misses directly into physical audio channel degradation.
 2. **Defensive Parsing**: Use optional chaining on string operations (`date?.split('/') ?? []`) to prevent crashes during sparse chapter renders.
 3. **Session Resiliency**: Implement fallback getters (`result?.score ?? 0`) across gameplay results and vault stores to survive mid-session page reloads.
 4. **Clean Code Integrity**: Maintain comments, preserve existing types, and ensure zero unhandled promises in Web Audio initialization.
+
+---
+
+## 11. Authoritative MCP Server Tools & Remote Endpoints
+
+PIM exposes 15 authoritative tools via standard Model Context Protocol (MCP 2024-11-05 standard) over local `stdio` (`.agents/mcp/pim-mcp-server.cjs`) and remote Cloudflare Worker SSE (`https://mcp.th3scr1b3.art/sse`):
+
+* **`pim_get_daily_claims`**: Query live daily card claim numbers, minted edition counts, and rarity supply caps across PIM. Supports querying a specific calendar release day (1-365) for full rarity breakdown (Common, Uncommon, Rare, Legendary, Mythic, Bombshell), or retrieving global claim telemetry across all days.
+* **`pim_get_cover_artwork`**: Query all cover artwork variants for any day (1-365), including rarity alternate covers, square Bombshell variants, letterbox/banner variants, and direct CDN links.
+* **`pim_get_song_audio`**: Query full audio assets for any track. Returns master MP3 CDN stream URLs, fallback URLs, stem breakdown paths (Bass, Vocals, Drums), BPM, duration, valence, and preview rules.
+* **`pim_get_chart_variants`**: Look up beatmap chart variants across engine versions (`v5_flagship`, `v4_neural`, `v3_master`, `v2_minimal`, `v1_gimmicks`).
+* **`pim_get_pack_catalog`**: Query Gacha & Collector Pack configurations (Free, Bombshell, Taste, Light, Dark) with drop rate matrices and price tiers.
+* **`pim_get_song_metadata`**: 365-day track metadata query with direct MP3 streaming links, deluxe chart references, and BPM.
+* **`pim_get_card`**: Collectible card metadata query with token burn yields, rarity caps, live claim numbers, and cover art.
+* **`pim_simulate_gacha`**: Authoritative Gacha pull simulator under Economy v2.1 with Drought Pity and Midnight 2x multiplier.
+* **`pim_validate_forge_op`**: Validate costs and yields for Card Burning, Targeted Pulls, Rarity Upgrades, and Duplicate Fusions.
+* **`pim_lint_beatmap`**: Lint and validate note arrays for collisions, timing, and valid swipe directions.
+* **`pim_get_audio_dsp_specs`**: 3-band Web Audio crossover specifications (300Hz, 1200Hz, 3200Hz).
+* **`pim_get_design_tokens`**: Technical brutalist colors, typography, clip-paths, and glassmorphism.
+* **`pim_get_brand_logos`**: Rotating logo assets (Mark I Orange, Mark II Red, Mark III Gold).
+* **`pim_get_supabase_schema`**: Database table schemas and Edge Function signatures.
+* **`pim_verify_hierarchy`**: Enforce strict workflow directive (`artifacts/beatstar-vault` is Primary).
+
+### Resources Exposed
+* `pim://docs/ecosystem` — System identity, retention thesis, tokenomics.
+* `pim://docs/design-system` — Brutalist design tokens and CSS snippets.
+* `pim://docs/rhythm-engine` — 3-lane canvas math and approach timings.
+* `pim://docs/economy` — Economy v2.1 forge and pity rates.
+* `pim://data/catalog-summary` — 365-day catalog and card counts.
+* `pim://data/packs` — Gacha pack tiers and drop odds.
+* `pim://data/daily-claims` — Live edition claim numbers, remaining supply caps, and acquisition sources synced from Supabase.
+

@@ -1,0 +1,21 @@
+name = "pim-mcp-server"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Custom Domain binding for mcp.th3scr1b3.art
+# Cloudflare Worker custom domains automatically handle SSL and edge routing
+routes = [
+  { pattern = "mcp.th3scr1b3.art", custom_domain = true }
+]
+
+[vars]
+PIM_PRIMARY_TARGET = "artifacts/beatstar-vault"
+PIM_NETWORK = "Base Mainnet (8453)"
+ENVIRONMENT = "production"
+SUPABASE_URL = "https://toemkhrfsbkfkutwcjkd.supabase.co"
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvZW1raHJmc2JrZmt1dHdjamtkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc2MTQxNTQsImV4cCI6MjEwMzE5MDE1NH0.nAtlMU_ukqXMkIhKppwv1mxDKpxuwHa6ddQBBwK3Iu8"
+
+# Optional: To protect the endpoint with a secret Bearer token, run:
+#   npx wrangler secret put PIM_API_KEY
+# If PIM_API_KEY is not set, the server operates in public read mode.
