@@ -40,6 +40,7 @@ export function loadOpts(): GameOpts {
 
   const isNoclipUnlocked = localStorage.getItem("opt_unlocked_noclip") === "true";
   const isIddqdUnlocked = localStorage.getItem("opt_unlocked_iddqd") === "true";
+  const isChartEditionsUnlocked = localStorage.getItem("opt_unlocked_chart_editions") === "true";
 
   return {
     missSystem:   isNoclipUnlocked ? bool("opt_missSystem", true) : true,
@@ -65,7 +66,10 @@ export function loadOpts(): GameOpts {
       const v = localStorage.getItem("opt_noteGenerationSource");
       return (v === "lyrics" || v === "bpm" || v === "auto") ? v : "auto";
     })(),
-    chartVariant: (localStorage.getItem("opt_chartVariant") as any) || "v1_gimmicks",
+    chartVariant: (() => {
+      if (!isChartEditionsUnlocked) return "v1_gimmicks";
+      return (localStorage.getItem("opt_chartVariant") as any) || "v1_gimmicks";
+    })(),
     bgMusic: bool("opt_bgMusic", false),
     gameSenseEnabled: bool("opt_gameSenseEnabled", false),
   };
