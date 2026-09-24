@@ -1697,86 +1697,24 @@ serve(async (req) => {
       }
 
       // ═══════════════════════════════════════════════════════════
-      // SUBMIT GAMEPLAY SCORE (Server-authoritative record submission)
+      // SUBMIT GAMEPLAY SCORE — RETIRED (2026-09-24)
+      // Score submission now goes through the server-authoritative
+      // `submit_score` Postgres RPC, which binds rows to auth.uid(),
+      // enforces per-song score caps, medal/accuracy plausibility, reward-tier
+      // normalization, and single-use run tokens. Direct writes to
+      // gameplay_records are revoked at the RLS layer, and the
+      // validate_gameplay_score trigger enforces caps for every writer
+      // (including service_role). This edge action bypassed all of that.
       // ═══════════════════════════════════════════════════════════
       case 'submitGameplayScore': {
-        if (!user?.id) throw new Error('Not authenticated');
-
-        const { songId, score, accuracy, maxCombo, medal, packRewarded, rewardTier, telemetry } = payload;
-        if (!songId || typeof songId !== 'string') {
-          throw new Error('Invalid song ID');
-        }
-
-        const parsedScore = Math.floor(Number(score));
-        if (isNaN(parsedScore) || parsedScore < 0 || parsedScore > 10_000_000) {
-          throw new Error('Score out of valid bounds (0 - 10,000,000)');
-        }
-
-        const parsedAccuracy = Number(Number(accuracy ?? 0).toFixed(2));
-        if (isNaN(parsedAccuracy) || parsedAccuracy < 0 || parsedAccuracy > 100) {
-          throw new Error('Accuracy out of valid bounds (0.00% - 100.00%)');
-        }
-
-        const parsedCombo = Math.floor(Number(maxCombo || 0));
-        if (isNaN(parsedCombo) || parsedCombo < 0 || parsedCombo > 10_000) {
-          throw new Error('Invalid max combo');
-        }
-
-        const VALID_MEDALS = ['NONE', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM'] as const;
-        const upperMedal = String(medal || 'NONE').toUpperCase().trim();
-        if (!VALID_MEDALS.includes(upperMedal as any)) {
-          throw new Error('Invalid medal value');
-        }
-
-        // Server-side medal plausibility check against accuracy
-        if (upperMedal === 'PLATINUM' && parsedAccuracy < 99.9) {
-          throw new Error('Plausibility violation: PLATINUM requires 100% accuracy');
-        } else if (upperMedal === 'GOLD' && parsedAccuracy < 95.0) {
-          throw new Error('Plausibility violation: GOLD requires >= 95% accuracy');
-        } else if (upperMedal === 'SILVER' && parsedAccuracy < 85.0) {
-          throw new Error('Plausibility violation: SILVER requires >= 85% accuracy');
-        } else if (upperMedal === 'BRONZE' && parsedAccuracy < 70.0) {
-          throw new Error('Plausibility violation: BRONZE requires >= 70% accuracy');
-        }
-
-        const VALID_REWARD_TIERS = ['none', 'common', 'enhanced', 'rare', 'epic', 'legendary', 'mythic'];
-        const normalizedTier = VALID_REWARD_TIERS.includes(String(rewardTier).toLowerCase())
-          ? String(rewardTier).toLowerCase()
-          : 'none';
-
-        // Insert record via service-role
-        const { data: record, error: insertErr } = await svc
-          .from('gameplay_records')
-          .insert({
-            user_id: user.id,
-            song_id: songId,
-            score: parsedScore,
-            accuracy: parsedAccuracy,
-            max_combo: parsedCombo,
-            medal: upperMedal,
-            pack_rewarded: !!packRewarded,
-            reward_tier: normalizedTier,
-            telemetry: telemetry || null,
-          })
-          .select('id, score, medal, accuracy, timestamp')
-          .single();
-
-        if (insertErr) {
-          throw new Error(`Failed to save gameplay score: ${insertErr.message}`);
-        }
-
-        await logTelemetry(svc, 'gameplay_score_submitted', user.id, {
-          songId,
-          score: parsedScore,
-          accuracy: parsedAccuracy,
-          medal: upperMedal,
-          recordId: record?.id,
-        });
-
         return new Response(JSON.stringify({
-          success: true,
-          record,
-        }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
+          success: false,
+          error: 'submitGameplayScore is retired. Submit scores via the submit_score RPC.',
+          code: 'ACTION_RETIRED',
+        }), {
+          status: 410,
+          headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+        });
       }
 
       // ═══════════════════════════════════════════════════════════
