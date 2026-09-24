@@ -4,7 +4,7 @@ import Stripe from "https://esm.sh/stripe@17.5.0?target=deno";
 import {
   getCurrentDay, getRarityRoll, drawCardDays, RARITY_CONFIG, rollDailyClaimRarity,
   degradeRarity, upgradeRarity, getEchoSpawnChance, getEffectiveBurnYield,
-  getPityFloor, RC1_TEST_MODE, TOKEN_PACK_COST, TARGETED_PULL_COST, RARITY_UPGRADE_COST,
+  getPityFloor, TOKEN_PACK_COST, TARGETED_PULL_COST, RARITY_UPGRADE_COST,
   RC1_DAILY_STANDARD_LIMIT, RC1_DAILY_PREMIUM_LIMIT, DEFAULT_DAILY_TOKEN_LIMIT,
   MINTABLE_CAPS, NFT_MINT_COSTS, getCardMood,
   type Rarity, type ModifierContext
@@ -14,8 +14,6 @@ import bombshellCoversMap from "./bombshell_covers_map.json" assert { type: "jso
 const ALLOWED_ORIGINS = [
   'https://pim.th3scr1b3.art',
   'https://beatstar-vault.vercel.app',
-  'http://localhost:5173',
-  'http://localhost:4173',
 ];
 
 function getCorsHeaders(req: Request): Record<string, string> {
@@ -26,6 +24,20 @@ function getCorsHeaders(req: Request): Record<string, string> {
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
     'Vary': 'Origin',
   };
+}
+
+const ALLOWED_ADMINS = [
+  '5393bcd0-df3a-4d2c-a81d-8fb1433df7fb', // lewd.view@gmail.com
+  'fa1d9176-b55e-4301-bda1-057cd66201a0'  // bmeason@gmail.com
+];
+
+function assertAdmin(user: any, payload: any): void {
+  const envPassphrase = Deno.env.get('ADMIN_PASSPHRASE');
+  const isPassphraseValid = !!(envPassphrase && payload?.passphrase === envPassphrase);
+  const isUserAllowed = !!(user && ALLOWED_ADMINS.includes(user.id));
+  if (!isPassphraseValid && !isUserAllowed) {
+    throw new Error("Unauthorized: Invalid admin credentials.");
+  }
 }
 
 function getStripeClient(): Stripe {
@@ -521,9 +533,6 @@ serve(async (req) => {
     const PUBLIC_ACTIONS = [
       'verifyStripeSession',
       'claimGuestDailyDrop',
-      'getEchoPool',
-      'flushEchoPool',
-      'addEchoToPool',
       'broadcastAnnouncement',
       'getAdminAnnouncements',
       'toggleAnnouncement',
@@ -791,8 +800,6 @@ serve(async (req) => {
           cost = 100 * count;
         } else if (packType === 'bombshell' && !payload.sessionId && !payload.txHash && !isGameplayReward) {
           cost = 100 * count;
-        } else if (RC1_TEST_MODE) {
-          cost = 0; // All packs free in RC1
         }
 
         const isTokenPack = (packType === 'vault_token' || packType === 'bombshell_token');
@@ -1199,15 +1206,7 @@ serve(async (req) => {
 
       case 'updateAdminConfig': {
         const { config, passphrase } = payload;
-        const ALLOWED_ADMINS = [
-          '5393bcd0-df3a-4d2c-a81d-8fb1433df7fb', // lewd.view@gmail.com
-          'fa1d9176-b55e-4301-bda1-057cd66201a0'  // bmeason@gmail.com
-        ];
-        const isPassphraseValid = passphrase === 'th3scr1b3';
-        const isUserAllowed = !!(user && ALLOWED_ADMINS.includes(user.id));
-        if (!isPassphraseValid && !isUserAllowed) {
-          throw new Error("Unauthorized: Invalid admin credentials.");
-        }
+        assertAdmin(user, payload);
 
         let saveError = null;
         try {
@@ -1230,6 +1229,7 @@ serve(async (req) => {
       }
 
       case 'getAdminConfig': {
+        assertAdmin(user, payload);
         let configData = null;
         try {
           const { data: byId } = await svc.from('admin_config').select('config').eq('id', 1).maybeSingle();
@@ -1249,15 +1249,7 @@ serve(async (req) => {
 
       case 'broadcastAnnouncement': {
         const { announcement, passphrase } = payload;
-        const ALLOWED_ADMINS = [
-          '5393bcd0-df3a-4d2c-a81d-8fb1433df7fb', // lewd.view@gmail.com
-          'fa1d9176-b55e-4301-bda1-057cd66201a0'  // bmeason@gmail.com
-        ];
-        const isPassphraseValid = passphrase === 'th3scr1b3';
-        const isUserAllowed = !!(user && ALLOWED_ADMINS.includes(user.id));
-        if (!isPassphraseValid && !isUserAllowed) {
-          throw new Error("Unauthorized: Invalid admin credentials.");
-        }
+        assertAdmin(user, payload);
         if (!announcement?.title || !announcement?.message) {
           throw new Error("Title and message are required.");
         }
@@ -1287,15 +1279,7 @@ serve(async (req) => {
 
       case 'getAdminAnnouncements': {
         const { passphrase } = payload || {};
-        const ALLOWED_ADMINS = [
-          '5393bcd0-df3a-4d2c-a81d-8fb1433df7fb',
-          'fa1d9176-b55e-4301-bda1-057cd66201a0'
-        ];
-        const isPassphraseValid = passphrase === 'th3scr1b3';
-        const isUserAllowed = !!(user && ALLOWED_ADMINS.includes(user.id));
-        if (!isPassphraseValid && !isUserAllowed) {
-          throw new Error("Unauthorized: Invalid admin credentials.");
-        }
+        assertAdmin(user, payload);
 
         const { data, error } = await svc
           .from('system_announcements')
@@ -1311,15 +1295,7 @@ serve(async (req) => {
 
       case 'toggleAnnouncement': {
         const { id, is_active, passphrase } = payload;
-        const ALLOWED_ADMINS = [
-          '5393bcd0-df3a-4d2c-a81d-8fb1433df7fb',
-          'fa1d9176-b55e-4301-bda1-057cd66201a0'
-        ];
-        const isPassphraseValid = passphrase === 'th3scr1b3';
-        const isUserAllowed = !!(user && ALLOWED_ADMINS.includes(user.id));
-        if (!isPassphraseValid && !isUserAllowed) {
-          throw new Error("Unauthorized: Invalid admin credentials.");
-        }
+        assertAdmin(user, payload);
 
         const { data, error } = await svc
           .from('system_announcements')
@@ -1336,15 +1312,7 @@ serve(async (req) => {
 
       case 'deleteAnnouncement': {
         const { id, passphrase } = payload;
-        const ALLOWED_ADMINS = [
-          '5393bcd0-df3a-4d2c-a81d-8fb1433df7fb',
-          'fa1d9176-b55e-4301-bda1-057cd66201a0'
-        ];
-        const isPassphraseValid = passphrase === 'th3scr1b3';
-        const isUserAllowed = !!(user && ALLOWED_ADMINS.includes(user.id));
-        if (!isPassphraseValid && !isUserAllowed) {
-          throw new Error("Unauthorized: Invalid admin credentials.");
-        }
+        assertAdmin(user, payload);
 
         const { error } = await svc
           .from('system_announcements')
@@ -1359,15 +1327,7 @@ serve(async (req) => {
 
       case 'getAnalyticsSummary': {
         const { passphrase } = payload || {};
-        const ALLOWED_ADMINS = [
-          '5393bcd0-df3a-4d2c-a81d-8fb1433df7fb',
-          'fa1d9176-b55e-4301-bda1-057cd66201a0'
-        ];
-        const isPassphraseValid = passphrase === 'th3scr1b3';
-        const isUserAllowed = !!(user && ALLOWED_ADMINS.includes(user.id));
-        if (!isPassphraseValid && !isUserAllowed) {
-          throw new Error("Unauthorized: Invalid admin credentials.");
-        }
+        assertAdmin(user, payload);
 
         const { data: rpcStats, error: rpcErr } = await svc.rpc('get_user_card_stats');
         if (rpcErr) throw rpcErr;
@@ -1417,14 +1377,8 @@ serve(async (req) => {
 
       case 'flushEchoPool': {
         const { passphrase } = payload || {};
-        const ALLOWED_ADMINS = [
-          '5393bcd0-df3a-4d2c-a81d-8fb1433df7fb',
-          'fa1d9176-b55e-4301-bda1-057cd66201a0'
-        ];
-        const isPassphraseValid = passphrase === 'th3scr1b3';
-        const isUserAllowed = !!(user && ALLOWED_ADMINS.includes(user.id));
-        if (!isPassphraseValid && !isUserAllowed && !isServiceRole) {
-          throw new Error("Unauthorized: Invalid admin credentials.");
+        if (!isServiceRole) {
+          assertAdmin(user, payload);
         }
 
         const { error: delErr } = await svc
@@ -1477,85 +1431,8 @@ serve(async (req) => {
         if (!code) throw new Error('Missing code');
         let cleanCode = code.toUpperCase().trim();
 
-        // Normalize and auto-insert special 10,000 V tokens code
-        if (cleanCode === '123487655' || cleanCode === '123487655!!!!') {
-          cleanCode = '123487655!!!!';
-
-          // Auto-provision if missing
-          const { data: existingPromo } = await svc
-            .from('bonus_codes')
-            .select('*')
-            .eq('code', cleanCode)
-            .maybeSingle();
-
-          if (!existingPromo) {
-            const { error: insErr } = await svc.from('bonus_codes').insert({
-              code: cleanCode,
-              reward_type: 'tokens',
-              reward_value: '10000',
-              max_uses: 999999,
-              use_count: 0
-            });
-            if (insErr) {
-              console.error('Failed to auto-provision V token code:', insErr);
-            }
-          }
-        }
-
-        // Normalize and auto-insert special "CHUNKYBITCH" code (day 291 card unlock)
-        if (cleanCode === 'CHUNKYBITCH') {
-          // Auto-provision if missing or update to real uncommon card
-          const { data: existingPromo } = await svc
-            .from('bonus_codes')
-            .select('*')
-            .eq('code', cleanCode)
-            .maybeSingle();
-
-          if (!existingPromo) {
-            const { error: insErr } = await svc.from('bonus_codes').insert({
-              code: cleanCode,
-              reward_type: 'card',
-              reward_value: 'card-291-uncommon',
-              max_uses: 999999,
-              use_count: 0
-            });
-            if (insErr) {
-              console.error('Failed to auto-provision CHUNKYBITCH code:', insErr);
-            }
-          } else if (existingPromo.reward_type !== 'card' || existingPromo.reward_value !== 'card-291-uncommon') {
-            await svc.from('bonus_codes').update({
-              reward_type: 'card',
-              reward_value: 'card-291-uncommon'
-            }).eq('code', cleanCode);
-          }
-        }
-
-        // Normalize and auto-insert "BONUSAUG29" code (100 V tokens for Bombshell pack)
-        if (cleanCode === 'BONUSAUG29') {
-          const { data: existingPromo } = await svc
-            .from('bonus_codes')
-            .select('*')
-            .eq('code', cleanCode)
-            .maybeSingle();
-
-          if (!existingPromo) {
-            const { error: insErr } = await svc.from('bonus_codes').insert({
-              code: cleanCode,
-              reward_type: 'tokens',
-              reward_value: '100',
-              max_uses: 999999,
-              use_count: 0
-            });
-            if (insErr) {
-              console.error('Failed to auto-provision BONUSAUG29 code:', insErr);
-            }
-          } else if (existingPromo.reward_type !== 'tokens' || existingPromo.reward_value !== '100') {
-            await svc.from('bonus_codes').update({
-              reward_type: 'tokens',
-              reward_value: '100'
-            }).eq('code', cleanCode);
-          }
-        }
+        // Codes must be pre-seeded in the bonus_codes table via admin tools or migrations.
+        // No auto-provisioning — all codes are database-managed with finite max_uses.
 
         // 1. Fetch promo/bonus code
         const { data: promo, error: promoErr } = await svc
@@ -1724,11 +1601,58 @@ serve(async (req) => {
 
       // ═══════════════════════════════════════════════════════════
       // CREDIT CRYPTO TOKEN BUNDLE (Base EVM / Coinbase Smart Wallet)
+      // Server-validated: tier lookup, txHash dedup, on-chain receipt check
       // ═══════════════════════════════════════════════════════════
       case 'creditCryptoTokenBundle': {
-        const { size, tokenAmount, txHash } = payload;
-        const grantTokens = Number(tokenAmount) || 200;
+        const { size, txHash } = payload;
+        if (!txHash || typeof txHash !== 'string' || !txHash.startsWith('0x')) {
+          throw new Error('Missing or invalid transaction hash');
+        }
+        if (!size) throw new Error('Missing bundle size');
 
+        // Server-side tier lookup — NEVER trust client-supplied tokenAmount
+        const CRYPTO_TOKEN_TIERS: Record<string, number> = {
+          pouch: 200,
+          crate: 1150,
+          stash: 2500,
+          hoard: 7000,
+        };
+        const grantTokens = CRYPTO_TOKEN_TIERS[size];
+        if (!grantTokens) {
+          throw new Error(`Invalid token bundle size: ${size}`);
+        }
+
+        // Idempotency: check if this txHash has already been credited
+        const { data: existingOrder } = await svc
+          .from('stripe_orders')
+          .select('id, status')
+          .eq('stripe_session_id', `crypto_${txHash}`)
+          .maybeSingle();
+
+        if (existingOrder && existingOrder.status === 'completed') {
+          throw new Error('This transaction has already been credited');
+        }
+
+        // On-chain verification: confirm the tx exists and was successful
+        // Uses the viem publicClient already imported for auth-smart-wallet
+        try {
+          const { createPublicClient, http } = await import('npm:viem@2.7.6');
+          const { base } = await import('npm:viem@2.7.6/chains');
+          const publicClient = createPublicClient({
+            chain: base,
+            transport: http('https://mainnet.base.org'),
+          });
+
+          const receipt = await publicClient.getTransactionReceipt({ hash: txHash as `0x${string}` });
+          if (!receipt || receipt.status !== 'success') {
+            throw new Error('Transaction not found or failed on-chain');
+          }
+        } catch (e: any) {
+          if (e.message.includes('already been credited')) throw e;
+          throw new Error(`On-chain verification failed: ${e.message}`);
+        }
+
+        // Credit tokens
         const { data: profile } = await svc
           .from('profiles')
           .select('tokens, tokens_earned_total')
@@ -1746,6 +1670,19 @@ serve(async (req) => {
           last_purchase_day: today,
         }).eq('id', user.id);
 
+        // Record as fulfilled order (reuses stripe_orders for dedup)
+        await svc.from('stripe_orders').upsert({
+          user_id: user.id,
+          stripe_session_id: `crypto_${txHash}`,
+          pack_category: 'token_bundle',
+          pack_size: size,
+          amount_cents: 0,
+          currency: 'eth',
+          status: 'completed',
+          cards_minted: [],
+          completed_at: new Date().toISOString(),
+        }, { onConflict: 'stripe_session_id' });
+
         await logTelemetry(svc, 'crypto_token_bundle_purchase', user.id, {
           size,
           tokenAmount: grantTokens,
@@ -1756,6 +1693,89 @@ serve(async (req) => {
           success: true,
           tokenAmount: grantTokens,
           newBalance: newTokens,
+        }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
+      }
+
+      // ═══════════════════════════════════════════════════════════
+      // SUBMIT GAMEPLAY SCORE (Server-authoritative record submission)
+      // ═══════════════════════════════════════════════════════════
+      case 'submitGameplayScore': {
+        if (!user?.id) throw new Error('Not authenticated');
+
+        const { songId, score, accuracy, maxCombo, medal, packRewarded, rewardTier, telemetry } = payload;
+        if (!songId || typeof songId !== 'string') {
+          throw new Error('Invalid song ID');
+        }
+
+        const parsedScore = Math.floor(Number(score));
+        if (isNaN(parsedScore) || parsedScore < 0 || parsedScore > 10_000_000) {
+          throw new Error('Score out of valid bounds (0 - 10,000,000)');
+        }
+
+        const parsedAccuracy = Number(Number(accuracy ?? 0).toFixed(2));
+        if (isNaN(parsedAccuracy) || parsedAccuracy < 0 || parsedAccuracy > 100) {
+          throw new Error('Accuracy out of valid bounds (0.00% - 100.00%)');
+        }
+
+        const parsedCombo = Math.floor(Number(maxCombo || 0));
+        if (isNaN(parsedCombo) || parsedCombo < 0 || parsedCombo > 10_000) {
+          throw new Error('Invalid max combo');
+        }
+
+        const VALID_MEDALS = ['NONE', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM'] as const;
+        const upperMedal = String(medal || 'NONE').toUpperCase().trim();
+        if (!VALID_MEDALS.includes(upperMedal as any)) {
+          throw new Error('Invalid medal value');
+        }
+
+        // Server-side medal plausibility check against accuracy
+        if (upperMedal === 'PLATINUM' && parsedAccuracy < 99.9) {
+          throw new Error('Plausibility violation: PLATINUM requires 100% accuracy');
+        } else if (upperMedal === 'GOLD' && parsedAccuracy < 95.0) {
+          throw new Error('Plausibility violation: GOLD requires >= 95% accuracy');
+        } else if (upperMedal === 'SILVER' && parsedAccuracy < 85.0) {
+          throw new Error('Plausibility violation: SILVER requires >= 85% accuracy');
+        } else if (upperMedal === 'BRONZE' && parsedAccuracy < 70.0) {
+          throw new Error('Plausibility violation: BRONZE requires >= 70% accuracy');
+        }
+
+        const VALID_REWARD_TIERS = ['none', 'common', 'enhanced', 'rare', 'epic', 'legendary', 'mythic'];
+        const normalizedTier = VALID_REWARD_TIERS.includes(String(rewardTier).toLowerCase())
+          ? String(rewardTier).toLowerCase()
+          : 'none';
+
+        // Insert record via service-role
+        const { data: record, error: insertErr } = await svc
+          .from('gameplay_records')
+          .insert({
+            user_id: user.id,
+            song_id: songId,
+            score: parsedScore,
+            accuracy: parsedAccuracy,
+            max_combo: parsedCombo,
+            medal: upperMedal,
+            pack_rewarded: !!packRewarded,
+            reward_tier: normalizedTier,
+            telemetry: telemetry || null,
+          })
+          .select('id, score, medal, accuracy, timestamp')
+          .single();
+
+        if (insertErr) {
+          throw new Error(`Failed to save gameplay score: ${insertErr.message}`);
+        }
+
+        await logTelemetry(svc, 'gameplay_score_submitted', user.id, {
+          songId,
+          score: parsedScore,
+          accuracy: parsedAccuracy,
+          medal: upperMedal,
+          recordId: record?.id,
+        });
+
+        return new Response(JSON.stringify({
+          success: true,
+          record,
         }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
       }
 
@@ -2007,8 +2027,19 @@ serve(async (req) => {
         throw new Error('Unknown action');
     }
   } catch (error) {
-    return new Response(JSON.stringify({ success: false, error: error.message }), {
-      status: 200, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
+    const message = error instanceof Error ? error.message : String(error);
+    let status = 400;
+    if (message.includes('Not authenticated') || message.includes('Missing Authorization Header')) {
+      status = 401;
+    } else if (message.includes('Unauthorized') || message.includes('Invalid admin credentials')) {
+      status = 403;
+    } else if (message.includes('not found') || message.includes('Unknown action')) {
+      status = 404;
+    } else if (message.includes('Database Insert Failed') || message.includes('Edge Function Error') || message.includes('missing in Supabase environment')) {
+      status = 500;
+    }
+    return new Response(JSON.stringify({ success: false, error: message }), {
+      status, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
     });
   }
 });

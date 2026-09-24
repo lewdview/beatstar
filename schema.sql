@@ -366,3 +366,7 @@ CREATE INDEX IF NOT EXISTS idx_gameplay_records_song_score
     ON public.gameplay_records(song_id, score DESC);
 CREATE INDEX IF NOT EXISTS idx_gameplay_records_user_song
     ON public.gameplay_records(user_id, song_id);
+CREATE INDEX IF NOT EXISTS idx_profiles_wallet_address_lower
+    ON public.profiles(LOWER(wallet_address));
+CREATE INDEX IF NOT EXISTS idx_vault_collections_mint_lookup
+    ON public.vault_collections(card_id, rarity, blockchain_status);

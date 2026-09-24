@@ -3,10 +3,6 @@ import packData from "./packs.json" assert { type: "json" };
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'legendary' | 'mythic';
 export type ProofType = 'proof_of_first' | 'heard_first' | null;
 
-// ═══════════════════════════════════════════════════════════════
-// RC1 TEST MODE FLAG
-// ═══════════════════════════════════════════════════════════════
-export const RC1_TEST_MODE = false;
 
 export interface ModifierContext {
   streak: number;

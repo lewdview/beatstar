@@ -3,10 +3,20 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { createPublicClient, http } from 'npm:viem@2.7.6';
 import { base } from 'npm:viem@2.7.6/chains';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const ALLOWED_ORIGINS = [
+  'https://pim.th3scr1b3.art',
+  'https://beatstar-vault.vercel.app',
+];
+
+function getCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get('Origin') ?? '';
+  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    'Access-Control-Allow-Origin': allowed,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Vary': 'Origin',
+  };
+}
 
 async function generateDeterministicPassword(address: string, secretKey: string): Promise<string> {
   const data = new TextEncoder().encode(secretKey + address.toLowerCase());
@@ -18,7 +28,7 @@ async function generateDeterministicPassword(address: string, secretKey: string)
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response('ok', { headers: getCorsHeaders(req) });
   }
 
   try {
@@ -145,7 +155,7 @@ serve(async (req) => {
           session: mergeAuth.data.session,
           user: mergeAuth.data.user,
         }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
         });
       } else {
         // No existing wallet user — upgrade the anonymous user in place
@@ -169,7 +179,7 @@ serve(async (req) => {
           session: upgradeAuth.data.session,
           user: upgradeAuth.data.user,
         }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
         });
       }
     }
@@ -242,14 +252,21 @@ serve(async (req) => {
       session,
       user
     }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
     console.error('Smart Wallet Auth Error:', error);
-    return new Response(JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Unknown error' }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    let status = 400;
+    if (message.includes('Invalid signature') || message.includes('expired') || message.includes('already-used nonce')) {
+      status = 401;
+    } else if (message.includes('Profile insert failed') || message.includes('claim old profile')) {
+      status = 500;
+    }
+    return new Response(JSON.stringify({ success: false, error: message }), {
+      status,
+      headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
     });
   }
 });
