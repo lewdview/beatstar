@@ -2,9 +2,11 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/common/ERC2981.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/utils/Base64.sol";
 
@@ -13,8 +15,19 @@ import "@openzeppelin/contracts/utils/Base64.sol";
  * @notice Official NFT smart contract for "Poetry in Motion: th3v4ult" (PIM) on Base.
  * Stores card attributes and music stream URLs on-chain and generates dynamic
  * metadata fully on-chain.
+ *
+ * @dev Hardening (pre-mainnet):
+ *  1. On-chain supply cap — `maxSupply` is immutable and enforced on every mint,
+ *     so no backend bug or compromised minter key can mint past the cap.
+ *  2. ERC-2981 royalties — marketplaces can read `royaltyInfo` for creator fees.
+ *  3. EIP-712 signatures — mint authorizations are bound to this chain and this
+ *     contract address via the domain separator, so a signature cannot be replayed
+ *     on another chain or against a copy of this contract. Replay of the exact
+ *     same authorization is a no-op because each tokenId can only be minted once.
+ *  4. Reentrancy guard — both mint paths are `nonReentrant` because `_safeMint`
+ *     calls `onERC721Received` on contract recipients, which is a reentry vector.
  */
-contract PIM is ERC721, Ownable {
+contract PIM is ERC721, ERC2981, Ownable, ReentrancyGuard, EIP712 {
     using Strings for uint256;
 
     struct Card {
@@ -28,6 +41,17 @@ contract PIM is ERC721, Ownable {
         bool isEcho;           // Lifecycle echo flag
         uint256 echoGeneration;// Echo generation index
     }
+
+    /// @notice EIP-712 typehash for signature-based mint authorizations.
+    bytes32 private constant MINT_TYPEHASH = keccak256(
+        "MintCard(address recipient,uint256 tokenId,uint256 day,string title,string rarity,uint256 edition,string audioUrl,string coverUrl,string proof,bool isEcho,uint256 echoGeneration)"
+    );
+
+    /// @notice Hard cap on total mints. Immutable — set once at deploy time.
+    uint256 public immutable maxSupply;
+
+    /// @notice Number of tokens minted so far (across both mint paths).
+    uint256 public totalMinted;
 
     // Mapping from tokenId to Card details
     mapping(uint256 => Card) public cards;
@@ -44,16 +68,28 @@ contract PIM is ERC721, Ownable {
         uint256 edition
     );
     event MinterStatusUpdated(address indexed minter, bool status);
+    event RoyaltyUpdated(address indexed receiver, uint96 bps);
 
     modifier onlyOwnerOrMinter() {
         require(msg.sender == owner() || isMinter[msg.sender], "Not authorized: must be owner or minter");
         _;
     }
 
-    constructor(address initialOwner) 
-        ERC721("Poetry in Motion: th3v4ult", "PIM") 
-        Ownable(initialOwner) 
-    {}
+    constructor(
+        address initialOwner,
+        uint256 _maxSupply,
+        address royaltyReceiver,
+        uint96 royaltyBps
+    )
+        ERC721("Poetry in Motion: th3v4ult", "PIM")
+        Ownable(initialOwner)
+        EIP712("Poetry in Motion: th3v4ult", "1")
+    {
+        require(_maxSupply > 0, "maxSupply must be > 0");
+        maxSupply = _maxSupply;
+        _setDefaultRoyalty(royaltyReceiver, royaltyBps);
+        emit RoyaltyUpdated(royaltyReceiver, royaltyBps);
+    }
 
     /**
      * @notice Set minter status for a server backend/operator wallet.
@@ -61,6 +97,55 @@ contract PIM is ERC721, Ownable {
     function setMinter(address minter, bool status) external onlyOwner {
         isMinter[minter] = status;
         emit MinterStatusUpdated(minter, status);
+    }
+
+    /**
+     * @notice Update the default ERC-2981 royalty (receiver and basis points).
+     * Pass address(0) as receiver to remove royalties entirely.
+     */
+    function setDefaultRoyalty(address receiver, uint96 bps) external onlyOwner {
+        _setDefaultRoyalty(receiver, bps);
+        emit RoyaltyUpdated(receiver, bps);
+    }
+
+    /**
+     * @notice Remaining mintable supply under the cap.
+     */
+    function supplyRemaining() external view returns (uint256) {
+        return maxSupply - totalMinted;
+    }
+
+    /**
+     * @notice Shared mint logic: enforces the supply cap, mints, records the card.
+     */
+    function _mintCard(
+        address recipient,
+        uint256 tokenId,
+        uint256 day,
+        string calldata title,
+        string calldata rarity,
+        uint256 edition,
+        string calldata audioUrl,
+        string calldata coverUrl,
+        string calldata proof,
+        bool isEcho,
+        uint256 echoGeneration
+    ) internal {
+        require(totalMinted < maxSupply, "Max supply reached");
+        totalMinted += 1;
+        _safeMint(recipient, tokenId);
+        cards[tokenId] = Card({
+            day: day,
+            title: title,
+            rarity: rarity,
+            edition: edition,
+            audioUrl: audioUrl,
+            coverUrl: coverUrl,
+            proof: proof,
+            isEcho: isEcho,
+            echoGeneration: echoGeneration
+        });
+        emit CardMinted(tokenId, recipient, day, rarity, edition);
     }
 
     /**
@@ -79,25 +164,34 @@ contract PIM is ERC721, Ownable {
         string calldata proof,
         bool isEcho,
         uint256 echoGeneration
-    ) external onlyOwnerOrMinter {
-        _safeMint(recipient, tokenId);
-        cards[tokenId] = Card({
-            day: day,
-            title: title,
-            rarity: rarity,
-            edition: edition,
-            audioUrl: audioUrl,
-            coverUrl: coverUrl,
-            proof: proof,
-            isEcho: isEcho,
-            echoGeneration: echoGeneration
-        });
-        emit CardMinted(tokenId, recipient, day, rarity, edition);
+    ) external onlyOwnerOrMinter nonReentrant {
+        _mintCard(
+            recipient, tokenId, day, title, rarity, edition,
+            audioUrl, coverUrl, proof, isEcho, echoGeneration
+        );
     }
 
     /**
      * @notice Signature-based minting where the user calls the contract and pays gas,
-     * providing a cryptographic signature generated by the authorized backend.
+     * providing an EIP-712 signature generated by the authorized backend.
+     *
+     * @dev The signed typed data is bound to this chain ID and this contract
+     * address by the EIP-712 domain separator, so authorizations cannot be
+     * replayed on other chains or contract copies. Replaying the identical
+     * authorization is harmless: the tokenId is already taken and `_safeMint`
+     * reverts.
+     *
+     * Backend signing (ethers v6):
+     *   const domain = { name: "Poetry in Motion: th3v4ult", version: "1",
+     *                    chainId: 8453, verifyingContract: PIM_ADDRESS };
+     *   const types = { MintCard: [
+     *     { name: "recipient", type: "address" }, { name: "tokenId", type: "uint256" },
+     *     { name: "day", type: "uint256" }, { name: "title", type: "string" },
+     *     { name: "rarity", type: "string" }, { name: "edition", type: "uint256" },
+     *     { name: "audioUrl", type: "string" }, { name: "coverUrl", type: "string" },
+     *     { name: "proof", type: "string" }, { name: "isEcho", type: "bool" },
+     *     { name: "echoGeneration", type: "uint256" } ] };
+     *   const signature = await backendSigner.signTypedData(domain, types, value);
      */
     function mintCardWithSignature(
         address recipient,
@@ -112,48 +206,52 @@ contract PIM is ERC721, Ownable {
         bool isEcho,
         uint256 echoGeneration,
         bytes calldata signature
-    ) external payable {
-        // 1. Recreate the hashed message signed by the minter
-        bytes32 messageHash = keccak256(
-            abi.encodePacked(
+    ) external payable nonReentrant {
+        // 1. Recreate the EIP-712 struct hash of the mint authorization
+        bytes32 structHash = keccak256(
+            abi.encode(
+                MINT_TYPEHASH,
                 recipient,
                 tokenId,
                 day,
-                title,
-                rarity,
+                keccak256(bytes(title)),
+                keccak256(bytes(rarity)),
                 edition,
-                audioUrl,
-                coverUrl,
-                proof,
+                keccak256(bytes(audioUrl)),
+                keccak256(bytes(coverUrl)),
+                keccak256(bytes(proof)),
                 isEcho,
                 echoGeneration
             )
         );
-        bytes32 ethSignedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
 
-        // 2. Recover the signer address
-        address signer = ECDSA.recover(ethSignedMessageHash, signature);
+        // 2. Bind to this chain + this contract via the domain separator
+        bytes32 digest = _hashTypedDataV4(structHash);
 
-        // 3. Verify the signer is authorized
+        // 3. Recover the signer and verify authorization
+        address signer = ECDSA.recover(digest, signature);
         require(
             signer == owner() || isMinter[signer],
             "Unauthorized signature"
         );
 
         // 4. Mint the NFT and record parameters
-        _safeMint(recipient, tokenId);
-        cards[tokenId] = Card({
-            day: day,
-            title: title,
-            rarity: rarity,
-            edition: edition,
-            audioUrl: audioUrl,
-            coverUrl: coverUrl,
-            proof: proof,
-            isEcho: isEcho,
-            echoGeneration: echoGeneration
-        });
-        emit CardMinted(tokenId, recipient, day, rarity, edition);
+        _mintCard(
+            recipient, tokenId, day, title, rarity, edition,
+            audioUrl, coverUrl, proof, isEcho, echoGeneration
+        );
+    }
+
+    /**
+     * @notice ERC-165 support for ERC721 + ERC-2981.
+     */
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC721, ERC2981)
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
     }
 
     /**
