@@ -8,9 +8,29 @@ const ALLOWED_ORIGINS = [
   'https://beatstar-vault.vercel.app',
 ];
 
+/**
+ * Check if an origin is allowed for CORS.
+ * Matches exact production origins, Vercel preview deploys,
+ * localhost dev servers, and Tauri/Farcaster hosts.
+ */
+function isAllowedOrigin(origin: string): boolean {
+  if (!origin) return false;
+  if (ALLOWED_ORIGINS.includes(origin)) return true;
+  // Vercel preview deploys: beatstar-vault-*.vercel.app
+  if (/^https:\/\/beatstar-vault-[a-z0-9-]+\.vercel\.app$/.test(origin)) return true;
+  // Local development
+  if (/^https?:\/\/localhost(:\d+)?$/.test(origin)) return true;
+  if (/^https?:\/\/127\.0\.0\.1(:\d+)?$/.test(origin)) return true;
+  // Tauri custom protocol (desktop app)
+  if (origin.startsWith('tauri://') || origin === 'https://tauri.localhost') return true;
+  // Farcaster frame hosts
+  if (/^https:\/\/(.*\.)?(warpcast\.com|recaster\.org|farcaster\.xyz|frames\.sh)$/.test(origin)) return true;
+  return false;
+}
+
 function getCorsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get('Origin') ?? '';
-  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  const allowed = isAllowedOrigin(origin) ? origin : ALLOWED_ORIGINS[0];
   return {
     'Access-Control-Allow-Origin': allowed,
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -56,7 +76,7 @@ serve(async (req) => {
     // C2 FIX: Replay protection — validate nonce and timestamp in the signed message
     // Expected message format: "Sign in to PIM : th3v4ult\nNonce: <nonce>\nTimestamp: <ISO timestamp>"
     const nonceMatch = message.match(/Nonce:\s*([a-f0-9-]+)/i);
-    const timestampMatch = message.match(/Timestamp:\s*(\d{4}-\d{2}-\d{2}T[\d:.]+Z)/i);
+    const timestampMatch = message.match(/Timestamp:\s*(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)/i);
 
     if (!nonceMatch || !timestampMatch) {
       throw new Error('Invalid message format: must contain Nonce and Timestamp');
@@ -67,8 +87,8 @@ serve(async (req) => {
     const now = new Date();
     const ageMs = now.getTime() - messageTimestamp.getTime();
 
-    // Reject signatures older than 5 minutes
-    if (ageMs > 5 * 60 * 1000 || ageMs < -30_000) {
+    // Reject signatures older than 5 minutes or more than 90s in the future (mobile clock skew tolerance)
+    if (ageMs > 5 * 60 * 1000 || ageMs < -90_000) {
       throw new Error('Signature expired or timestamp invalid');
     }
 
@@ -143,12 +163,20 @@ serve(async (req) => {
             }).eq('id', existingProfile.id);
           }
         }
-        // Clean up anonymous profile and user
-        await supabaseAdmin.from('profiles').delete().eq('id', anonymousUserId);
-        await supabaseAdmin.auth.admin.deleteUser(anonymousUserId);
-        // Sign in as the existing wallet user
+
+        // Sign in as the existing wallet user FIRST — before deleting anonymous account
+        // This ensures the user always has a valid session even if cleanup fails
         const mergeAuth = await supabaseAuthClient.auth.signInWithPassword({ email, password });
         if (mergeAuth.error) throw new Error(`Failed to sign into merged account: ${mergeAuth.error.message}`);
+
+        // Only clean up anonymous profile and user AFTER successful sign-in
+        // If this fails, we have a dangling anonymous row but the user is NOT locked out
+        try {
+          await supabaseAdmin.from('profiles').delete().eq('id', anonymousUserId);
+          await supabaseAdmin.auth.admin.deleteUser(anonymousUserId);
+        } catch (cleanupErr) {
+          console.error('Non-fatal: failed to clean up anonymous account after merge:', cleanupErr);
+        }
         
         return new Response(JSON.stringify({
           success: true,
