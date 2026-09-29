@@ -1079,6 +1079,93 @@ serve(async (req) => {
       }
 
       // ═══════════════════════════════════════════════════════════
+      // GUEST → ACCOUNT CARD MIGRATION
+      // Moves a guest's vault_collections rows into the caller's collection.
+      // The caller proves guest ownership by presenting the guest's access
+      // token, verified server-side. Only anonymous guests can migrate out,
+      // and only into a real (non-anonymous) account. Every guest row is
+      // reassigned via UPDATE — preserving edition, claimed_at, and row id —
+      // so migration never creates or destroys cards (global supply is
+      // untouched: these cards were already minted). Anti-farming: at most one
+      // card migration per destination account per 24h, tracked in
+      // profiles.settings (no schema change).
+      // ═══════════════════════════════════════════════════════════
+      case 'migrateGuestCollection': {
+        const { guest_access_token } = payload;
+        if (!user?.id) throw new Error('Sign-in required');
+        if (user.is_anonymous) throw new Error('Cannot migrate into a guest account');
+        if (!guest_access_token) throw new Error('Missing guest session');
+
+        // Verify the guest token server-side: the caller must actually own the
+        // guest session, and the source must be an anonymous guest.
+        const guestClient = createClient(
+          Deno.env.get('SUPABASE_URL') || '', Deno.env.get('SUPABASE_ANON_KEY') || ''
+        );
+        const { data: guestRes, error: guestErr } = await guestClient.auth.getUser(guest_access_token);
+        const guest = guestRes?.user;
+        if (guestErr || !guest?.id) throw new Error('Invalid or expired guest session');
+        if (guest.id === user.id) {
+          return new Response(JSON.stringify({ success: true, migrated: 0, skipped: 0, note: 'same user' }),
+            { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
+        }
+        if (!guest.is_anonymous) throw new Error('Source account is not a guest');
+
+        // Anti-farming: one guest card migration per destination per 24h.
+        const { data: destProfile } = await svc.from('profiles')
+          .select('settings').eq('id', user.id).maybeSingle();
+        const destSettings = (destProfile?.settings as any) || {};
+        const lastMig = Number(destSettings.guestCardMigrationAt || 0);
+        if (Date.now() - lastMig < 24 * 3600 * 1000) {
+          return new Response(JSON.stringify({ success: true, migrated: 0, skipped: 0, rateLimited: true }),
+            { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
+        }
+
+        // Page the guest's collection (service role bypasses RLS).
+        const guestCardIds: string[] = [];
+        let from = 0;
+        while (true) {
+          const { data, error } = await svc.from('vault_collections')
+            .select('id').eq('owner_id', guest.id).range(from, from + 999);
+          if (error) throw new Error(`Failed to read guest collection: ${error.message}`);
+          if (!data || !data.length) break;
+          for (const c of data) guestCardIds.push(c.id);
+          if (data.length < 1000) break;
+          from += 1000;
+        }
+
+        let migrated = 0;
+        let skipped = 0;
+        for (const cardId of guestCardIds) {
+          // Reassign the row itself rather than delete+insert: preserves
+          // edition, claimed_at, and row id (safer for FK references).
+          // Per-row tolerance: a conflict on one card never blocks the rest.
+          const { error } = await svc.from('vault_collections')
+            .update({ owner_id: user.id })
+            .eq('id', cardId)
+            .eq('owner_id', guest.id);
+          if (error) {
+            console.warn(`[migrateGuestCollection] failed to move card ${cardId}: ${error.message}`);
+            skipped++;
+          } else {
+            migrated++;
+          }
+        }
+
+        if (migrated > 0) {
+          await svc.from('profiles').update({
+            settings: { ...destSettings, guestCardMigrationAt: Date.now() },
+          }).eq('id', user.id);
+        }
+
+        await logTelemetry(svc, 'guest_collection_migrated', user.id, {
+          guest_id: guest.id, migrated, skipped,
+        });
+
+        return new Response(JSON.stringify({ success: true, migrated, skipped }),
+          { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
+      }
+
+      // ═══════════════════════════════════════════════════════════
       // NFT MINT (RC1 production simulation)
       // ═══════════════════════════════════════════════════════════
       case 'requestNftMint': {
