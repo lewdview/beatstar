@@ -1,0 +1,212 @@
+{
+  "free": {
+    "category": "free",
+    "label": "DAILY FREE PACK",
+    "description": "A free 1-card pack, available daily",
+    "icon": "🎁",
+    "accent": "#ffffff",
+    "gradient": "linear-gradient(160deg, #111111 0%, #333333 40%, #222222 100%)",
+    "rates": [60, 25, 12, 3, 0],
+    "tiers": [
+      { "size": "single", "cardCount": 1, "price": "FREE", "priceValue": 0 }
+    ]
+  },
+  "bombshell": {
+    "category": "bombshell",
+    "label": "BOMBSHELL PACK",
+    "description": "Exclusive 365 Days of Light & Dark artwork collector series",
+    "icon": "💖",
+    "accent": "#FF1493",
+    "gradient": "linear-gradient(160deg, #2b0417 0%, #4f082c 40%, #1a020e 100%)",
+    "coverImage": "/data/packs/bombshell_dark_1card.jpg",
+    "rates": [60, 25, 12, 3, 0],
+    "tiers": [
+      { "size": "single", "cardCount": 1, "price": "$0.25", "priceValue": 0.25, "coverImage": "/data/packs/bombshell_dark_1card.jpg", "darkCoverImage": "/data/packs/bombshell_dark_1card.jpg", "lightCoverImage": "/data/packs/bombshell_light_1card.jpg" },
+      { "size": "double", "cardCount": 2, "price": "$0.50", "priceValue": 0.50, "coverImage": "/data/packs/bombshell_dark_2cards.jpg", "darkCoverImage": "/data/packs/bombshell_dark_2cards.jpg", "lightCoverImage": "/data/packs/bombshell_light_2cards.jpg" },
+      { "size": "five", "cardCount": 5, "price": "$1.00", "priceValue": 1.00, "coverImage": "/data/packs/bombshell_dark_5cards.jpg", "darkCoverImage": "/data/packs/bombshell_dark_5cards.jpg", "lightCoverImage": "/data/packs/bombshell_light_5cards.jpg" },
+      { "size": "ten", "cardCount": 10, "price": "$2.00", "priceValue": 2.00, "coverImage": "/data/packs/bombshell_dark_10cards.jpg", "darkCoverImage": "/data/packs/bombshell_dark_10cards.jpg", "lightCoverImage": "/data/packs/bombshell_light_10cards.jpg" },
+      { "size": "twentyfive", "cardCount": 25, "price": "$5.00", "priceValue": 5.00, "coverImage": "/data/packs/bombshell_dark_25cards.jpg", "darkCoverImage": "/data/packs/bombshell_dark_25cards.jpg", "lightCoverImage": "/data/packs/bombshell_light_25cards.jpg" },
+      { "size": "fifty", "cardCount": 50, "price": "$10.00", "priceValue": 10.00, "coverImage": "/data/packs/bombshell_dark_50cards.jpg", "darkCoverImage": "/data/packs/bombshell_dark_50cards.jpg", "lightCoverImage": "/data/packs/bombshell_light_50cards.jpg" }
+    ]
+  },
+  "taste": {
+    "category": "taste",
+    "label": "TASTE PACK",
+    "description": "Any card up to today",
+    "icon": "🎧",
+    "accent": "#4ade80",
+    "gradient": "linear-gradient(160deg, #1a2e2a 0%, #2d4840 40%, #1a3530 100%)",
+    "rates": [60, 25, 12, 3, 0],
+    "tiers": [
+      { "size": "single", "cardCount": 2, "price": "$0.25", "priceValue": 0.25 },
+      { "size": "triple", "cardCount": 5, "price": "$1.00", "priceValue": 1.00 },
+      { "size": "bulk", "cardCount": 15, "price": "$2.50", "priceValue": 2.50 }
+    ]
+  },
+  "light": {
+    "category": "light",
+    "label": "LIGHT PACK",
+    "description": "Only light mood tracks",
+    "icon": "☀️",
+    "accent": "#fbbf24",
+    "gradient": "linear-gradient(160deg, #2a2810 0%, #4a4218 40%, #352e0d 100%)",
+    "filter": "light",
+    "rates": [60, 25, 12, 3, 0],
+    "tiers": [
+      { "size": "single", "cardCount": 2, "price": "$0.25", "priceValue": 0.25 },
+      { "size": "triple", "cardCount": 5, "price": "$1.00", "priceValue": 1.00 },
+      { "size": "bulk", "cardCount": 15, "price": "$2.50", "priceValue": 2.50 }
+    ]
+  },
+  "dark": {
+    "category": "dark",
+    "label": "DARK PACK",
+    "description": "Only dark mood tracks",
+    "icon": "🌙",
+    "accent": "#8b5cf6",
+    "gradient": "linear-gradient(160deg, #1a1530 0%, #2d2050 40%, #201540 100%)",
+    "filter": "dark",
+    "rates": [60, 25, 12, 3, 0],
+    "tiers": [
+      { "size": "single", "cardCount": 2, "price": "$0.25", "priceValue": 0.25 },
+      { "size": "triple", "cardCount": 5, "price": "$1.00", "priceValue": 1.00 },
+      { "size": "bulk", "cardCount": 15, "price": "$2.50", "priceValue": 2.50 }
+    ]
+  },
+  "miss_out": {
+    "category": "miss_out",
+    "label": "MISS OUT PACK",
+    "description": "Past daily cards you didn't claim — always includes the daily drop banner",
+    "icon": "⏳",
+    "accent": "#f97316",
+    "gradient": "linear-gradient(160deg, #2a1a10 0%, #4a2a18 40%, #35200d 100%)",
+    "filter": "past_unclaimed",
+    "rates": [55, 25, 14, 6, 0],
+    "tiers": [
+      { "size": "single", "cardCount": 2, "price": "$1.00", "priceValue": 1.00 },
+      { "size": "triple", "cardCount": 5, "price": "$2.00", "priceValue": 2.00 }
+    ]
+  },
+  "month": {
+    "category": "month",
+    "label": "MONTH PACK",
+    "description": "Cards from a completed month",
+    "icon": "📅",
+    "accent": "#06b6d4",
+    "gradient": "linear-gradient(160deg, #0a2030 0%, #1a3848 40%, #0d2838 100%)",
+    "rates": [60, 25, 12, 3, 0],
+    "tiers": [
+      { "size": "single", "cardCount": 2, "price": "$0.50", "priceValue": 0.50 },
+      { "size": "triple", "cardCount": 5, "price": "$1.00", "priceValue": 1.00 }
+    ]
+  },
+  "special_picks": {
+    "category": "special_picks",
+    "label": "SPECIAL PICKS",
+    "description": "Curated weekly set — every card drops at Rare or higher",
+    "icon": "⭐",
+    "accent": "#ec4899",
+    "gradient": "linear-gradient(160deg, #2a1025 0%, #4a1840 40%, #351030 100%)",
+    "rates": [50, 27, 16, 7, 0],
+    "tiers": [
+      { "size": "single", "cardCount": 2, "price": "$0.25", "priceValue": 0.25 },
+      { "size": "triple", "cardCount": 5, "price": "$1.00", "priceValue": 1.00 }
+    ]
+  },
+  "prophecy": {
+    "category": "prophecy",
+    "label": "PROPHECY PULL",
+    "description": "Contains 1 unreleased future track",
+    "icon": "🔮",
+    "accent": "#a78bfa",
+    "gradient": "linear-gradient(160deg, #1a1040 0%, #2d1860 40%, #201050 100%)",
+    "filter": "future",
+    "rates": [63, 22, 10, 5, 0],
+    "tiers": [
+      { "size": "single", "cardCount": 1, "price": "$5.00", "priceValue": 5.00 }
+    ]
+  },
+  "alpha": {
+    "category": "alpha",
+    "label": "ALPHA ROLL",
+    "description": "Contains 1 archival past track",
+    "icon": "🎲",
+    "accent": "#ef4444",
+    "gradient": "linear-gradient(160deg, #2a1010 0%, #4a1818 40%, #351010 100%)",
+    "filter": "past",
+    "rates": [43, 30, 20, 5, 2],
+    "tiers": [
+      { "size": "single", "cardCount": 1, "price": "$1.00", "priceValue": 1.00 }
+    ]
+  },
+  "vault_token": {
+    "category": "vault_token",
+    "label": "VAULT PACK",
+    "description": "Premium 3-card pack • V⚡ sparks only",
+    "icon": "⚡",
+    "accent": "#ff9900",
+    "gradient": "linear-gradient(160deg, #1a1000 0%, #332200 50%, #1a0f00 100%)",
+    "filter": "past",
+    "rates": [30, 28, 25, 14, 3],
+    "tiers": [
+      { "size": "single", "cardCount": 3, "price": "275 V⚡", "priceValue": 0 }
+    ]
+  },
+  "bombshell_token": {
+    "category": "bombshell_token",
+    "label": "BOMBSHELL PACK",
+    "description": "Exclusive Bombshell collector series • 3% Mythic drop rate",
+    "icon": "💖",
+    "accent": "#ff1493",
+    "gradient": "linear-gradient(160deg, #300a1e 0%, #501234 40%, #200816 100%)",
+    "coverImage": "/data/packs/bombshell_dark_1card.jpg",
+    "rates": [30, 28, 25, 14, 3],
+    "tiers": [
+      { "size": "single", "cardCount": 1, "price": "100 V⚡", "priceValue": 0, "coverImage": "/data/packs/bombshell_dark_1card.jpg", "darkCoverImage": "/data/packs/bombshell_dark_1card.jpg", "lightCoverImage": "/data/packs/bombshell_light_1card.jpg" },
+      { "size": "double", "cardCount": 2, "price": "200 V⚡", "priceValue": 0, "coverImage": "/data/packs/bombshell_dark_2cards.jpg", "darkCoverImage": "/data/packs/bombshell_dark_2cards.jpg", "lightCoverImage": "/data/packs/bombshell_light_2cards.jpg" },
+      { "size": "five", "cardCount": 5, "price": "500 V⚡", "priceValue": 0, "coverImage": "/data/packs/bombshell_dark_5cards.jpg", "darkCoverImage": "/data/packs/bombshell_dark_5cards.jpg", "lightCoverImage": "/data/packs/bombshell_light_5cards.jpg" },
+      { "size": "ten", "cardCount": 10, "price": "1000 V⚡", "priceValue": 0, "coverImage": "/data/packs/bombshell_dark_10cards.jpg", "darkCoverImage": "/data/packs/bombshell_dark_10cards.jpg", "lightCoverImage": "/data/packs/bombshell_light_10cards.jpg" },
+      { "size": "twentyfive", "cardCount": 25, "price": "2500 V⚡", "priceValue": 0, "coverImage": "/data/packs/bombshell_dark_25cards.jpg", "darkCoverImage": "/data/packs/bombshell_dark_25cards.jpg", "lightCoverImage": "/data/packs/bombshell_light_25cards.jpg" },
+      { "size": "fifty", "cardCount": 50, "price": "5000 V⚡", "priceValue": 0, "coverImage": "/data/packs/bombshell_dark_50cards.jpg", "darkCoverImage": "/data/packs/bombshell_dark_50cards.jpg", "lightCoverImage": "/data/packs/bombshell_light_50cards.jpg" }
+    ]
+  },
+  "targeted_pull": {
+    "category": "targeted_pull",
+    "label": "TARGETED PULL",
+    "description": "Acquire 1 card from a specific day of your choice • 1% Mythic chance",
+    "icon": "🎯",
+    "accent": "#ff9900",
+    "gradient": "linear-gradient(160deg, #1f1400 0%, #3a2200 50%, #1c1000 100%)",
+    "rates": [60, 24, 12, 3, 1],
+    "tiers": [
+      { "size": "single", "cardCount": 1, "price": "275 V⚡", "priceValue": 0 }
+    ]
+  },
+  "rarity_upgrade": {
+    "category": "rarity_upgrade",
+    "label": "RARITY UPGRADE",
+    "description": "Instantly upgrade one card below Legendary by +1 tier",
+    "icon": "⚡",
+    "accent": "#ffd700",
+    "gradient": "linear-gradient(160deg, #1b1600 0%, #362900 50%, #1c1500 100%)",
+    "rates": [60, 25, 12, 3, 0],
+    "tiers": [
+      { "size": "single", "cardCount": 1, "price": "150 V⚡", "priceValue": 0 }
+    ]
+  },
+  "token_bundle": {
+    "category": "token_bundle",
+    "label": "VAULT SPARKS",
+    "description": "V⚡ sparks to unlock Vault Packs (3% Mythic rate), Targeted Pulls, and Tier Upgrades",
+    "icon": "⚡",
+    "accent": "#ffb800",
+    "gradient": "linear-gradient(160deg, #1c1400 0%, #382800 40%, #1a1200 100%)",
+    "rates": [0, 0, 0, 0, 0],
+    "tiers": [
+      { "size": "pouch", "cardCount": 0, "tokenAmount": 200, "bonus": 0, "price": "$0.99", "priceValue": 0.99, "label": "Pouch of Sparks", "packsUnlocked": 0, "bombshellPulls": 2, "pullsLabel": "2 Bombshell Pulls", "crateImage": "/data/crates/pouch_of_sparks.svg" },
+      { "size": "crate", "cardCount": 0, "tokenAmount": 1150, "bonus": 150, "price": "$4.99", "priceValue": 4.99, "label": "Cipher Crate", "packsUnlocked": 4, "bombshellPulls": 11, "pullsLabel": "4× Vault Packs (12 Cards)", "popular": true, "crateImage": "/data/crates/cipher_crate.svg" },
+      { "size": "stash", "cardCount": 0, "tokenAmount": 2500, "bonus": 500, "price": "$9.99", "priceValue": 9.99, "label": "Vault Stash", "packsUnlocked": 9, "bombshellPulls": 25, "pullsLabel": "9× Vault Packs (27 Cards)", "bestValue": true, "crateImage": "/data/crates/vault_stash.svg" },
+      { "size": "hoard", "cardCount": 0, "tokenAmount": 7000, "bonus": 2000, "price": "$24.99", "priceValue": 24.99, "label": "Archon Hoard", "packsUnlocked": 25, "bombshellPulls": 70, "pullsLabel": "25× Vault Packs (75 Cards)", "whale": true, "crateImage": "/data/crates/archon_hoard.svg" }
+    ]
+  }
+}

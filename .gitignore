@@ -49,6 +49,9 @@ Thumbs.db
 .local/
 
 # Secrets & credentials — NEVER commit these
+.env
+.env.*
+!.env.example
 serviceAccountKey.json
 *.serviceAccountKey.json
 .env.local
