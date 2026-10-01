@@ -446,5 +446,38 @@ describe("PIM", function () {
       expect(traits).to.deep.include({ trait_type: "Lifecycle", value: "original" });
       expect(traits).to.deep.include({ trait_type: "Echo Generation", value: cardData.echoGeneration });
     });
+
+    it("Should render the donation description for day-0 mints", async function () {
+      await nft.connect(minter).mintCard(...mintArgs(user.address, 77, 0));
+
+      const uri = await nft.tokenURI(77);
+      expect(uri.startsWith("data:application/json;base64,")).to.be.true;
+
+      const metadata = JSON.parse(
+        Buffer.from(uri.split(",")[1], "base64").toString("utf-8")
+      );
+
+      expect(metadata.description).to.equal(
+        "Donation Pull 1-of-1 \u2014 recovered from Against a Wall."
+      );
+      // Other fields still render normally around the donation copy
+      expect(metadata.image).to.equal("https://supabase.co/cover.png");
+      expect(metadata.animation_url).to.equal("https://supabase.co/audio.mp3");
+      const traits = metadata.attributes;
+      expect(traits).to.deep.include({ trait_type: "Day", value: 0 });
+      expect(traits).to.deep.include({ trait_type: "Rarity", value: "rare" });
+    });
+
+    it("Should keep the archive description for day > 0", async function () {
+      await nft.connect(minter).mintCard(...mintArgs(user.address, 78, 365));
+
+      const metadata = JSON.parse(
+        Buffer.from((await nft.tokenURI(78)).split(",")[1], "base64").toString("utf-8")
+      );
+
+      expect(metadata.description).to.equal(
+        "Poetry in Motion: th3v4ult Gen 0 Archive - Day 365 of 365."
+      );
+    });
   });
 });
