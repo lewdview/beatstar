@@ -256,6 +256,8 @@ contract PIM is ERC721, ERC2981, Ownable, ReentrancyGuard, EIP712 {
 
     /**
      * @notice Dynamic tokenURI function that outputs base64-encoded metadata fully on-chain.
+     * @dev Donation-pull 1-of-1s are minted with day == 0 and get their own
+     * description — they are recovered Against a Wall tracks, not 365 archive days.
      */
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         _requireOwned(tokenId);
@@ -268,10 +270,14 @@ contract PIM is ERC721, ERC2981, Ownable, ReentrancyGuard, EIP712 {
             ? string(abi.encodePacked("00", dayStr)) 
             : (card.day < 100 ? string(abi.encodePacked("0", dayStr)) : dayStr);
 
+        string memory description = card.day == 0
+            ? "Donation Pull 1-of-1 \u2014 recovered from Against a Wall."
+            : string(abi.encodePacked("Poetry in Motion: th3v4ult Gen 0 Archive - Day ", dayStr, " of 365."));
+
         // Build base JSON properties
         bytes memory json = abi.encodePacked(
             '{"name": "Poetry in Motion: th3v4ult - Day ', paddedDay, ' : ', card.title, '",',
-            '"description": "Poetry in Motion: th3v4ult Gen 0 Archive - Day ', dayStr, ' of 365.",',
+            '"description": "', description, '",',
             '"image": "', card.coverUrl, '",',
             '"animation_url": "', card.audioUrl, '",',
             '"attributes": ['
