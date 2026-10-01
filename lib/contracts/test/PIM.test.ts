@@ -460,6 +460,9 @@ describe("PIM", function () {
       expect(metadata.description).to.equal(
         "Donation Pull 1-of-1 \u2014 recovered from Against a Wall."
       );
+      expect(metadata.name).to.equal(
+        "Poetry in Motion: th3v4ult \u2014 Donation Pull 1-of-1: Flowing Sounds"
+      );
       // Other fields still render normally around the donation copy
       expect(metadata.image).to.equal("https://supabase.co/cover.png");
       expect(metadata.animation_url).to.equal("https://supabase.co/audio.mp3");
@@ -478,6 +481,52 @@ describe("PIM", function () {
       expect(metadata.description).to.equal(
         "Poetry in Motion: th3v4ult Gen 0 Archive - Day 365 of 365."
       );
+    });
+  });
+
+  describe("Collection Metadata (contractURI)", function () {
+    function decodeContractURI(uri: string) {
+      expect(uri.startsWith("data:application/json;base64,")).to.be.true;
+      return JSON.parse(Buffer.from(uri.split(",")[1], "base64").toString("utf-8"));
+    }
+
+    it("Should return OpenSea-style collection metadata by default", async function () {
+      const metadata = decodeContractURI(await nft.contractURI());
+      expect(metadata.name).to.equal("Poetry in Motion: th3v4ult");
+      expect(metadata.description).to.contain("Donation Pull 1-of-1");
+      expect(metadata.external_link).to.equal("https://pim.th3scr1b3.art");
+      // Image is intentionally empty until the owner points it at final artwork
+      expect(metadata.image).to.equal("");
+    });
+
+    it("Should let the owner update collection metadata", async function () {
+      await expect(
+        nft.setContractMetadata(
+          "PIM: th3v4ult",
+          "Donation pull collection",
+          "https://example.com/crest.png",
+          "https://example.com"
+        )
+      )
+        .to.emit(nft, "ContractMetadataUpdated")
+        .withArgs(
+          "PIM: th3v4ult",
+          "Donation pull collection",
+          "https://example.com/crest.png",
+          "https://example.com"
+        );
+
+      const metadata = decodeContractURI(await nft.contractURI());
+      expect(metadata.name).to.equal("PIM: th3v4ult");
+      expect(metadata.description).to.equal("Donation pull collection");
+      expect(metadata.image).to.equal("https://example.com/crest.png");
+      expect(metadata.external_link).to.equal("https://example.com");
+    });
+
+    it("Should reject collection metadata updates from non-owners", async function () {
+      await expect(
+        nft.connect(user).setContractMetadata("x", "y", "z", "w")
+      ).to.be.reverted;
     });
   });
 });
