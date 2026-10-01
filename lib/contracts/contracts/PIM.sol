@@ -59,6 +59,14 @@ contract PIM is ERC721, ERC2981, Ownable, ReentrancyGuard, EIP712 {
     // Mapping of authorized backend minters
     mapping(address => bool) public isMinter;
 
+    /// @notice Collection-level metadata for marketplaces (OpenSea contractURI).
+    /// @dev Image URL is left empty at deploy time — the owner points it at the
+    /// final crest artwork via setContractMetadata instead of guessing a URL.
+    string public contractName = "Poetry in Motion: th3v4ult";
+    string public contractDescription = "Official Gen 0 collectible cards from Poetry in Motion: th3v4ult by th3scr1b3 - including Donation Pull 1-of-1s recovered from Against a Wall.";
+    string public contractImage = "";
+    string public contractExternalLink = "https://pim.th3scr1b3.art";
+
     // Events
     event CardMinted(
         uint256 indexed tokenId,
@@ -69,6 +77,7 @@ contract PIM is ERC721, ERC2981, Ownable, ReentrancyGuard, EIP712 {
     );
     event MinterStatusUpdated(address indexed minter, bool status);
     event RoyaltyUpdated(address indexed receiver, uint96 bps);
+    event ContractMetadataUpdated(string name_, string description_, string image_, string externalLink_);
 
     modifier onlyOwnerOrMinter() {
         require(msg.sender == owner() || isMinter[msg.sender], "Not authorized: must be owner or minter");
@@ -106,6 +115,39 @@ contract PIM is ERC721, ERC2981, Ownable, ReentrancyGuard, EIP712 {
     function setDefaultRoyalty(address receiver, uint96 bps) external onlyOwner {
         _setDefaultRoyalty(receiver, bps);
         emit RoyaltyUpdated(receiver, bps);
+    }
+
+    /**
+     * @notice Update the collection-level metadata returned by contractURI.
+     * @dev Lets the owner point the collection at the final crest artwork URL
+     * (and tweak name/description/link) without redeploying the contract.
+     */
+    function setContractMetadata(
+        string calldata name_,
+        string calldata description_,
+        string calldata image_,
+        string calldata externalLink_
+    ) external onlyOwner {
+        contractName = name_;
+        contractDescription = description_;
+        contractImage = image_;
+        contractExternalLink = externalLink_;
+        emit ContractMetadataUpdated(name_, description_, image_, externalLink_);
+    }
+
+    /**
+     * @notice OpenSea-style collection metadata (contractURI).
+     * @dev Returns base64 data-URI JSON so marketplaces can render the
+     * collection name, description, image and external link.
+     */
+    function contractURI() public view returns (string memory) {
+        bytes memory json = abi.encodePacked(
+            '{"name": "', contractName, '",',
+            '"description": "', contractDescription, '",',
+            '"image": "', contractImage, '",',
+            '"external_link": "', contractExternalLink, '"}'
+        );
+        return string(abi.encodePacked("data:application/json;base64,", Base64.encode(json)));
     }
 
     /**
@@ -257,7 +299,8 @@ contract PIM is ERC721, ERC2981, Ownable, ReentrancyGuard, EIP712 {
     /**
      * @notice Dynamic tokenURI function that outputs base64-encoded metadata fully on-chain.
      * @dev Donation-pull 1-of-1s are minted with day == 0 and get their own
-     * description — they are recovered Against a Wall tracks, not 365 archive days.
+     * name and description — they are recovered Against a Wall tracks,
+     * not 365 archive days.
      */
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         _requireOwned(tokenId);
@@ -274,9 +317,13 @@ contract PIM is ERC721, ERC2981, Ownable, ReentrancyGuard, EIP712 {
             ? "Donation Pull 1-of-1 \u2014 recovered from Against a Wall."
             : string(abi.encodePacked("Poetry in Motion: th3v4ult Gen 0 Archive - Day ", dayStr, " of 365."));
 
+        string memory name = card.day == 0
+            ? string(abi.encodePacked("Poetry in Motion: th3v4ult \u2014 Donation Pull 1-of-1: ", card.title))
+            : string(abi.encodePacked("Poetry in Motion: th3v4ult - Day ", paddedDay, " : ", card.title));
+
         // Build base JSON properties
         bytes memory json = abi.encodePacked(
-            '{"name": "Poetry in Motion: th3v4ult - Day ', paddedDay, ' : ', card.title, '",',
+            '{"name": "', name, '",',
             '"description": "', description, '",',
             '"image": "', card.coverUrl, '",',
             '"animation_url": "', card.audioUrl, '",',
