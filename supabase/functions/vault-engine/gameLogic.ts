@@ -1,4 +1,4 @@
-import packData from "./packs.json" assert { type: "json" };
+import packData from "./packs.json" with { type: "json" };
 
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'legendary' | 'mythic';
 export type ProofType = 'proof_of_first' | 'heard_first' | null;

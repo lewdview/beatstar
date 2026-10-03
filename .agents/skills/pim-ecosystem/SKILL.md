@@ -157,10 +157,10 @@ The game feeds player misses directly into physical audio channel degradation.
 
 ### The Forge Operations & Token Sinks
 * **Card Burning**: Deconstruct duplicate or unwanted cards into $V\text{⚡}$ tokens.
-* **Targeted Pull**: Spend **500 $V\text{⚡}$** to acquire any specific card from the 365 catalog.
+* **Targeted Pull**: Spend **275 $V\text{⚡}$** to acquire 1 card from a specific *released* day (Day 1 to current day; future days require Prophecy packs).
 * **Rarity Upgrade**: Spend **150 $V\text{⚡}$** to upgrade an owned card by 1 rarity tier.
 * **Duplicate Fusion**: Combine **3 identical cards** (same day & rarity) to forge 1 card of the next tier.
-* **Echo Cards**: 15% roll rate on Gacha. Yields high prestige but undergoes generational decay: Gen 0 ($1.0\times$) $\to$ Gen 1 ($0.6\times$) $\to$ Gen 2 ($0.3\times$) $\to$ Gen 3+ ($0.1\times$ Entropy Death).
+* **Echo Cards**: 15% roll rate on Gacha (from the echo pool). Burning an echo yields **+15%** sparks. Spawn chance of a next-generation echo decays: Gen 0 → 25%, Gen 1 → 15%, Gen 2 → 8%, Gen 3+ → 0% (Entropy Death).
 
 ### Gacha Drop Modifiers & Pity Protection
 * **Drought Pity Protection**: 25 consecutive pulls without Rare+ guarantees Rare or higher on the next pull.
