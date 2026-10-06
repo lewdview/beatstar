@@ -8,7 +8,8 @@
     "deploy": "tsx src/deploy-commands.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:farcaster": "tsx src/test-farcaster.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.3",

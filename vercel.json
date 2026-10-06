@@ -51,6 +51,10 @@
   ],
   "rewrites": [
     {
+      "source": "/api/farcaster-webhook",
+      "destination": "https://toemkhrfsbkfkutwcjkd.supabase.co/functions/v1/farcaster-webhook"
+    },
+    {
       "source": "/((?!assets/|data/|covers/|stems/|favicon|.*\\.(?:js|css|png|jpg|jpeg|gif|svg|ico|json|woff2?|wasm|mp3|wav|ogg)$).*)",
       "destination": "/index.html"
     }

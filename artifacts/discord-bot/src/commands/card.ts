@@ -59,24 +59,43 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       { name: 'BURN YIELD', value: `\`+${burnValue} V⚡\``, inline: true },
       { name: 'MOOD / TEMPO', value: `\`${card.mood || 'dark'}\` • \`${card.tempo || 120} BPM\``, inline: true },
       { 
-        name: 'LIVE GLOBAL SUPPLY (MINTED / CAP)', 
+        name: `⚡ TOTAL CARDS CLAIMED: ${supplies.totalClaimed}`,
+        value: `\`${supplies.totalStandard} Standard Minted\` • \`${supplies.totalBombshell} Bombshell Minted\``,
+        inline: false
+      },
+      { 
+        name: 'STANDARD EDITIONS (MINTED / CAP)', 
         value: [
-          `• Common: \`${supplies.common || 0} / 2,000\``,
-          `• Uncommon: \`${supplies.uncommon || 0} / 500\``,
-          `• Rare: \`${supplies.rare || 0} / 100\``,
-          `• Legendary: \`${supplies.legendary || 0} / 10\``,
-          `• Mythic: \`${supplies.mythic || 0} / 1\``
+          `• Common: \`${supplies.common} / 2,000\``,
+          `• Uncommon: \`${supplies.uncommon} / 500\``,
+          `• Rare: \`${supplies.rare} / 100\``,
+          `• Legendary: \`${supplies.legendary} / 10\``,
+          `• Mythic: \`${supplies.mythic} / 1\``
         ].join('\n'), 
-        inline: false 
+        inline: true 
       }
     );
+
+  if (supplies.totalBombshell > 0) {
+    embed.addFields({
+      name: 'BOMBSHELL EDITIONS (MINTED / CAP)',
+      value: [
+        `• Common: \`${supplies.bombshell_common} / 2,000\``,
+        `• Uncommon: \`${supplies.bombshell_uncommon} / 500\``,
+        `• Rare: \`${supplies.bombshell_rare} / 100\``,
+        `• Legendary: \`${supplies.bombshell_legendary} / 10\``,
+        `• Mythic: \`${supplies.bombshell_mythic} / 1\``
+      ].join('\n'),
+      inline: true
+    });
+  }
 
   if (card.coverUrl) {
     embed.setImage(card.coverUrl);
   }
 
   embed.setFooter({
-    text: `PIM Economy v2.1 • Card ID: ${card.id}`,
+    text: `PIM Economy v2.1 • Card ID: ${card.id} • Live Edge Sync`,
     iconURL: 'https://pim.th3scr1b3.art/favicon.ico'
   });
 

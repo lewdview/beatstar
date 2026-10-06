@@ -7,6 +7,7 @@ import {
   ButtonStyle 
 } from 'discord.js';
 import { catalogService } from '../services/catalogService.js';
+import { supabaseService } from '../services/supabaseService.js';
 import { CONFIG } from '../config.js';
 
 export const data = new SlashCommandBuilder()
@@ -45,10 +46,12 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     embed.setImage(song.coverArt);
   }
 
+  const supplies = await supabaseService.getCardSupply(currentDay);
+
   if (card) {
     embed.addFields({
-      name: 'COLLECTIBLE CARD',
-      value: `**${card.title}** • Rarity: \`${card.rarity.toUpperCase()}\` • Max Supply: \`${card.maxSupply || 100}\``,
+      name: 'COLLECTIBLE CARD UNLOCK',
+      value: `**${card.title}** • Rarity: \`${card.rarity.toUpperCase()}\` • \`${supplies.totalClaimed} Claimed\` (${supplies.totalStandard} Standard • ${supplies.totalBombshell} Bombshell)`,
       inline: false
     });
   }

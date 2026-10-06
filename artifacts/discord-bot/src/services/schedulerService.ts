@@ -128,6 +128,42 @@ export class SchedulerService {
       console.warn(`[SchedulerService] Channel ${channelId} is neither forum nor text-based sendable.`);
     } catch (err: any) {
       console.error('[SchedulerService] Failed to post daily drop:', err);
+    } finally {
+      // Broadcast to Farcaster Mini App notification subscribers
+      try {
+        const currentDay = catalogService.getCurrentDayOfYear();
+        const song = catalogService.getSongByDay(currentDay);
+        await this.broadcastFarcasterDrop(currentDay, song);
+      } catch (fcErr) {
+        console.warn('[SchedulerService] Farcaster notification broadcast error:', fcErr);
+      }
+    }
+  }
+
+  /**
+   * Broadcasts daily drop announcement to all active Farcaster subscribers
+   */
+  public async broadcastFarcasterDrop(currentDay: number, song: any) {
+    try {
+      console.log(`[SchedulerService] Broadcasting Day ${currentDay} drop to Farcaster subscribers...`);
+      const endpoint = `${CONFIG.SUPABASE_URL}/functions/v1/farcaster-webhook`;
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'broadcast',
+          day: currentDay,
+          songTitle: song?.title,
+          songArtist: song?.artist,
+          targetUrl: `${CONFIG.PIM_WEB_URL}/universe`
+        })
+      });
+      const data = await response.json().catch(() => ({}));
+      console.log(`[SchedulerService] Farcaster broadcast result:`, data);
+      return data;
+    } catch (err) {
+      console.warn('[SchedulerService] Non-fatal: Farcaster broadcast failed:', err);
+      return null;
     }
   }
 }
