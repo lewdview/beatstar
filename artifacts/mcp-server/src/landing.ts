@@ -423,6 +423,8 @@ export function renderLandingHtml(origin: string): string {
       });
     }
   </script>
+<!-- th3scr1b3 ecosystem bar: shared layer switcher. Layers live in https://th3scr1b3.art/ecosystem.json -->
+<script src="https://th3scr1b3.art/ecosystem-bar.js" defer></script>
 </body>
 </html>`;
 }
