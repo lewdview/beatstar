@@ -1453,8 +1453,15 @@ serve(async (req) => {
         // Spend the guest's balance so the same guest can't be merged into a second account.
         await svc.from('profiles').update({ tokens: 0 }).eq('id', guest.id);
 
+        // Listening history and visits logged under the guest account follow the player.
+        const { count: playsMoved } = await svc.from('play_events')
+          .update({ user_id: user.id }, { count: 'exact' }).eq('user_id', guest.id);
+        const { count: visitsMoved } = await svc.from('site_visits')
+          .update({ user_id: user.id }, { count: 'exact' }).eq('user_id', guest.id);
+
         await logTelemetry(svc, 'guest_profile_migrated', user.id, {
           guest_id: guest.id, guest_tokens: n((g as any).tokens), merged_tokens: merged.tokens,
+          plays_moved: playsMoved ?? 0, visits_moved: visitsMoved ?? 0,
         });
 
         return new Response(JSON.stringify({ success: true, merged: true, tokens: merged.tokens }),
