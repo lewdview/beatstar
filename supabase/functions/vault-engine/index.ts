@@ -1401,6 +1401,66 @@ serve(async (req) => {
           { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
       }
 
+      case 'migrateGuestProfile': {
+        // Economy half of the guest → account merge. Players can't write these profile
+        // columns (protect_profiles_server_managed_columns), so the merge runs here.
+        const { guest_access_token } = payload;
+        if (!user?.id) throw new Error('Sign-in required');
+        if (user.is_anonymous) throw new Error('Cannot migrate into a guest account');
+        if (!guest_access_token) throw new Error('Missing guest session');
+
+        // Same guest verification as migrateGuestCollection.
+        const guestClient = createClient(
+          Deno.env.get('SUPABASE_URL') || '', Deno.env.get('SUPABASE_ANON_KEY') || ''
+        );
+        const { data: guestRes, error: guestErr } = await guestClient.auth.getUser(guest_access_token);
+        const guest = guestRes?.user;
+        if (guestErr || !guest?.id) throw new Error('Invalid or expired guest session');
+        if (guest.id === user.id) {
+          return new Response(JSON.stringify({ success: true, merged: false, note: 'same user' }),
+            { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
+        }
+        if (!guest.is_anonymous) throw new Error('Source account is not a guest');
+
+        const ECON = 'tokens, streak_count, total_pulls, pulls_since_rare_plus, total_burns, last_claim_day, unlocked_skins';
+        const { data: g } = await svc.from('profiles').select(ECON).eq('id', guest.id).maybeSingle();
+        if (!g) {
+          return new Response(JSON.stringify({ success: true, merged: false, note: 'no guest profile' }),
+            { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
+        }
+        const { data: o } = await svc.from('profiles').select(ECON).eq('id', user.id).maybeSingle();
+
+        const n = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+        const best = (k: string) => Math.max(n((g as any)[k]), n((o as any)?.[k]));
+        // Farm-safe: take the best of either side, never sum (same rules the client used).
+        const merged = {
+          tokens: best('tokens'),
+          streak_count: best('streak_count'),
+          total_pulls: best('total_pulls'),
+          pulls_since_rare_plus: best('pulls_since_rare_plus'),
+          total_burns: best('total_burns'),
+          // last_claim_day gates the free daily drop; MAX so a day the guest already
+          // claimed can't be claimed again on the account.
+          last_claim_day: best('last_claim_day'),
+          unlocked_skins: [...new Set([...((o as any)?.unlocked_skins || []), ...((g as any).unlocked_skins || [])])],
+        };
+
+        const { error: writeErr } = o
+          ? await svc.from('profiles').update(merged).eq('id', user.id)
+          : await svc.from('profiles').insert({ id: user.id, ...merged });
+        if (writeErr) throw new Error(`Failed to merge guest profile: ${writeErr.message}`);
+
+        // Spend the guest's balance so the same guest can't be merged into a second account.
+        await svc.from('profiles').update({ tokens: 0 }).eq('id', guest.id);
+
+        await logTelemetry(svc, 'guest_profile_migrated', user.id, {
+          guest_id: guest.id, guest_tokens: n((g as any).tokens), merged_tokens: merged.tokens,
+        });
+
+        return new Response(JSON.stringify({ success: true, merged: true, tokens: merged.tokens }),
+          { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
+      }
+
       // ═══════════════════════════════════════════════════════════
       // NFT MINT (RC1 production simulation)
       // ═══════════════════════════════════════════════════════════
