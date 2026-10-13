@@ -12,6 +12,30 @@ export interface LeaderboardEntry {
   created_at: string;
 }
 
+/** Row shape returned by the get_song_scores / get_recent_scores database functions. */
+interface ScoreRow {
+  user_id: string;
+  song_id?: string;
+  score: number;
+  accuracy: number;
+  max_combo: number;
+  medal: LeaderboardEntry['medal'];
+  timestamp: string;
+}
+
+function toEntry(r: ScoreRow, songId?: string): LeaderboardEntry {
+  return {
+    id: `${r.user_id}-${r.timestamp}`,
+    user_id: r.user_id,
+    song_id: r.song_id ?? songId ?? '',
+    score: r.score,
+    accuracy: Number(r.accuracy),
+    max_combo: r.max_combo,
+    medal: r.medal,
+    created_at: r.timestamp,
+  };
+}
+
 export interface CardSupplyData {
   card_id_rarity: string;
   supply: number;
@@ -123,15 +147,13 @@ class SupabaseService {
     if (!this.client) return [];
 
     try {
+      // gameplay_records is no longer publicly readable; get_song_scores returns each
+      // player's best score for the song.
       const { data, error } = await this.client
-        .from('gameplay_records')
-        .select('*')
-        .eq('song_id', songId)
-        .order('score', { ascending: false })
-        .limit(limit);
+        .rpc('get_song_scores', { p_song_ids: [songId], p_limit: limit });
 
       if (error || !data) return [];
-      return data as LeaderboardEntry[];
+      return (data as ScoreRow[]).map((r) => toEntry(r, songId));
     } catch (err) {
       console.warn('[SupabaseService] Failed to fetch leaderboard:', err);
       return [];
@@ -146,13 +168,10 @@ class SupabaseService {
 
     try {
       const { data, error } = await this.client
-        .from('gameplay_records')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(limit);
+        .rpc('get_recent_scores', { p_limit: limit });
 
       if (error || !data) return [];
-      return data as LeaderboardEntry[];
+      return (data as ScoreRow[]).map((r) => toEntry(r));
     } catch (err) {
       console.warn('[SupabaseService] Failed to fetch recent activity:', err);
       return [];
