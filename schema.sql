@@ -59,12 +59,8 @@ CREATE TABLE public.vault_collections (
     owner_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     card_id TEXT NOT NULL,
     rarity TEXT NOT NULL CHECK (rarity IN ('common', 'uncommon', 'rare', 'legendary', 'mythic')),
-    source TEXT CHECK (source IN (
-        'daily_claim', 'pack_free', 'pack_taste', 'pack_light', 'pack_dark',
-        'pack_month', 'pack_miss_out', 'pack_special_picks', 'pack_prophecy',
-        'pack_alpha', 'vault_token', 'targeted_pull', 'fusion',
-        'pack_bombshell', 'pack_bombshell_deluxe', 'stripe_purchase'
-    )),
+    -- No CHECK on source: migration 20260825000006 dropped vault_collections_source_check.
+    source TEXT,
     is_echo BOOLEAN DEFAULT FALSE,
     echo_generation INTEGER DEFAULT 0,
     echo_source_day INTEGER,
