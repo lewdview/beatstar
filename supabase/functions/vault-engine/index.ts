@@ -397,20 +397,7 @@ async function findDayWithRaritySupply(
   return null;
 }
 
-// Pack types that can roll the bonus Bombshell (an extra card on top of the pack).
-// Free, Bombshell and single-target pulls are excluded.
-const BOMBSHELL_BONUS_EXCLUDED = new Set([
-  'free', 'bombshell', 'bombshell_token', 'targeted_pull', 'rarity_upgrade', 'token_bundle',
-]);
-const DEFAULT_BOMBSHELL_BONUS_CHANCE = 0.05;
-
-interface GenerateCardsOptions {
-  /** Set on the recursive call that mints the bonus Bombshell itself. */
-  bonusFor?: string;
-}
-
-async function generateCards(svc: any, userId: string, packType: string, count: number, today: number, ctx: ModifierContext, opts: GenerateCardsOptions = {}) {
-  const source = opts.bonusFor ? `pack_${opts.bonusFor}_bombshell_bonus` : `pack_${packType}`;
+async function generateCards(svc: any, userId: string, packType: string, count: number, today: number, ctx: ModifierContext) {
   let missedDays: number[] = [];
   if (packType === 'miss_out') {
     let claims: any[] = [];
@@ -429,7 +416,6 @@ async function generateCards(svc: any, userId: string, packType: string, count: 
 
   let echoChance = 15;
   let ultraRewardChance = 0.003;
-  let bombshellBonusChance = DEFAULT_BOMBSHELL_BONUS_CHANCE;
   let adminConfig = null;
   try {
     const { data: config } = await svc.from('admin_config').select('config').eq('id', 1).maybeSingle();
@@ -442,7 +428,6 @@ async function generateCards(svc: any, userId: string, packType: string, count: 
     if (adminConfig) {
       if (adminConfig.echoSystem?.echoChance !== undefined) echoChance = adminConfig.echoSystem.echoChance;
       if (adminConfig.ultraRewardChance !== undefined) ultraRewardChance = adminConfig.ultraRewardChance;
-      if (typeof adminConfig.bombshellBonusChance === 'number') bombshellBonusChance = adminConfig.bombshellBonusChance;
     }
   } catch { /* use default */ }
 
@@ -467,7 +452,7 @@ async function generateCards(svc: any, userId: string, packType: string, count: 
     let day = days[cIdx];
 
     // Echo pool draw
-    if (packType !== 'free' && !opts.bonusFor && echoChance > 0 && Math.random() * 100 < echoChance) {
+    if (packType !== 'free' && echoChance > 0 && Math.random() * 100 < echoChance) {
       const { data: echoPool } = await svc.from('echo_pool').select('*').limit(50);
       if (echoPool && echoPool.length > 0) {
         const echo = echoPool[Math.floor(Math.random() * echoPool.length)];
@@ -542,7 +527,7 @@ async function generateCards(svc: any, userId: string, packType: string, count: 
           ultra_reward = { type: 'custom_song', label: 'Custom Theme', description: 'You unlocked an ultra-rare secret theme!' };
         }
         rolledCard = {
-          owner_id: userId, card_id: (packType === 'bombshell' || packType === 'bombshell_token') ? `bombshell-${day}` : `card-${day}`, rarity, source,
+          owner_id: userId, card_id: (packType === 'bombshell' || packType === 'bombshell_token') ? `bombshell-${day}` : `card-${day}`, rarity, source: `pack_${packType}`,
           is_echo: false, echo_generation: 0, echo_source_day: null,
           edition, max_supply, proof, ultra_reward, claimed_at: new Date().toISOString()
         };
@@ -584,7 +569,7 @@ async function generateCards(svc: any, userId: string, packType: string, count: 
       const { data } = await svc.rpc('increment_supply', { p_card_id_rarity: card_id_rarity, p_max_supply: max_supply });
       const edition = resolveEdition(data, max_supply);
       rolledCard = {
-        owner_id: userId, card_id: (packType === 'bombshell' || packType === 'bombshell_token') ? `bombshell-${day}` : `card-${day}`, rarity, source,
+        owner_id: userId, card_id: (packType === 'bombshell' || packType === 'bombshell_token') ? `bombshell-${day}` : `card-${day}`, rarity, source: `pack_${packType}`,
         is_echo: false, echo_generation: 0, echo_source_day: null,
         edition, max_supply, proof: null, ultra_reward: null, claimed_at: new Date().toISOString()
       };
@@ -603,20 +588,7 @@ async function generateCards(svc: any, userId: string, packType: string, count: 
     .select('*');
   if (error) throw new Error(`Database Insert Failed: ${error.message} - details: ${error.details}`);
 
-  const result = insertedCards || cards;
-
-  // Bonus Bombshell: a regular pack sometimes drops one extra Bombshell card.
-  // A failure here must never fail the pack the player already paid for.
-  if (!opts.bonusFor && !BOMBSHELL_BONUS_EXCLUDED.has(packType) && Math.random() < bombshellBonusChance) {
-    try {
-      const bonus = await generateCards(svc, userId, 'bombshell', 1, today, ctx, { bonusFor: packType });
-      return [...result, ...bonus];
-    } catch (bonusErr) {
-      console.warn('[generateCards] Bonus Bombshell roll failed:', bonusErr);
-    }
-  }
-
-  return result;
+  return insertedCards || cards;
 }
 
 serve(async (req) => {
@@ -1500,6 +1472,14 @@ serve(async (req) => {
       // NFT MINT (RC1 production simulation)
       // ═══════════════════════════════════════════════════════════
       case 'requestNftMint': {
+        // Minting is NOT live: no contract is deployed and cards are
+        // in-game collectibles only. Refuse here instead of reaching the
+        // RC1 simulation below, which deducts V⚡, fabricates a Base tx
+        // hash, marks the card 'minted', and emits nft_mint telemetry
+        // that the public live feed renders as a real on-chain mint.
+        // Re-enable when a real mint contract ships.
+        throw new Error('Minting is not live yet');
+
         const { cardOwnedId } = payload;
         if (!cardOwnedId) throw new Error('Card ID is required');
 
